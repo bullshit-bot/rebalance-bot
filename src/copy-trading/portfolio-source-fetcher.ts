@@ -2,9 +2,52 @@
  * Fetches and validates portfolio allocation data from a remote URL source.
  * Expects JSON shaped as { allocations: [{ asset, targetPct }] } or a bare array.
  * Validates that targetPct values sum to ~100% (±2%) and assets are non-empty strings.
+ *
+ * SSRF protection: only HTTPS URLs are allowed; private/loopback IP ranges are blocked.
  */
 
 const FETCH_TIMEOUT_MS = 10_000
+
+// Private/loopback IP ranges to block (SSRF protection)
+const PRIVATE_IP_PATTERNS = [
+  /^127\./,                          // 127.0.0.0/8 — loopback
+  /^10\./,                           // 10.0.0.0/8 — private class A
+  /^172\.(1[6-9]|2\d|3[01])\./,     // 172.16.0.0/12 — private class B
+  /^192\.168\./,                     // 192.168.0.0/16 — private class C
+  /^0\./,                            // 0.0.0.0/8
+]
+
+const BLOCKED_HOSTNAMES = new Set(['localhost', '::1', '0.0.0.0'])
+
+/**
+ * Validates the URL to prevent SSRF attacks.
+ * - Only allows https:// scheme
+ * - Blocks private IP ranges and loopback hostnames
+ */
+function validateUrl(rawUrl: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    throw new Error(`Invalid URL: "${rawUrl}"`)
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`Only HTTPS URLs are allowed. Got: "${parsed.protocol}"`)
+  }
+
+  const hostname = parsed.hostname
+
+  if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase())) {
+    throw new Error(`URL hostname "${hostname}" is not allowed (loopback/private)`)
+  }
+
+  for (const pattern of PRIVATE_IP_PATTERNS) {
+    if (pattern.test(hostname)) {
+      throw new Error(`URL hostname "${hostname}" resolves to a private IP range (SSRF blocked)`)
+    }
+  }
+}
 
 export interface SourceAllocation {
   asset: string
@@ -56,6 +99,9 @@ class PortfolioSourceFetcher {
    * Throws on network error, timeout, or validation failure.
    */
   async fetch(url: string): Promise<SourceAllocation[]> {
+    // Validate URL before making any network request (SSRF guard)
+    validateUrl(url)
+
     let response: Response
     try {
       const controller = new AbortController()

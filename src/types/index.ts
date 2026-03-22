@@ -64,6 +64,7 @@ export interface TradeOrder {
   pair: string
   side: OrderSide
   type: OrderType
+  /** Base asset quantity (e.g. 0.005 for 0.005 BTC) — NOT a USD value */
   amount: number
   /** Required for limit orders */
   price?: number

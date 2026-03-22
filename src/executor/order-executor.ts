@@ -111,7 +111,7 @@ export class OrderExecutor implements IOrderExecutor {
       const filled = await this.waitForFill(exchange, order.pair, orderId, LIMIT_ORDER_WAIT_MS)
 
       if (!filled) {
-        console.warn(`[OrderExecutor] Limit order not filled in ${LIMIT_ORDER_WAIT_MS}ms — cancelling, placing market`)
+        console.log(`[OrderExecutor] Limit order not filled in ${LIMIT_ORDER_WAIT_MS}ms — cancelling, placing market`)
         try {
           await exchange.cancelOrder(orderId, order.pair)
         } catch {
@@ -124,10 +124,27 @@ export class OrderExecutor implements IOrderExecutor {
         ccxtOrder = filled
       }
     } catch (error) {
-      // If limit order creation itself fails, try market directly
+      // Network/disconnect error during order placement — check if the order was
+      // actually placed before retrying to avoid duplicate orders
       const message = error instanceof Error ? error.message : String(error)
-      console.warn(`[OrderExecutor] Limit order error, falling back to market: ${message}`)
-      ccxtOrder = (await exchange.createOrder(order.pair, 'market', order.side, order.amount)) as unknown as Record<string, unknown>
+      const isNetworkError = this.isNetworkError(error)
+
+      if (isNetworkError) {
+        console.log(`[OrderExecutor] Network error during order placement for ${order.pair}: ${message}`)
+        // Query open orders to detect if our order already exists
+        const maybeOpen = await this.findPossiblyPlacedOrder(exchange, order)
+        if (maybeOpen) {
+          console.log(`[OrderExecutor] Found possibly placed order ${String(maybeOpen['id'])} — treating as filled, not retrying`)
+          ccxtOrder = maybeOpen
+        } else {
+          // Order likely not placed — safe to re-throw for retry loop
+          throw error
+        }
+      } else {
+        // Non-network error (e.g. insufficient funds): fall back to market order
+        console.log(`[OrderExecutor] Limit order error, falling back to market: ${message}`)
+        ccxtOrder = (await exchange.createOrder(order.pair, 'market', order.side, order.amount)) as unknown as Record<string, unknown>
+      }
     }
 
     const result = this.mapCcxtOrderToResult(ccxtOrder, order, false)
@@ -198,6 +215,50 @@ export class OrderExecutor implements IOrderExecutor {
       executedAt: new Date(),
       isPaper,
     }
+  }
+
+  /**
+   * Returns true if the error is a transient network/connection issue.
+   * These errors may have resulted in an order being placed despite the failure.
+   */
+  private isNetworkError(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message.toLowerCase() : ''
+    return (
+      msg.includes('network') ||
+      msg.includes('connection') ||
+      msg.includes('timeout') ||
+      msg.includes('econnreset') ||
+      msg.includes('socket') ||
+      msg.includes('enotfound')
+    )
+  }
+
+  /**
+   * After a network error during order placement, checks open orders to see if
+   * the order was actually submitted. Returns the matching order if found, null otherwise.
+   * This prevents duplicate orders on retry.
+   */
+  private async findPossiblyPlacedOrder(
+    exchange: { fetchOpenOrders?: (symbol: string) => Promise<unknown[]> },
+    order: TradeOrder,
+  ): Promise<Record<string, unknown> | null> {
+    if (typeof exchange.fetchOpenOrders !== 'function') return null
+
+    try {
+      const openOrders = (await exchange.fetchOpenOrders(order.pair)) as Record<string, unknown>[]
+      // Match by side and amount (within 1% tolerance)
+      for (const o of openOrders) {
+        const oSide = String(o['side'] ?? '')
+        const oAmount = Number(o['amount'] ?? 0)
+        if (oSide === order.side && Math.abs(oAmount - order.amount) / order.amount < 0.01) {
+          return o
+        }
+      }
+    } catch {
+      // Best-effort — if we can't check, fall back to rethrowing
+    }
+
+    return null
   }
 
   /**

@@ -36,6 +36,12 @@ class PortfolioTracker {
   /** Whether any watch loops are active */
   private watching = false
 
+  /** Timestamp (ms) of the last DB write for this tracker — throttle to once per 60s */
+  private lastSnapshotAt = 0
+
+  /** Cached target allocations to avoid DB round-trip on every balance tick */
+  private cachedTargets: import('@/types/index').Allocation[] | null = null
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   /**
@@ -72,11 +78,20 @@ class PortfolioTracker {
 
   /**
    * Loads target allocation config from the database.
+   * Results are cached; a fresh DB query is issued at most once every 60 seconds
+   * to avoid a DB round-trip on every balance tick.
    * Maps DB rows to the application-level Allocation type.
    */
   async getTargetAllocations(): Promise<Allocation[]> {
+    const now = Date.now()
+    const CACHE_TTL_MS = 60_000
+
+    if (this.cachedTargets !== null && now - this.lastSnapshotAt < CACHE_TTL_MS) {
+      return this.cachedTargets
+    }
+
     const rows = await db.select().from(allocations)
-    return rows.map((row): Allocation => {
+    const result = rows.map((row): Allocation => {
       const base = {
         asset: row.asset,
         targetPct: row.targetPct,
@@ -87,6 +102,10 @@ class PortfolioTracker {
         ? { ...base, exchange: row.exchange as ExchangeName }
         : base
     })
+
+    this.cachedTargets = result
+    this.lastSnapshotAt = now
+    return result
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────

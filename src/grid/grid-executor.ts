@@ -71,6 +71,19 @@ class GridExecutor {
       this.pollFills(botId).catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[GridExecutor] Poll error for bot ${botId}: ${msg}`);
+
+        // Stop monitoring on exchange auth failure — retrying is pointless and may spam logs
+        const isAuthError =
+          msg.toLowerCase().includes('apikey') ||
+          msg.toLowerCase().includes('unauthorized') ||
+          msg.toLowerCase().includes('auth') ||
+          msg.toLowerCase().includes('invalid key');
+
+        if (isAuthError) {
+          console.error(`[GridExecutor] Auth failure detected for bot ${botId} — stopping monitor`);
+          this.stopMonitoring(botId);
+        }
+        // All other errors: log and continue — the interval stays active
       });
     }, POLL_INTERVAL_MS);
 

@@ -15,12 +15,54 @@ import { aiRoutes } from '@api/routes/ai-routes'
 import { copyTradingRoutes } from '@api/routes/copy-trading-routes'
 import { initWebSocket, handleOpen, handleClose } from '@api/ws/ws-handler'
 
+// ─── Rate limiter ─────────────────────────────────────────────────────────────
+
+const RATE_LIMIT_PER_MINUTE = 100
+const RATE_LIMIT_WINDOW_MS = 60_000
+
+interface RateLimitEntry {
+  count: number
+  resetAt: number
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>()
+
+/**
+ * Simple in-memory rate limiter: max 100 requests per IP per minute.
+ * Returns true if the request is allowed, false if rate-limited.
+ */
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+
+  if (!entry || now >= entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+
+  if (entry.count >= RATE_LIMIT_PER_MINUTE) {
+    return false
+  }
+
+  entry.count++
+  return true
+}
+
 // ─── Hono app ─────────────────────────────────────────────────────────────────
 
 const app = new Hono()
 
 // CORS — permissive by default; restrict origins via reverse proxy in production
 app.use('*', cors())
+
+// Rate limiting — applied before auth to limit unauthenticated probing
+app.use('/api/*', async (c, next) => {
+  const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown'
+  if (!checkRateLimit(ip)) {
+    return c.json({ error: 'Too many requests' }, 429)
+  }
+  return next()
+})
 
 // Auth middleware applied to all /api/* routes except /api/health
 app.use('/api/*', async (c, next) => {
@@ -70,6 +112,12 @@ export function startServer(): ReturnType<typeof Bun.serve> {
 
       // Upgrade /ws path to a native Bun WebSocket connection
       if (url.pathname === '/ws') {
+        // Require API key as query param: /ws?apiKey=<key>
+        const apiKey = url.searchParams.get('apiKey')
+        if (apiKey !== env.API_KEY) {
+          return new Response('Unauthorized', { status: 401 })
+        }
+
         const upgraded = server.upgrade(req, { data: {} })
         if (!upgraded) {
           return new Response('WebSocket upgrade failed', { status: 400 })

@@ -2,7 +2,8 @@ import { describe, test, expect } from 'bun:test'
 import { encrypt, decrypt } from './api-key-crypto'
 
 describe('api-key-crypto', () => {
-  const encryptionKey = 'a'.repeat(32) // 32-char key for AES-256
+  // 64 hex chars = 32 bytes, required for AES-256
+  const encryptionKey = 'a'.repeat(64)
 
   test('encrypt and decrypt roundtrip returns original plaintext', () => {
     const plaintext = 'my-secret-api-key-12345'
@@ -48,10 +49,16 @@ describe('api-key-crypto', () => {
     expect(() => decrypt('a:b', encryptionKey)).toThrow('Invalid encrypted format')
   })
 
+  test('invalid key (not 64 hex chars) throws error', () => {
+    expect(() => encrypt('test', 'tooshort')).toThrow('64 hex characters')
+    expect(() => encrypt('test', 'z'.repeat(64))).toThrow('64 hex characters') // z is not hex
+    expect(() => encrypt('test', 'a'.repeat(32))).toThrow('64 hex characters') // too short
+  })
+
   test('wrong key throws error on decrypt', () => {
     const plaintext = 'secret'
     const encrypted = encrypt(plaintext, encryptionKey)
-    const wrongKey = 'b'.repeat(32)
+    const wrongKey = 'b'.repeat(64)
     expect(() => decrypt(encrypted, wrongKey)).toThrow()
   })
 

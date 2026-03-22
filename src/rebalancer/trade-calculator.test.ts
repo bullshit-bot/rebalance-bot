@@ -1,6 +1,21 @@
 import { describe, test, expect, beforeEach } from 'bun:test'
 import { calculateTrades } from './trade-calculator'
+import { priceCache } from '@price/price-cache'
 import type { Portfolio, Allocation } from '@/types/index'
+
+// Helper to seed priceCache with a synthetic price entry
+function setPrice(pair: string, price: number): void {
+  priceCache.set(pair, {
+    exchange: 'binance',
+    pair,
+    price,
+    bid: price,
+    ask: price,
+    volume24h: 0,
+    change24h: 0,
+    timestamp: Date.now(),
+  })
+}
 
 describe('trade-calculator', () => {
   let portfolio: Portfolio
@@ -11,6 +26,10 @@ describe('trade-calculator', () => {
       assets: [],
       updatedAt: Date.now(),
     }
+    // Seed default prices used by most tests
+    setPrice('BTC/USDT', 20000)
+    setPrice('ETH/USDT', 2000)
+    setPrice('XRP/USDT', 1)
   })
 
   test('returns empty array when portfolio has zero value', () => {
@@ -53,6 +72,7 @@ describe('trade-calculator', () => {
   })
 
   test('generates buy orders for underweight assets', () => {
+    // BTC price = 20000, ETH price = 2000 (set in beforeEach)
     portfolio.assets = [
       {
         asset: 'BTC',
@@ -85,12 +105,14 @@ describe('trade-calculator', () => {
     const btcTrade = trades.find((t) => t.pair === 'BTC/USDT')
     expect(btcTrade).toBeDefined()
     expect(btcTrade?.side).toBe('buy')
-    expect(btcTrade?.amount).toBe(3000) // Need to buy $3000 worth
+    // $3000 delta / $20000 per BTC = 0.15 BTC
+    expect(btcTrade?.amount).toBeCloseTo(3000 / 20000, 8)
 
     const ethTrade = trades.find((t) => t.pair === 'ETH/USDT')
     expect(ethTrade).toBeDefined()
     expect(ethTrade?.side).toBe('sell')
-    expect(ethTrade?.amount).toBe(3000) // Need to sell $3000 worth
+    // $3000 delta / $2000 per ETH = 1.5 ETH
+    expect(ethTrade?.amount).toBeCloseTo(3000 / 2000, 8)
   })
 
   test('generates sell orders for overweight assets', () => {
@@ -216,7 +238,8 @@ describe('trade-calculator', () => {
     const ethTrade = trades.find((t) => t.pair === 'ETH/USDT')
     expect(ethTrade).toBeDefined()
     expect(ethTrade?.side).toBe('buy')
-    expect(ethTrade?.amount).toBe(5000) // 50% of $10000
+    // $5000 / $2000 per ETH = 2.5 ETH base qty
+    expect(ethTrade?.amount).toBeCloseTo(5000 / 2000, 8)
   })
 
   test('ignores stablecoins (USDT, USDC, BUSD)', () => {
@@ -285,7 +308,7 @@ describe('trade-calculator', () => {
     ]
     const trades = calculateTrades(portfolio, targets)
 
-    // First trade should be for the largest drift (XRP sell $3500)
+    // First trade should be for the largest drift (XRP sell $7000 delta)
     expect(trades[0].pair).toBe('XRP/USDT')
     expect(trades[0].side).toBe('sell')
   })
@@ -408,5 +431,29 @@ describe('trade-calculator', () => {
     expect(ethTrade?.side).toBe('buy')
     const xrpTrade = trades.find((t) => t.pair === 'XRP/USDT')
     expect(xrpTrade?.side).toBe('buy')
+  })
+
+  test('amount is base quantity (not USD)', () => {
+    // BTC price = $20000, we want to buy $2000 worth = 0.1 BTC
+    portfolio.assets = [
+      {
+        asset: 'BTC',
+        amount: 0,
+        valueUsd: 0,
+        currentPct: 0,
+        targetPct: 20,
+        driftPct: -20,
+        exchange: 'binance',
+      },
+    ]
+    portfolio.totalValueUsd = 10000
+    const targets: Allocation[] = [{ asset: 'BTC', targetPct: 20, minTradeUsd: 10 }]
+    const trades = calculateTrades(portfolio, targets)
+
+    expect(trades.length).toBe(1)
+    const btcTrade = trades[0]
+    // deltaUsd = $2000, price = $20000, baseQty = 0.1 BTC
+    expect(btcTrade.amount).toBeCloseTo(2000 / 20000, 8)
+    expect(btcTrade.side).toBe('buy')
   })
 })

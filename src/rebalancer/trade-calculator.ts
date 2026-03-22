@@ -1,4 +1,5 @@
 import { env } from '@config/app-config'
+import { priceCache } from '@price/price-cache'
 import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/index'
 
 // ─── calculateTrades ──────────────────────────────────────────────────────────
@@ -81,11 +82,34 @@ export function calculateTrades(portfolio: Portfolio, targets: Allocation[]): Tr
 
   // ─── Convert to TradeOrders ─────────────────────────────────────────────────
 
-  return deltas.map((d): TradeOrder => ({
-    exchange: d.exchange,
-    pair: `${d.asset}/USDT`,
-    side: d.deltaUsd > 0 ? 'buy' : 'sell',
-    type: 'market',
-    amount: d.absDeltaUsd,   // denominated in USD; executor converts to base qty
-  }))
+  const orders: TradeOrder[] = []
+
+  for (const d of deltas) {
+    const pair = `${d.asset}/USDT`
+
+    // Resolve current price to convert USD delta → base quantity (e.g. BTC not USD)
+    const price =
+      priceCache.getBestPrice(pair) ??
+      priceCache.getBestPrice(`${d.asset}/USD`) ??
+      priceCache.getBestPrice(`${d.asset}/USDC`)
+
+    if (!price || price <= 0) {
+      // Skip asset if we have no price — can't determine base quantity
+      console.warn(`[TradeCalculator] No price for ${pair}, skipping trade`)
+      continue
+    }
+
+    // amount is base quantity (e.g. 0.005 BTC), not USD value
+    const baseQty = d.absDeltaUsd / price
+
+    orders.push({
+      exchange: d.exchange,
+      pair,
+      side: d.deltaUsd > 0 ? 'buy' : 'sell',
+      type: 'market',
+      amount: baseQty,
+    })
+  }
+
+  return orders
 }

@@ -18,10 +18,14 @@ export interface CanExecuteResult {
  *  - Daily loss limit (env.DAILY_LOSS_LIMIT_PCT % of portfolio value) — stops
  *    trading for the rest of the UTC day once the threshold is breached
  *
- * Daily counters reset automatically at midnight UTC.
+ * Daily loss accumulates fees from all trades (a conservative proxy for realised loss).
+ * Additional explicit losses can be recorded via recordLoss(). Daily counters reset at midnight UTC.
  */
 export class ExecutionGuard {
-  /** Accumulated realised loss in USD for the current UTC day */
+  /**
+   * Accumulated realised loss in USD for the current UTC day.
+   * Tracks fees from executed trades plus any explicit losses via recordLoss().
+   */
   private dailyLossUsd: number = 0
 
   /** UTC date string "YYYY-MM-DD" for the last reset */
@@ -68,17 +72,22 @@ export class ExecutionGuard {
   }
 
   /**
-   * Records the outcome of an executed trade so the guard can track daily P&L.
-   * Only sells that result in a loss (negative cost relative to fee burden)
-   * or fees from any direction accumulate toward the daily loss counter.
-   *
-   * Simplified model: fees are counted as losses; actual P&L tracking requires
-   * entry price history which is out of scope for the guard.
+   * Records the outcome of an executed trade so the guard can track daily losses.
+   * Accumulates fees from all trade directions as a conservative loss proxy.
    */
   recordTrade(result: TradeResult): void {
     this.maybeResetDaily()
-    // Track fees as part of daily loss proxy — a conservative approach
+    // Fees are real costs regardless of direction — conservative loss tracking
     this.dailyLossUsd += result.fee
+  }
+
+  /**
+   * Directly records an explicit USD loss (e.g. from external sources or mark-to-market PnL).
+   * Adds to the daily loss counter used by the circuit breaker.
+   */
+  recordLoss(lossUsd: number): void {
+    this.maybeResetDaily()
+    this.dailyLossUsd += Math.abs(lossUsd)
   }
 
   /** Force-reset daily counters (useful for testing or manual intervention). */
