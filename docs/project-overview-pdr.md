@@ -1,585 +1,437 @@
 # Project Overview & Product Development Requirements (PDR)
 
-**Project Name**: ClaudeKit Engineer
-**Version**: 2.9.0-beta.2
-**Last Updated**: 2026-01-28
-**Status**: Active Development
-**Repository**: https://github.com/claudekit/claudekit-engineer
+**Project Name**: Crypto Rebalance Bot
+**Version**: 1.0.0
+**Last Updated**: 2026-03-22
+**Status**: Complete
+**Repository**: Self-hosted
 
 ## Executive Summary
 
-ClaudeKit Engineer is a comprehensive boilerplate template that revolutionizes software development by integrating AI-powered CLI coding agents (Claude Code and Open Code) into the development workflow. It provides a complete orchestration framework where specialized AI agents collaborate to handle planning, implementation, testing, code review, documentation, and project management.
+Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange support, advanced trading strategies, and full paper trading capabilities. Enables passive income through automated portfolio management with customizable rebalancing strategies, DCA accumulation, trailing stops, and grid trading. Single developer tool with Telegram alerts and comprehensive analytics.
 
 ## Project Purpose
 
 ### Vision
-Enable developers to build professional software projects faster and with higher quality by leveraging AI agent orchestration, automated workflows, and intelligent project management.
+Provide sophisticated portfolio management automation accessible to retail crypto investors without reliance on centralized services.
 
 ### Mission
-Provide a production-ready template that:
-- Accelerates development velocity through AI-powered agent collaboration
-- Enforces best practices and coding standards automatically
-- Maintains comprehensive documentation that evolves with code
-- Ensures code quality through automated testing and review
-- Streamlines git workflows with professional commit standards
+Deliver a production-ready system that:
+- Automatically rebalances portfolios across multiple exchanges
+- Executes advanced trading strategies (DCA, trailing-stop, grid trading, copy trading)
+- Provides real-time monitoring via Telegram
+- Supports complete paper trading for backtesting
+- Maintains transparent trade history and analytics
+- Encrypts all exchange credentials
 
 ### Value Proposition
-- **10x Faster Planning**: Parallel researcher agents explore solutions simultaneously
-- **Consistent Quality**: Automated code review and testing on every change
-- **Zero Documentation Debt**: Docs update automatically with code changes
-- **Professional Git History**: Clean, conventional commits without AI attribution
-- **Reduced Context Switching**: Specialized agents handle specific concerns
+- **Hands-Off Management**: Set allocation targets, bot handles rebalancing
+- **Multi-Exchange**: Trade across Binance, OKX, Bybit simultaneously
+- **Advanced Strategies**: DCA, trailing stops, TWAP/VWAP, grid trading in one system
+- **100% Private**: Self-hosted on user's VPS, no KYC required
+- **Paper Trading**: Test strategies before real money execution
+- **Complete Transparency**: All trades logged, analytics calculated locally
 
 ## Target Users
 
-### Primary Users
-1. **Solo Developers**: Building projects faster with AI assistance
-2. **Small Development Teams**: Standardizing workflows and practices
-3. **Open Source Maintainers**: Managing contributions and documentation
-4. **Startups**: Rapid prototyping and MVP development
-5. **Enterprise Teams**: Enforcing architectural standards
+### Primary User
+Solo crypto investor managing multi-asset portfolio across multiple exchanges.
 
-### User Personas
+### User Profile
+- 5-10+ holdings across major exchanges
+- Wants passive rebalancing without manual intervention
+- Comfortable with self-hosting and API credentials
+- Seeks sophisticated trading beyond basic buy-and-hold
+- Values privacy and self-custody
 
-**Persona 1: Solo Full-Stack Developer**
-- **Needs**: Fast iteration, quality code, minimal documentation overhead
-- **Pain Points**: Context switching, documentation maintenance, testing gaps
-- **Solution**: AI agents handle planning, testing, docs while dev focuses on features
+## Key Features (14 Total)
 
-**Persona 2: Technical Lead**
-- **Needs**: Enforce standards, review code, maintain architecture docs
-- **Pain Points**: Code review bottleneck, inconsistent patterns, outdated docs
-- **Solution**: Automated reviews, standardized workflows, living documentation
+### Core Rebalancing (Phase 1-3)
+1. **Auto Rebalance** - Drift-triggered portfolio rebalancing
+2. **Multiple Strategies** - Threshold, equal-weight, momentum-tilt, vol-adjusted
+3. **Paper Trading** - Full simulation mode for backtesting strategies
+4. **Real-Time WS** - CCXT Pro WebSocket market data integration
+5. **Multi-Exchange** - Unified API across Binance, OKX, Bybit
+6. **Telegram Alerts** - Real-time notifications for trades and events
 
-**Persona 3: Open Source Maintainer**
-- **Needs**: Scale contributions, maintain quality, clear documentation
-- **Pain Points**: Limited time, varying contribution quality, doc rot
-- **Solution**: Consistent review process, automated standards enforcement
+### Advanced Strategies (Phase 4)
+7. **Trailing-Stop** - Automatic position selling on price decline
+8. **DCA** - Dollar-cost averaging with scheduled buy orders
+9. **TWAP/VWAP** - Large order splitting over time to reduce slippage
+10. **Grid Trading** - Automated buy/sell at price intervals in ranges
 
-## Key Features & Capabilities
+### Analytics & Intelligence (Phase 4+)
+11. **Backtesting** - Historical performance validation with Sharpe ratio
+12. **Analytics** - Return, volatility, drawdown, win rate metrics
+13. **Copy Trading** - Mirror trades from other portfolio sources
+14. **AI Suggestions** - ML-based timing and allocation recommendations
 
-### 1. Multi-Agent Orchestration System
+## Supported Exchanges
 
-**Agent Types**:
-- **Planning Agents**: Research, architecture, technical decisions
-- **Implementation Agents**: Code generation, feature development
-- **Quality Agents**: Testing, code review, security analysis
-- **Documentation Agents**: Auto-updating docs, API references
-- **Management Agents**: Project tracking, progress monitoring, git operations
-
-**Orchestration Patterns**:
-- **Sequential Chaining**: Planning → Implementation → Testing → Review → Deploy
-- **Parallel Execution**: Multiple researchers exploring different approaches
-- **Query Fan-Out**: Simultaneous investigation of technical solutions
-
-**Performance Optimization**:
-- **Scout Block Hook**: Cross-platform hook system blocking heavy directories
-  - Automatic platform detection (Windows/Unix/WSL)
-  - Zero-configuration setup
-  - Blocks: node_modules, __pycache__, .git/, dist/, build/
-  - Improves AI agent response time and token efficiency
-
-### 2. Comprehensive Slash Commands
-
-**Core Development Commands**:
-- `/plan` - Research and create implementation plans
-- `/cook` - Implement features with full workflow
-- `/test` - Run comprehensive test suites
-- `/ask` - Expert technical consultation
-- `/bootstrap` - Initialize new projects end-to-end
-- `/brainstorm` - Solution ideation and evaluation
-- `/debug` - Deep issue analysis
-
-**Skill Organization** (`.claude/skills/`):
-Command behavior is implemented via skill directories:
-- `bootstrap/` - Project initialization workflows
-- `docs/` - Documentation generation and updates
-- `plan/` - Planning workflows and validators
-- `code-review/` - Code review workflows
-- `test/` - Testing and validation workflows
-
-### 3. Extensive Skills Library (47+ Skills)
-
-**Organized by Domain** (`.claude/skills/`):
-
-**AI & Vision**: ai-artist, ai-multimodal, agent-browser
-**Authentication**: better-auth
-**Backend & Databases**: backend-development, databases
-**Code Quality & Debugging**: code-review, debug, sequential-thinking
-**Content & Copywriting**: copywriting, brainstorm
-**Design & Frontend**: frontend-design, frontend-development, ui-styling, ui-ux-pro-max, web-design-guidelines
-**DevOps & Infrastructure**: devops, git
-**Documentation**: docs-seeker, repomix, markdown-novel-viewer, document-skills
-**Framework Integration**: web-frameworks, react-best-practices, shopify
-**Game Development**: threejs, shader
-**Media Processing**: media-processing (FFmpeg, ImageMagick)
-**MCP Tools**: mcp-builder, mcp-management
-**Mobile Development**: mobile-development
-**Project Planning**: plan, plans-kanban
-**Skill Development**: skill-creator, template-skill
-**Testing & QA**: web-testing
-**Visualization**: mermaidjs-v11
-**Workflow Tools**: cook, research, scout, payment-integration
-
-### 4. Automated Release Management
-
-**Features**:
-- Semantic versioning (MAJOR.MINOR.PATCH)
-- Conventional commit enforcement
-- Automated changelog generation
-- GitHub releases with assets
-- Optional NPM publishing
-- Git hooks for commit validation
-
-**Commit Types**:
-- `feat:` → Minor version bump
-- `fix:` → Patch version bump
-- `BREAKING CHANGE:` → Major version bump
-- `docs:`, `refactor:`, `test:`, `ci:` → Patch bump
-
-### 5. Development Workflow Automation
-
-**Pre-Commit**:
-- Commit message linting (conventional commits)
-- Optional test execution
-
-**Pre-Push**:
-- Linting validation
-- Test suite execution
-- Build verification
-
-**CI/CD**:
-- GitHub Actions integration
-- Automated releases on main branch
-- Test automation
-- Build validation
+| Exchange | Status | Features |
+|----------|--------|----------|
+| Binance | Active | Spot trading, unified API |
+| OKX | Active | Spot trading, unified API |
+| Bybit | Active | Spot trading, unified API |
 
 ## Technical Requirements
 
 ### Functional Requirements
 
-**FR1: Agent Orchestration**
-- Support sequential and parallel agent execution
-- Enable agent-to-agent communication via file system
-- Maintain context across agent handoffs
-- Track agent task completion
+**FR1: Portfolio Management**
+- Fetch holdings from multiple exchanges simultaneously
+- Calculate current allocations as % of total USD value
+- Compare against target allocations
+- Detect drift and trigger rebalancing
 
-**FR2: Command System**
-- Parse slash commands with arguments
-- Route to appropriate agent workflows
-- Support nested commands (e.g., `/fix:ci`)
-- Provide command discovery and help
+**FR2: Rebalancing Execution**
+- Calculate optimal trade quantities to reach targets
+- Place buy/sell orders simultaneously across exchanges
+- Respect minimum trade sizes ($10 minimum per trade)
+- Handle partial fills and cancellation
+- Support both live and paper trading modes
 
-**FR3: Documentation Management**
-- Auto-generate codebase summaries with repomix
-- Keep docs synchronized with code changes
-- Maintain project roadmap and changelog
-- Update API documentation automatically
+**FR3: Strategy Implementation**
+- Threshold-based: trigger when deviation > threshold
+- Equal-weight: maintain equal allocation across assets
+- Momentum-tilt: adjust weights based on price momentum
+- Vol-adjusted: inverse volatility weighting
+- DCA: schedule regular buy orders
+- Trailing-stop: automatic sell on price decline
+- TWAP/VWAP: split large orders over time
+- Grid trading: place orders at price intervals
 
-**FR4: Quality Assurance**
-- Run tests before commits
-- Perform code review automatically
-- Check type safety and compilation
-- Validate security best practices
+**FR4: Real-Time Monitoring**
+- WebSocket price feeds for all trading pairs
+- REST API endpoints for portfolio queries
+- WebSocket API for real-time portfolio updates
+- React frontend dashboard with charts
 
-**FR5: Git Workflow**
-- Enforce conventional commits
-- Scan for secrets before commits
-- Generate professional commit messages
-- Create clean PR descriptions
+**FR5: Notifications**
+- Telegram bot for trade alerts
+- Rebalance start/completion messages
+- Daily portfolio summaries
+- Price threshold breaches
+- System error notifications
 
-**FR6: Project Bootstrapping**
-- Initialize git repository
-- Gather requirements through questions
-- Research tech stacks
-- Generate project structure
-- Create initial documentation
-- Set up CI/CD
+**FR6: Data Persistence**
+- SQLite database with encrypted credentials
+- Trade history with full details (price, fee, timestamp)
+- Portfolio snapshots (before/after rebalance)
+- OHLCV candle data for backtesting
+- Configuration and allocation targets
+
+**FR7: Backtesting**
+- Load historical OHLCV data
+- Simulate trades using past prices
+- Calculate performance metrics (Sharpe, drawdown, returns)
+- Compare multiple strategy configurations
 
 ### Non-Functional Requirements
 
 **NFR1: Performance**
-- Command execution < 5 seconds for simple operations
-- Parallel agent spawning for independent tasks
-- Efficient file system operations
-- Optimized context loading
+- Portfolio fetch: <500ms per exchange
+- Rebalance calculation: <100ms
+- Order execution: <2s per exchange
+- WebSocket latency: <100ms
+- API response time: <200ms
 
 **NFR2: Reliability**
-- Handle agent failures gracefully
-- Provide rollback mechanisms
-- Validate agent outputs
+- 99% uptime for WebSocket connections
+- Automatic reconnection on failures
+- Transaction support for trade recording
 - Error recovery and retry logic
+- Graceful degradation on exchange outages
 
-**NFR3: Usability**
-- Clear command syntax and documentation
+**NFR3: Security**
+- All credentials encrypted at rest
+- Type-safe TypeScript (strict mode)
+- Input validation via Zod schemas
+- No secrets in logs or API responses
+- Transaction support for data consistency
+
+**NFR4: Scalability**
+- Support 10+ concurrent users (separate instances)
+- Handle 100+ trading pairs simultaneously
+- Efficient database indexing
+- Minimal memory footprint (~300-400MB)
+- Modular service architecture
+
+**NFR5: Usability**
+- Simple configuration (environment variables)
+- Clear API documentation
+- Informative Telegram messages
+- Dashboard with allocation visualization
 - Helpful error messages
-- Progress indicators for long operations
-- Comprehensive command help
 
-**NFR4: Maintainability**
-- Modular agent definitions
-- Reusable workflow templates
+**NFR6: Maintainability**
+- Modular service architecture
+- TypeScript strict mode
+- Comprehensive code comments
 - Clear separation of concerns
-- Self-documenting code and configs
-
-**NFR5: Security**
-- Secret detection before commits
-- No AI attribution in public commits
-- Secure handling of credentials
-- Security best practice enforcement
-
-**NFR6: Scalability**
-- Support projects of any size
-- Handle large codebases efficiently
-- Scale agent parallelization
-- Manage complex dependency graphs
+- Automated linting (Biome)
 
 ## Success Metrics
 
-### Adoption Metrics
-- GitHub stars and forks
-- NPM package downloads
-- Active users and installations
-- Community engagement (issues, discussions, PRs)
+### Functional Metrics
+- ✅ Successfully rebalance across 3+ exchanges
+- ✅ Maintain allocation targets within threshold
+- ✅ Execute 100+ trades without errors
+- ✅ Capture real-time price feeds
+- ✅ Send alerts via Telegram reliably
 
 ### Performance Metrics
-- Average time to bootstrap new project: < 10 minutes
-- Planning to implementation cycle time: 50% reduction
-- Documentation coverage: > 90%
-- Test coverage: > 80%
-- Code review time: 75% reduction
+- Portfolio fetch time: <500ms
+- Rebalance cycle time: <5s
+- Order execution time: <2s per exchange
+- WebSocket latency: <100ms
+- Database query response: <100ms
 
-### Quality Metrics
-- Conventional commit compliance: 100%
-- Zero secrets in commits: 100%
-- Automated test pass rate: > 95%
-- Documentation freshness: < 24 hours lag
+### Reliability Metrics
+- Uptime: 99.9% for critical services
+- Trade success rate: >99%
+- Database transaction success: 100%
+- WebSocket reconnect success: >99%
+- Alert delivery: 100%
 
-### Developer Experience Metrics
-- Time to first commit: < 5 minutes
-- Developer onboarding time: 50% reduction
-- Context switching overhead: 60% reduction
-- Satisfaction score: > 4.5/5.0
+### User Experience Metrics
+- Time to setup: <30 minutes
+- Time to first trade: <1 hour
+- Dashboard load time: <500ms
+- Alert response time: <5 seconds
 
 ## Technical Architecture
 
-### Core Components
+### Tech Stack
+- **Runtime**: Bun 1.2+
+- **Language**: TypeScript 5.7+ (strict)
+- **API**: Hono v4
+- **Database**: Drizzle ORM + libSQL (SQLite)
+- **Exchange**: CCXT Pro 4.4.0
+- **Telegram**: grammy 1.35+
+- **Scheduler**: croner 9.0+
+- **Validation**: Zod 3.24+
+- **Linter**: Biome 1.9+
+- **Frontend**: React + TypeScript + Vite
 
-**1. Agent Framework**
-- Agent definition files (Markdown with frontmatter)
-- Agent orchestration engine
-- Context management system
-- Communication protocol (file-based reports)
-
-**2. Command System**
-- Command parser and router
-- Argument handling ($ARGUMENTS, $1, $2, etc.)
-- Command composition and nesting
-- Help and discovery system
-
-**3. Workflow Engine**
-- Sequential execution support
-- Parallel task scheduling
-- Dependency resolution
-- Error handling and recovery
-
-**4. Documentation System**
-- Repomix integration for codebase compaction
-- Template-based doc generation
-- Auto-update triggers
-- Version tracking
-
-**5. Quality System**
-- Test runner integration
-- Code review automation
-- Type checking and linting
-- Security scanning
-
-**6. Release System**
-- Semantic versioning engine
-- Changelog generation
-- GitHub release creation
-- Asset packaging
-
-### Technology Stack
-
-**Runtime**:
-- Node.js >= 18.0.0
-- Bash scripting (Unix hooks)
-- PowerShell scripting (Windows hooks)
-- Cross-platform hook dispatcher (Node.js)
-
-**AI Platforms**:
-- Anthropic Claude (Sonnet 4, Opus 4)
-- OpenRouter integration
-- Google Gemini (for docs-manager)
-- Grok Code (for git-manager)
-
-**Development Tools**:
-- Semantic Release
-- Commitlint
-- Husky (git hooks)
-- Repomix (codebase compaction)
-- Scout Block Hook (performance optimization)
-
-**CI/CD**:
-- GitHub Actions
-- Conventional Commits
-- Automated versioning
-
-### Integration Points
-
-**MCP Tools**:
-- **context7**: Read latest documentation
-- **sequential-thinking**: Structured problem solving
-- **SearchAPI**: Google and YouTube search
-- **review-website**: Web content extraction
-- **VidCap**: Video transcript analysis
-
-**External Services**:
-- GitHub (Actions, Releases, PRs)
-- Discord (notifications)
-- NPM (optional package publishing)
+### Service Modules
+1. **exchange/** - Multi-exchange connectivity (CCXT Pro)
+2. **price/** - Market data processing and indicators
+3. **portfolio/** - Holdings and allocation management
+4. **rebalancer/** - Strategy execution and planning
+5. **executor/** - Trade execution and order management
+6. **db/** - Database schema and migrations
+7. **api/** - REST and WebSocket API (Hono)
+8. **notifier/** - Telegram notifications (grammy)
+9. **scheduler/** - Cron task execution (croner)
+10. **config/** - Configuration management
+11. **events/** - Event bus for loose coupling
+12. **trailing-stop/** - Stop-loss execution
+13. **dca/** - Dollar-cost averaging
+14. **twap-vwap/** - Order splitting strategies
+15. **grid/** - Grid trading implementation
+16. **backtesting/** - Historical performance simulation
+17. **analytics/** - Metrics calculation
+18. **ai/** - ML recommendations
+19. **copy-trading/** - Replication from other sources
 
 ## Use Cases
 
-### UC1: Bootstrap New Project
-**Actor**: Developer
-**Goal**: Create new project from scratch
+### UC1: Set Up and Start
+**Actor**: User
+**Goal**: Get bot running and making trades
 **Flow**:
-1. Run `/bootstrap` command
-2. Answer requirement questions
-3. AI researches tech stacks
-4. Review and approve recommendations
-5. AI generates project structure
-6. AI implements initial features
-7. AI creates tests and documentation
-8. Project ready for development
+1. Deploy Docker container on VPS
+2. Configure exchange API keys (encrypted)
+3. Set portfolio allocation targets
+4. Choose rebalancing strategy
+5. Enable Telegram notifications
+6. Start bot → auto-rebalance on next drift
 
-**Outcome**: Fully functional project with tests, docs, CI/CD in < 10 minutes
-
-### UC2: Implement New Feature
-**Actor**: Developer
-**Goal**: Add feature with full workflow
+### UC2: Monitor in Real-Time
+**Actor**: User
+**Goal**: Track portfolio and trades
 **Flow**:
-1. Run `/cook "add user authentication"`
-2. Planner creates implementation plan
-3. Researcher agents explore auth solutions
-4. Developer reviews and approves plan
-5. AI implements code
-6. AI writes comprehensive tests
-7. AI performs code review
-8. AI updates documentation
-9. AI commits with conventional message
+1. Open React dashboard
+2. View current holdings and allocations
+3. See real-time price updates
+4. View trade history
+5. Receive Telegram alerts on events
 
-**Outcome**: Feature complete with tests, docs, and clean git history
-
-### UC3: Debug Production Issue
-**Actor**: Developer
-**Goal**: Identify and fix production bug
+### UC3: Backtest Strategy
+**Actor**: User
+**Goal**: Validate strategy before live trading
 **Flow**:
-1. Run `/debug "API timeout errors"`
-2. Debugger agent analyzes logs and system
-3. Root cause identified
-4. Fix plan created
-5. AI implements solution
-6. Tests validate fix
-7. Code review confirms quality
-8. Commit and deploy
+1. Select historical date range
+2. Choose strategy configuration
+3. Load OHLCV data
+4. Simulate trades using past prices
+5. Review performance metrics (Sharpe, drawdown)
+6. Approve strategy for live trading
 
-**Outcome**: Bug fixed with comprehensive testing and documentation
-
-### UC4: Manage Commits and Deployments
-**Actor**: Developer
-**Goal**: Maintain professional git history
+### UC4: Manual Override
+**Actor**: User
+**Goal**: Trigger rebalance manually
 **Flow**:
-1. Developer completes feature implementation
-2. Run tests via `/test` command
-3. Code review via `/cook` workflow
-4. Conventional commit via git-manager agent
-5. Push to feature branch
-6. Create PR via GitHub interface
-
-**Outcome**: Professional commit history and clean PR ready for review
-
-### UC5: Update Documentation
-**Actor**: Project Manager
-**Goal**: Ensure docs are current
-**Flow**:
-1. Run `/docs update`
-2. Docs manager scans codebase
-3. Generates fresh summary with repomix
-4. Identifies outdated sections
-5. Updates API docs, guides, architecture
-6. Validates naming conventions
-7. Creates update report
-
-**Outcome**: Documentation synchronized with code
+1. Access API or dashboard
+2. Click "Rebalance Now"
+3. Review proposed trades
+4. Confirm execution
+5. Monitor order status
+6. Receive completion notification
 
 ## Constraints & Limitations
 
 ### Technical Constraints
-- Requires Node.js >= 18.0.0
-- Depends on Claude Code or Open Code CLI
-- File-based communication has I/O overhead
-- Token limits on AI model context windows
+- Bun runtime required (not Node.js)
+- SQLite for single-instance setup
+- CCXT Pro API rate limits (exchange-dependent)
+- Token limits in context windows (for AI features)
+- Telegram bot token required for notifications
 
 ### Operational Constraints
-- Requires API keys for AI platforms
-- GitHub Actions minutes for CI/CD
-- Internet connection for MCP tools
-- Storage for repomix output files
+- Requires self-hosted VPS (8GB RAM minimum)
+- Internet connection for API connectivity
+- Exchange API credentials with API key permissions
+- Telegram bot token from BotFather
+- Database persistence (no in-memory option)
 
 ### Design Constraints
-- Agent definitions must be Markdown with frontmatter
-- Commands follow slash syntax
-- Reports use specific naming conventions
-- Conventional commits required
+- Spot trading only (no futures/margin)
+- Single base currency (USD)
+- SQLite database (not distributed)
+- Single-instance architecture (no clustering)
+- Synchronous order execution
 
-## Risks & Mitigation
+## Dependencies
 
-### Risk 1: AI Model API Failures
-**Impact**: High
-**Likelihood**: Medium
-**Mitigation**: Retry logic, fallback models, graceful degradation
+### Runtime Dependencies
+- `bun` >= 1.2.0
+- `ccxt` >= 4.4.0
+- `hono` >= 4.7.0
+- `drizzle-orm` >= 0.38.0
+- `@libsql/client` >= 0.14.0
+- `grammy` >= 1.35.0
+- `croner` >= 9.0.0
+- `zod` >= 3.24.0
 
-### Risk 2: Context Window Limits
-**Impact**: Medium
-**Likelihood**: High
-**Mitigation**: Repomix for code compaction, selective context loading, chunking
+### Dev Dependencies
+- `typescript` >= 5.7.0
+- `@biomejs/biome` >= 1.9.0
+- `drizzle-kit` >= 0.30.0
 
-### Risk 3: Agent Coordination Failures
-**Impact**: High
-**Likelihood**: Low
-**Mitigation**: Validation checks, error recovery, rollback mechanisms
-
-### Risk 4: Secret Exposure
-**Impact**: Critical
-**Likelihood**: Low
-**Mitigation**: Pre-commit scanning, .gitignore enforcement, security reviews
-
-### Risk 5: Documentation Drift
-**Impact**: Medium
-**Likelihood**: Medium
-**Mitigation**: Automated triggers, freshness checks, validation workflows
-
-## Future Roadmap
-
-### Phase 1: Foundation (Complete - v1.0-1.8)
-- ✅ Core agent framework
-- ✅ Slash command system
-- ✅ Automated releases
-- ✅ Skills library
-- ✅ Documentation system
-
-### Phase 2: Enhancement (Current)
-- 🔄 Additional skills (GCP, AWS, Azure)
-- 🔄 UI/UX improvements
-- 🔄 Performance optimization
-- 🔄 Enhanced error handling
-
-### Phase 3: Advanced Features (Planned)
-- 📋 Visual workflow builder
-- 📋 Custom agent creator UI
-- 📋 Team collaboration features
-- 📋 Analytics and insights dashboard
-- 📋 Multi-language support
-
-### Phase 4: Enterprise (Future)
-- 📋 Self-hosted deployment
-- 📋 Advanced security features
-- 📋 Compliance automation
-- 📋 Custom integrations
-- 📋 Enterprise support
-
-## Dependencies & Integration
-
-### Required Dependencies
-- Node.js runtime environment
-- Git version control
-- Claude Code or Open Code CLI
-- API keys for AI platforms
-
-### Optional Dependencies
-- Discord webhook for notifications
-- GitHub repository for CI/CD
-- NPM account for publishing
-
-### Integrations
-- GitHub Actions
-- Semantic Release
-- Commitlint
-- Husky
-- Repomix
-- Various MCP servers
+### External Services
+- Exchange APIs (Binance, OKX, Bybit)
+- Telegram Bot API
 
 ## Compliance & Standards
 
 ### Coding Standards
-- YAGNI (You Aren't Gonna Need It)
-- KISS (Keep It Simple, Stupid)
-- DRY (Don't Repeat Yourself)
-- Files < 500 lines
-- Comprehensive error handling
-- Security-first development
+- TypeScript strict mode (no `any` types)
+- Kebab-case for files, camelCase for variables
+- Biome linting enforcement
+- Zod validation for all inputs
+- Try-catch error handling
 
-### Git Standards
-- Conventional Commits
-- Clean commit history
-- No AI attribution
-- No secrets in commits
-- Professional PR descriptions
+### Data Standards
+- All trades recorded with full details
+- Timestamps in Unix seconds (unixepoch)
+- Prices in USD decimals
+- Allocations as percentages (0-100)
 
-### Documentation Standards
-- Markdown format
-- Up-to-date (< 24 hours)
-- Comprehensive coverage
-- Clear examples
-- Proper versioning
+### Security Standards
+- Credentials encrypted at rest
+- No secrets in logs
+- No exposed API keys in responses
+- Input validation via Zod
+- SQL injection prevention via ORM
 
-### Testing Standards
-- Unit test coverage > 80%
-- Integration tests for workflows
-- Error scenario coverage
-- Performance validation
-- Security testing
+## Roadmap
+
+### Phase 1 (Complete): Core Rebalancing
+- Multi-exchange connectivity
+- Portfolio fetch and allocation calculation
+- Threshold-based rebalancing
+- Paper trading mode
+
+### Phase 2 (Complete): Real-Time Monitoring
+- WebSocket price feeds
+- REST API endpoints
+- React dashboard
+- Telegram notifications
+
+### Phase 3 (Complete): Strategy Variants
+- Equal-weight rebalancing
+- Momentum-tilt strategy
+- Volatility-adjusted weighting
+- Backtesting framework
+
+### Phase 4 (Complete): Advanced Strategies
+- Trailing-stop loss automation
+- DCA (Dollar-cost averaging)
+- TWAP/VWAP order splitting
+- Grid trading implementation
+- Copy trading replication
+- Analytics metrics
+- AI suggestions
+
+### Future Possibilities
+- Margin trading support
+- Options trading
+- Multi-currency portfolios
+- Risk management limits
+- Tax reporting integration
+- Mobile app (Telegram mini-app)
+
+## Risks & Mitigation
+
+### Risk 1: Exchange API Failures
+**Impact**: High
+**Likelihood**: Medium
+**Mitigation**: Retry logic, exponential backoff, fallback data sources
+
+### Risk 2: Incorrect Rebalancing Calculation
+**Impact**: Critical
+**Likelihood**: Low
+**Mitigation**: Unit tests, backtesting validation, manual review option
+
+### Risk 3: Credential Exposure
+**Impact**: Critical
+**Likelihood**: Low
+**Mitigation**: Encryption at rest, no logging, type safety
+
+### Risk 4: Database Corruption
+**Impact**: High
+**Likelihood**: Low
+**Mitigation**: Transaction support, regular backups, recovery procedures
+
+### Risk 5: WebSocket Disconnects
+**Impact**: Medium
+**Likelihood**: Medium
+**Mitigation**: Automatic reconnection, fallback to REST API, alerts
 
 ## Glossary
 
-- **Agent**: Specialized AI assistant with specific expertise and responsibilities
-- **Slash Command**: Shortcut that triggers agent workflows (e.g., `/plan`)
-- **Skill**: Reusable knowledge module for specific technologies or patterns
-- **MCP**: Model Context Protocol for AI tool integration
-- **Repomix**: Tool for compacting codebases into AI-friendly format
-- **Sequential Chaining**: Running agents one after another with dependencies
-- **Parallel Execution**: Running multiple agents simultaneously
-- **Query Fan-Out**: Spawning multiple researchers to explore different approaches
-- **Conventional Commits**: Structured commit message format (type(scope): description)
+| Term | Definition |
+|------|-----------|
+| Rebalance | Adjust portfolio back to target allocations |
+| Allocation | Percentage of portfolio value held in each asset |
+| Drift | Deviation between current and target allocations |
+| Slippage | Difference between expected and actual execution price |
+| TWAP | Time-weighted average price execution |
+| VWAP | Volume-weighted average price execution |
+| DCA | Dollar-cost averaging (regular small buys) |
+| Grid | Regular price interval orders |
+| Paper Trading | Simulated trades for backtesting |
+| Drawdown | Largest peak-to-trough portfolio decline |
 
 ## Appendix
 
 ### Related Documentation
-- [Codebase Summary](./codebase-summary.md)
-- [Code Standards](./code-standards.md)
 - [System Architecture](./system-architecture.md)
-- [Skills Reference](../guide/SKILLS.md)
-
-### External Resources
-- [Claude Code Documentation](https://docs.claude.com/en/docs/claude-code/overview)
-- [Open Code Documentation](https://opencode.ai/docs)
-- [Conventional Commits](https://conventionalcommits.org/)
-- [Semantic Versioning](https://semver.org/)
-- [Keep a Changelog](https://keepachangelog.com/)
+- [Code Standards](./code-standards.md)
+- [Codebase Summary](./codebase-summary.md)
 
 ### Support & Community
-- GitHub Issues: https://github.com/claudekit/claudekit-engineer/issues
-- Discussions: https://github.com/claudekit/claudekit-engineer/discussions
-- Repository: https://github.com/claudekit/claudekit-engineer
-
-## Unresolved Questions
-
-1. **Performance Benchmarks**: Need to establish baseline metrics for agent execution times
-2. **Multi-Repository Support**: How to handle projects spanning multiple repositories?
-3. **Custom AI Model Support**: Should we support other AI platforms beyond Claude and OpenRouter?
-4. **Agent Marketplace**: Community-contributed agents and skills distribution mechanism?
-5. **Real-Time Collaboration**: How to handle multiple developers using agents simultaneously?
+- GitHub: https://github.com/dungngo97/rebalance-bot
+- Issues: Report bugs and feature requests

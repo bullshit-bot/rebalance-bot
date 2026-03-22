@@ -1,463 +1,533 @@
-# Code Standards & Codebase Structure
+# Code Standards & Development Guidelines
 
-**Last Updated**: 2025-12-28
-**Version**: 2.2.0-beta.4
-**Applies To**: All code within ClaudeKit Engineer project
+**Last Updated**: 2026-03-22
+**Version**: 1.0.0
+**Project**: Crypto Rebalance Bot
+**Applies To**: All TypeScript/JavaScript code
 
 ## Overview
 
-This document defines coding standards, file organization patterns, naming conventions, and best practices for ClaudeKit Engineer. All code must adhere to these standards to ensure consistency, maintainability, and quality.
+Development standards, file organization, naming conventions, and best practices for the Crypto Rebalance Bot. All code must adhere to these standards for consistency, type safety, and maintainability.
 
 ## Core Development Principles
 
 ### YAGNI (You Aren't Gonna Need It)
-- Avoid over-engineering and premature optimization
-- Implement features only when needed
-- Don't build infrastructure for hypothetical future requirements
+- Implement only features that are currently needed
+- Avoid over-engineering for hypothetical future requirements
 - Start simple, refactor when necessary
 
 ### KISS (Keep It Simple, Stupid)
-- Prefer simple, straightforward solutions
-- Avoid unnecessary complexity
-- Write code that's easy to understand and modify
-- Choose clarity over cleverness
+- Prefer straightforward, readable solutions
+- Avoid unnecessary complexity and clever tricks
+- Prioritize clarity over performance optimizations
 
 ### DRY (Don't Repeat Yourself)
 - Eliminate code duplication
-- Extract common logic into reusable functions/modules
-- Use composition and abstraction appropriately
-- Maintain single source of truth
+- Extract common logic into reusable functions
+- Use composition over repetition
 
-## File Organization Standards
+## Runtime & Language
+
+**Runtime**: Bun 1.2+
+- Use `bun run src/index.ts` for development
+- Use `bun build` for production builds
+- Use `bun test` for testing
+
+**Language**: TypeScript 5.7+ (Strict Mode)
+- Enforce `"strict": true` in tsconfig.json
+- No `any` types (use `unknown` with type guards)
+- Strict null checks enabled
+- Full type coverage required
+
+## File Organization
 
 ### Directory Structure
 
 ```
-project-root/
-├── .claude/                    # Claude Code configuration
-│   ├── agents/                # Agent definitions (*.md)
-│   ├── command-archive/       # Archived legacy command definitions
-│   ├── commands/              # Reserved compatibility directory (can be empty)
-│   ├── hooks/                # Git hooks and scripts
-│   ├── skills/               # Reusable knowledge modules
-│   │   └── [skill-name]/     # Individual skill directories
-│   │       ├── SKILL.md      # Skill definition
-│   │       └── references/   # Supporting materials
-│   └── rules/                # Development rules and protocols
-├── .github/                   # GitHub-specific files
-│   └── workflows/            # CI/CD workflows
-├── docs/                      # Project documentation
-│   ├── research/             # Research reports
-│   └── *.md                  # Core documentation files
-├── guide/                     # User guides
-├── plans/                     # Implementation plans
-│   ├── reports/              # Agent communication reports
-│   └── templates/            # Plan templates
-├── src/                       # Source code (if applicable)
-├── tests/                     # Test suites (if applicable)
-├── .gitignore                # Git ignore patterns
-├── CLAUDE.md                 # Claude-specific instructions
-├── README.md                 # Project overview
-├── package.json              # Node.js dependencies
-└── LICENSE                   # License file
+src/
+├── index.ts              # Application entry point
+├── config/               # Configuration management
+├── db/
+│   ├── schema.ts         # Database schema definitions
+│   └── database.ts       # Database initialization
+├── exchange/             # Exchange connectivity (CCXT Pro)
+├── price/                # Market data processing
+├── portfolio/            # Portfolio state management
+├── rebalancer/           # Rebalancing logic
+├── executor/             # Order execution
+├── api/
+│   ├── routes.ts         # Route definitions
+│   └── ws.ts             # WebSocket handlers
+├── events/               # Event bus
+├── notifier/             # Telegram notifications
+├── scheduler/            # Cron tasks
+├── trailing-stop/        # Trailing-stop strategy
+├── dca/                  # Dollar-cost averaging
+├── twap-vwap/            # TWAP/VWAP order splitting
+├── grid/                 # Grid trading
+├── backtesting/          # Backtesting framework
+├── analytics/            # Performance metrics
+├── ai/                   # ML suggestions
+└── copy-trading/         # Copy trading
 ```
 
-### File Naming Conventions
+### File Naming
 
-**Agent Definitions** (`.claude/agents/`):
-- Format: `[agent-name].md`
-- Use kebab-case: `code-reviewer.md`, `docs-manager.md`
-- Descriptive, role-based names
-- Examples: `planner.md`, `tester.md`, `git-manager.md`
+**TypeScript Files**:
+- Use kebab-case: `user-service.ts`, `portfolio-manager.ts`
+- Descriptive names that indicate purpose
+- Test files: `*.test.ts` or `*.spec.ts`
 
-**Legacy Command Archive** (`.claude/command-archive/`):
-- Read-only historical command files moved during command-to-skill migration
-- Keep original kebab-case filenames for traceability
-- Do not add new runtime features here
-- Add new capabilities as skills in `.claude/skills/`
+**Classes/Types**:
+- Use PascalCase: `UserService`, `PortfolioManager`
+- Export as default when single export
 
-**Skills** (`.claude/skills/`):
-- Format: `[skill-name]/SKILL.md`
-- Use kebab-case for directory names
-- Main file always named `SKILL.md`
-- Supporting files in `references/` or `scripts/`
-- Examples:
-  - `better-auth/SKILL.md`
-  - `cloudflare-workers/SKILL.md`
-  - `mongodb/SKILL.md`
+**Functions**:
+- Use camelCase: `fetchPortfolio()`, `calculateAllocation()`
+- Descriptive names indicating action and object
 
-**Documentation** (`docs/`):
-- Format: `[document-purpose].md`
-- Use kebab-case with descriptive names
-- Examples:
-  - `project-overview-pdr.md`
-  - `codebase-summary.md`
-  - `code-standards.md`
-  - `system-architecture.md`
-
-**Reports** (`plans/<plan-name>/reports/`):
-- Format: `{date}-from-[agent]-to-[agent]-[task]-report.md`
-- Use date prefix for chronological sorting (format from `$CK_PLAN_DATE_FORMAT`)
-- Clear source and destination agents
-- Examples:
-  - `251026-from-planner-to-main-auth-implementation-report.md`
-  - `251026-from-tester-to-debugger-test-failures-report.md`
-
-**Plans** (`plans/`):
-- Format: `{date}-[feature-name]-plan.md`
-- Use date prefix for version tracking (format from `$CK_PLAN_DATE_FORMAT`)
-- Descriptive feature names in kebab-case
-- Examples:
-  - `251026-user-authentication-plan.md`
-  - `251026-database-migration-plan.md`
-
-**Research Reports** (`plans/<plan-name>/research/`):
-- Format: `{date}-[research-topic].md`
-- Date prefix for tracking (format from `$CK_PLAN_DATE_FORMAT`)
-- Clear topic description
-- Examples:
-  - `251026-oauth2-implementation-strategies.md`
-  - `251026-performance-optimization-techniques.md`
-
-## File Size Management
-
-### Hard Limits
-- **Maximum file size**: 500 lines of code
-- Files exceeding 500 lines MUST be refactored
-- Exception: Auto-generated files (with clear marking)
-
-### Refactoring Strategies
-
-**When file exceeds 500 lines**:
-1. **Extract Utility Functions**: Move to separate `utils/` directory
-2. **Component Splitting**: Break into smaller, focused components
-3. **Service Classes**: Extract business logic to dedicated services
-4. **Module Organization**: Group related functionality into modules
-
-**Example Refactoring**:
-```
-Before:
-user-service.js (750 lines)
-
-After:
-services/
-├── user-service.js (200 lines)      # Core service
-├── user-validation.js (150 lines)   # Validation logic
-└── user-repository.js (180 lines)   # Database operations
-utils/
-└── password-hasher.js (80 lines)    # Utility functions
-```
+**Constants**:
+- Use UPPER_SNAKE_CASE: `MAX_RETRY_COUNT`, `DEFAULT_THRESHOLD`
+- Group related constants together
 
 ## Naming Conventions
 
-### Variables & Functions
+### Variables & Constants
 
-**JavaScript/TypeScript**:
-- **Variables**: camelCase
-  ```javascript
-  const userName = 'John Doe';
-  const isAuthenticated = true;
-  ```
+```typescript
+// Variables - camelCase
+const portfolioValue = 50000;
+const isRebalancing = false;
+const userPreferences = { ... };
 
-- **Functions**: camelCase
-  ```javascript
-  function calculateTotal(items) { }
-  const getUserById = (id) => { };
-  ```
+// Constants - UPPER_SNAKE_CASE
+const MAX_RETRY_COUNT = 3;
+const DEFAULT_THRESHOLD = 0.05;
+const API_BASE_URL = 'https://api.example.com';
 
-- **Classes**: PascalCase
-  ```javascript
-  class UserService { }
-  class AuthenticationManager { }
-  ```
-
-- **Constants**: UPPER_SNAKE_CASE
-  ```javascript
-  const MAX_RETRY_COUNT = 3;
-  const API_BASE_URL = 'https://api.example.com';
-  ```
-
-- **Private Members**: Prefix with underscore
-  ```javascript
-  class Database {
-    _connectionPool = null;
-    _connect() { }
-  }
-  ```
-
-### Files & Directories
-
-**Source Files**:
-- **JavaScript/TypeScript**: kebab-case
-  ```
-  user-service.js
-  authentication-manager.ts
-  api-client.js
-  ```
-
-- **React Components**: PascalCase
-  ```
-  UserProfile.jsx
-  AuthenticationForm.tsx
-  NavigationBar.jsx
-  ```
-
-- **Test Files**: Match source file name + `.test` or `.spec`
-  ```
-  user-service.test.js
-  authentication-manager.spec.ts
-  ```
-
-**Directories**: kebab-case
-```
-src/
-├── components/
-├── services/
-├── utils/
-├── api-clients/
-└── test-helpers/
+// Private members - underscore prefix
+class Database {
+  private _connectionPool: Pool;
+  private _initialized = false;
+}
 ```
 
-### API Design
+### Functions & Methods
 
-**REST Endpoints**:
-- Use kebab-case for URLs
-- Plural nouns for collections
-- Resource IDs in path parameters
+```typescript
+// Regular functions - camelCase
+function calculateAllocation(holdings: Holdings): Allocation { }
 
+// Arrow functions
+const fetchPortfolio = async (exchange: string): Promise<Portfolio> => { };
+
+// Boolean functions - is/has/can prefix
+function isRebalanceNeeded(current: Allocation, target: Allocation): boolean { }
+function hasValidCredentials(exchange: string): boolean { }
+function canExecuteTrade(amount: number): boolean { }
 ```
-GET    /api/users
-GET    /api/users/:id
-POST   /api/users
-PUT    /api/users/:id
-DELETE /api/users/:id
-GET    /api/users/:userId/posts
-```
 
-**Request/Response Fields**:
-- Use camelCase for JSON properties
-```json
-{
-  "userId": 123,
-  "userName": "john_doe",
-  "emailAddress": "john@example.com",
-  "isVerified": true,
-  "createdAt": "2025-10-26T00:00:00Z"
+### Types & Interfaces
+
+```typescript
+// Use PascalCase
+interface Portfolio {
+  holdings: Record<string, number>;
+  totalValueUsd: number;
+}
+
+type Allocation = Record<string, number>;
+
+// Enums
+enum OrderStatus {
+  Pending = 'pending',
+  Filled = 'filled',
+  Failed = 'failed',
 }
 ```
 
 ## Code Style Guidelines
 
-### General Formatting
+### Formatting
 
-**Indentation**:
-- Use 2 spaces (not tabs)
-- Consistent indentation throughout file
-- No trailing whitespace
+**Indentation**: 2 spaces (enforced by Biome)
+**Line Length**: 100 characters preferred, 120 character hard limit
+**Quotes**: Double quotes (`"`) for strings
+**Semicolons**: Always include
 
-**Line Length**:
-- Preferred: 80-100 characters
-- Hard limit: 120 characters
-- Break long lines logically
+**Example**:
+```typescript
+const portfolio = await fetchPortfolio('binance');
+const allocation = calculateAllocation(portfolio.holdings);
+const trades = generateRebalancePlan(allocation, targets);
+```
 
-**Whitespace**:
-- One blank line between functions/methods
-- Two blank lines between classes
-- Space after keywords: `if (`, `for (`, `while (`
-- No space before function parentheses: `function name(`
+### Import Organization
+
+```typescript
+// 1. Bun built-ins
+import { read, write } from 'bun:fs';
+
+// 2. External dependencies
+import { Router } from 'hono';
+import { drizzle } from 'drizzle-orm/libsql';
+import { EventEmitter } from 'events';
+
+// 3. Internal modules (absolute paths)
+import { logger } from './config/logger';
+import { exchangeService } from './exchange';
+import { eventBus } from './events';
+
+// 4. Types (at end)
+import type { Portfolio, Trade } from './types';
+```
 
 ### Comments & Documentation
 
 **File Headers** (Optional but recommended):
-```javascript
+```typescript
 /**
- * User Service
+ * Portfolio Service
  *
- * Handles user authentication, registration, and profile management.
+ * Manages portfolio state: fetching holdings, calculating allocations,
+ * detecting drift, and generating snapshots for analysis.
  *
- * @module services/user-service
- * @author ClaudeKit
- * @version 1.0.0
+ * @module services/portfolio
  */
 ```
 
 **Function Documentation**:
-```javascript
+```typescript
 /**
- * Authenticates a user with email and password
+ * Calculate allocation percentages from holdings
  *
- * @param {string} email - User's email address
- * @param {string} password - User's password
- * @returns {Promise<User>} Authenticated user object
- * @throws {AuthenticationError} If credentials are invalid
+ * @param holdings - Map of asset symbol to quantity
+ * @returns Record of asset to allocation percentage
+ * @throws Error if totalValue is zero
  */
-async function authenticateUser(email, password) {
+export function calculateAllocation(
+  holdings: Record<string, number>
+): Allocation {
   // Implementation
 }
 ```
 
 **Inline Comments**:
 - Explain WHY, not WHAT
-- Complex logic requires explanation
-- TODO comments include assignee and date
-```javascript
-// TODO(john, 2025-10-26): Optimize this query for large datasets
-const users = await db.query('SELECT * FROM users');
+- Use for non-obvious logic
+- Keep brief and focused
 
-// Cache miss - fetch from database
-const user = await fetchUserFromDB(userId);
+```typescript
+// Multiply by 1e8 to avoid floating-point precision issues
+const satoshis = bitcoins * 1e8;
+
+// Use exponential backoff to avoid rate limiting
+const delay = Math.pow(2, retryCount) * 1000;
 ```
 
 ### Error Handling
 
 **Always Use Try-Catch**:
-```javascript
-async function processPayment(orderId) {
+```typescript
+async function executeRebalance(trades: Trade[]): Promise<void> {
   try {
-    const order = await getOrder(orderId);
-    const payment = await chargeCard(order.total);
-    await updateOrderStatus(orderId, 'paid');
-    return payment;
+    const results = await Promise.all(
+      trades.map(t => exchange.executeOrder(t))
+    );
+    logger.info('Rebalance completed', { count: results.length });
   } catch (error) {
-    logger.error('Payment processing failed', { orderId, error });
-    throw new PaymentError('Failed to process payment', { cause: error });
+    logger.error('Rebalance failed', {
+      error: error instanceof Error ? error.message : String(error),
+      trades: trades.length,
+    });
+    throw error;
   }
 }
 ```
 
-**Error Types**:
-- Create custom error classes for domain errors
-- Include context and cause
-- Provide actionable error messages
-
-```javascript
+**Custom Error Types**:
+```typescript
 class ValidationError extends Error {
-  constructor(message, field) {
+  constructor(message: string, public readonly field: string) {
     super(message);
     this.name = 'ValidationError';
-    this.field = field;
   }
+}
+
+// Usage
+throw new ValidationError('Invalid allocation target', 'BTC');
+```
+
+### TypeScript Strict Mode
+
+**No `any` Types**:
+```typescript
+// BAD
+const portfolio: any = fetchPortfolio();
+
+// GOOD
+const portfolio: Portfolio = fetchPortfolio();
+
+// If type is unknown
+const data: unknown = JSON.parse(input);
+if (typeof data === 'object' && data !== null) {
+  // Safe to use
 }
 ```
 
-**Error Logging**:
-- Log errors with context
-- Use appropriate log levels
-- Never expose sensitive data in logs
+**Null Safety**:
+```typescript
+// Use optional chaining and nullish coalescing
+const value = portfolio?.holdings?.BTC ?? 0;
 
-```javascript
-logger.error('Database query failed', {
-  query: sanitizeQuery(query),
-  params: sanitizeParams(params),
-  error: error.message
+// Type guards
+if (result instanceof Error) {
+  logger.error('Error occurred', { message: result.message });
+}
+
+// Non-null assertion only when certain
+const portfolio = getPortfolio()!; // Know it's not null
+```
+
+## API & Database Design
+
+### REST API (Hono)
+
+**Route Naming**:
+```typescript
+// Use kebab-case in URLs
+GET    /api/portfolio         // Get current portfolio
+GET    /api/portfolio/:asset  // Get specific asset
+POST   /api/rebalance         // Trigger rebalance
+GET    /api/trades            // List trades
+GET    /api/allocations       // Get targets
+
+// Use camelCase in JSON fields
+{
+  "portfolioValue": 50000,
+  "totalFeesPaid": 125.50,
+  "isRebalancing": false,
+  "lastRebalance": "2026-03-22T10:30:00Z"
+}
+```
+
+**Request/Response**:
+```typescript
+// Use Zod for validation
+const RebalanceRequest = z.object({
+  assetPair: z.string(),
+  amount: z.number().positive(),
+  execute: z.boolean().optional(),
+});
+
+// Handler with type safety
+app.post('/api/rebalance', async (c) => {
+  const body = await c.req.json();
+  const validated = RebalanceRequest.parse(body);
+  // Process
+  return c.json({ success: true });
 });
 ```
 
-## Security Standards
+### Database Schema
 
-### Input Validation
+**Drizzle ORM with SQLite**:
+```typescript
+import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
 
-**Validate All Inputs**:
-```javascript
-function createUser(userData) {
-  // Validate required fields
-  if (!userData.email || !userData.password) {
-    throw new ValidationError('Email and password required');
+export const trades = sqliteTable('trades', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  exchange: text('exchange').notNull(),
+  pair: text('pair').notNull(),
+  side: text('side', { enum: ['buy', 'sell'] }).notNull(),
+  amount: real('amount').notNull(),
+  price: real('price').notNull(),
+  executedAt: integer('executed_at')
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+```
+
+**Index Strategy**:
+- Index frequently queried columns
+- Index foreign keys
+- Index time-range queries
+- Example: `trades_exchange_executed_at_idx` for date range queries
+
+## Service Pattern
+
+### Singleton Services
+
+Each service has one instance per application:
+
+```typescript
+// exchange/index.ts
+class ExchangeService {
+  private static instance: ExchangeService;
+
+  private constructor() {
+    // Initialize
   }
 
-  // Sanitize inputs
-  const email = sanitizeEmail(userData.email);
-  const password = userData.password; // Never log passwords
-
-  // Validate formats
-  if (!isValidEmail(email)) {
-    throw new ValidationError('Invalid email format');
+  static getInstance(): ExchangeService {
+    if (!this.instance) {
+      this.instance = new ExchangeService();
+    }
+    return this.instance;
   }
 
-  if (password.length < 8) {
-    throw new ValidationError('Password must be at least 8 characters');
+  async fetchPortfolio(exchange: string): Promise<Portfolio> {
+    // Implementation
+  }
+}
+
+export const exchangeService = ExchangeService.getInstance();
+```
+
+### Dependency Injection
+
+```typescript
+// Services receive dependencies via constructor or methods
+class RebalancerService {
+  constructor(
+    private portfolio: PortfolioService,
+    private exchange: ExchangeService,
+    private eventBus: EventEmitter
+  ) {}
+
+  async rebalance(targets: Allocation): Promise<void> {
+    const current = await this.portfolio.getCurrentAllocation();
+    const trades = this.calculateTrades(current, targets);
+
+    this.eventBus.emit('rebalance:triggered', { trades });
+    // Execute
   }
 }
 ```
 
-### Sensitive Data Handling
+## Event-Driven Architecture
 
-**Never Commit Secrets**:
-- Use environment variables for API keys, credentials
-- Add `.env*` to `.gitignore`
-- Use secret management systems in production
+### EventBus Pattern
 
-**Never Log Sensitive Data**:
-```javascript
-// BAD
-logger.info('User login', { email, password }); // Never log passwords
+```typescript
+// Emit events with typed data
+eventBus.emit('price:update', {
+  exchange: 'binance',
+  pair: 'BTC/USD',
+  price: 65000,
+  timestamp: Date.now(),
+});
 
-// GOOD
-logger.info('User login', { email }); // OK to log email
+// Listen to events
+eventBus.on('trade:executed', ({ orderId, amount, fee }) => {
+  logger.info('Trade completed', { orderId, amount, fee });
+});
 ```
 
-**Sanitize Database Queries**:
-```javascript
-// Use parameterized queries
-const user = await db.query(
-  'SELECT * FROM users WHERE email = $1',
-  [email]
-);
+**Key Events**:
+- `price:update` → New market data
+- `portfolio:snapshot` → State captured
+- `rebalance:triggered` → Rebalance initiated
+- `trade:executed` → Order filled
+- `strategy:signal` → Buy/sell signal
+- `alert:threshold` → Alert triggered
 
-// Never concatenate user input
-// BAD: const user = await db.query(`SELECT * FROM users WHERE email = '${email}'`);
-```
-
-## Testing Standards
+## Testing
 
 ### Test File Organization
 
 ```
 tests/
-├── unit/              # Unit tests
-│   ├── services/
-│   └── utils/
-├── integration/       # Integration tests
-│   └── api/
-├── e2e/              # End-to-end tests
-└── fixtures/         # Test data
+├── unit/
+│   ├── portfolio-service.test.ts
+│   └── rebalancer-service.test.ts
+├── integration/
+│   └── api.test.ts
+└── fixtures/
+    └── mock-data.ts
 ```
 
-### Test Naming
+### Testing Patterns
 
-```javascript
-describe('UserService', () => {
-  describe('authenticateUser', () => {
-    it('should return user when credentials are valid', async () => {
-      // Test implementation
-    });
+```typescript
+import { describe, it, expect, beforeEach } from 'bun:test';
 
-    it('should throw AuthenticationError when password is incorrect', async () => {
-      // Test implementation
-    });
+describe('PortfolioService', () => {
+  let service: PortfolioService;
 
-    it('should throw ValidationError when email is missing', async () => {
-      // Test implementation
-    });
+  beforeEach(() => {
+    service = new PortfolioService();
+  });
+
+  it('should calculate allocation correctly', () => {
+    const holdings = { BTC: 1, ETH: 10, USDC: 50000 };
+    const allocation = service.calculateAllocation(holdings);
+
+    expect(allocation.BTC).toBeCloseTo(0.02, 2);
+  });
+
+  it('should throw on empty holdings', () => {
+    expect(() => {
+      service.calculateAllocation({});
+    }).toThrow();
   });
 });
 ```
 
-### Test Coverage Requirements
+### Test Coverage
+- Unit tests: >80% code coverage
+- Integration tests: Critical paths
+- Error scenarios: All error handling tested
+- Edge cases: Boundary conditions
 
-- **Unit tests**: > 80% code coverage
-- **Integration tests**: Critical user flows
-- **E2E tests**: Happy paths and edge cases
-- **Error scenarios**: All error paths tested
+## Security Standards
 
-### Test Best Practices
+### Credential Handling
 
-- **Arrange-Act-Assert** pattern
-- **Independent tests** (no test dependencies)
-- **Descriptive test names** (behavior, not implementation)
-- **Test one thing** per test
-- **Use fixtures** for complex test data
-- **Mock external dependencies**
+**Never Log Credentials**:
+```typescript
+// BAD
+logger.info('API key:', { apiKey });
+
+// GOOD
+logger.info('Authentication successful', { exchange });
+
+// Encrypt at rest
+const encrypted = encrypt(apiKey, encryptionKey);
+await db.insert(exchangeConfigs).values({
+  apiKeyEnc: encrypted,
+});
+```
+
+### Input Validation
+
+```typescript
+import { z } from 'zod';
+
+const AllocationSchema = z.record(
+  z.string().min(1),
+  z.number().min(0).max(100)
+);
+
+function setAllocations(targets: unknown): void {
+  const validated = AllocationSchema.parse(targets);
+  // Safe to use
+}
+```
+
+### SQL Injection Prevention
+
+```typescript
+// Use Drizzle ORM parameterized queries
+const trade = await db
+  .select()
+  .from(trades)
+  .where(eq(trades.orderId, orderId))
+  .limit(1);
+
+// Never concatenate user input
+// BAD: `SELECT * FROM trades WHERE orderId = '${orderId}'`
+```
 
 ## Git Standards
 
@@ -473,469 +543,202 @@ type(scope): description
 ```
 
 **Types**:
-- `feat`: New feature (minor version bump)
-- `fix`: Bug fix (patch version bump)
-- `docs`: Documentation changes
-- `refactor`: Code refactoring
-- `test`: Test additions/changes
-- `ci`: CI/CD changes
-- `chore`: Maintenance tasks
-- `perf`: Performance improvements
-- `style`: Code style changes
+- `feat` - New feature
+- `fix` - Bug fix
+- `refactor` - Code refactoring
+- `test` - Test additions/changes
+- `docs` - Documentation updates
+- `ci` - CI/CD changes
+- `chore` - Maintenance tasks
 
 **Examples**:
 ```
-feat(auth): add OAuth2 authentication support
+feat(rebalancer): add momentum-tilt strategy
 
-Implements OAuth2 flow with Google and GitHub providers.
-Includes token refresh and revocation.
+Implements momentum-based weighting that tilts allocation
+toward higher-momentum assets. Configurable via TARGET_MOMENTUM_WEIGHT.
 
-Closes #123
-
----
-
-fix(api): resolve timeout in database queries
-
-Optimized slow queries and added connection pooling.
+Closes #42
 
 ---
 
-docs: update installation guide with Docker setup
-```
+fix(executor): handle partial order fills correctly
 
-**Rules**:
-- Subject line: imperative mood, lowercase, no period
-- Max 72 characters for subject
-- Blank line between subject and body
-- Body: explain WHY, not WHAT
-- Footer: reference issues, breaking changes
-- No AI attribution or signatures
-
-### Branch Naming
-
-**Format**: `type/description`
-
-**Types**:
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `refactor/` - Code refactoring
-- `docs/` - Documentation updates
-- `test/` - Test improvements
-
-**Examples**:
-```
-feature/oauth-authentication
-fix/database-connection-timeout
-refactor/user-service-cleanup
-docs/api-reference-update
-test/integration-test-suite
+Track filled quantity separately from request amount to properly
+update holdings after partial fills.
 ```
 
 ### Pre-Commit Checklist
 
 - ✅ No secrets or credentials
-- ✅ No debug code or console.logs
-- ✅ All tests pass locally
-- ✅ Code follows style guidelines
-- ✅ No linting errors
-- ✅ Files under 500 lines
-- ✅ Conventional commit message
+- ✅ TypeScript compiles without errors
+- ✅ Biome linting passes
+- ✅ Unit tests pass
+- ✅ No hardcoded values (use config)
+- ✅ Type coverage complete
+- ✅ Error handling present
+- ✅ Updated relevant docs
+
+## Linting & Formatting
+
+### Biome Configuration
+
+```json
+{
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "style": {
+        "noImplicitAny": "error",
+        "noVar": "error"
+      }
+    }
+  },
+  "formatter": {
+    "indentWidth": 2,
+    "lineWidth": 100
+  }
+}
+```
+
+**Run Checks**:
+```bash
+biome check .              # Check all files
+biome check --fix .        # Auto-fix issues
+```
 
 ## Documentation Standards
 
-### Code Documentation
-
-**Self-Documenting Code**:
-- Clear variable and function names
-- Logical code organization
-- Minimal comments needed
+### Code Comments
 
 **When to Comment**:
 - Complex algorithms or business logic
 - Non-obvious optimizations
-- Workarounds for bugs/limitations
-- Public API functions
-- Configuration options
+- Workarounds for bugs or limitations
+- Financial calculation details
+
+**When NOT to Comment**:
+- Self-evident code
+- Variable/function naming is clear
+- Code that's straightforward to read
 
 ### Markdown Documentation
 
 **Structure**:
-```markdown
-# Document Title
-
-Brief overview paragraph
-
-## Section 1
-
-Content with examples
-
-## Section 2
-
-More content
-
-## See Also
-
-- [Related Doc](./related.md)
-```
-
-**Formatting**:
-- Use ATX-style headers (`#`, `##`, `###`)
+- Clear headings with hierarchy
 - Code blocks with language specification
 - Tables for structured data
 - Lists for sequential items
 - Links for cross-references
 
-**Code Blocks**:
-````markdown
-```javascript
-function example() {
-  return 'example';
-}
-```
-````
-
-## Agent-Specific Standards
-
-### Agent Definition Files
-
-**Frontmatter**:
-```yaml
----
-name: agent-name
-description: Brief description of agent purpose and when to use it
-mode: subagent | all
-model: anthropic/claude-sonnet-4-20250514
-temperature: 0.1
----
-```
-
-**Required Sections**:
-1. Agent role and responsibilities
-2. Core capabilities
-3. Workflow process
-4. Output requirements
-5. Quality standards
-6. Communication protocols
-
-### Command Definition Files
-
-**Frontmatter**:
-```yaml
----
-name: command-name
-description: What this command does
----
-```
-
-**Argument Handling**:
-- `$ARGUMENTS` - All arguments as single string
-- `$1`, `$2`, `$3` - Individual positional arguments
-
 **Example**:
 ```markdown
----
-name: plan
-description: Create implementation plan for given task
----
+## Configuration
 
-Planning task: $ARGUMENTS
+Set these environment variables:
 
-Using planner agent to research and create comprehensive plan for: $1
+| Variable | Required | Default |
+|----------|----------|---------|
+| EXCHANGE_API_KEY | Yes | - |
+| REBALANCE_THRESHOLD | No | 0.05 |
+
+### Example Setup
+
+```bash
+export EXCHANGE_API_KEY="your-key-here"
+export REBALANCE_THRESHOLD="0.10"
+```
 ```
 
-### Skill Definition Files
+## Performance Considerations
 
-**Structure**:
-```markdown
-# Skill Name
+### Optimization Priorities
 
-Guide for using [Technology] - brief description
+1. **Correctness First** - Results must be accurate
+2. **Readability Second** - Code must be maintainable
+3. **Performance Third** - Only optimize if needed
 
-## When to Use
+### Common Patterns
 
-- List of use cases
-- Scenarios where skill applies
-
-## Core Concepts
-
-Key concepts and terminology
-
-## Implementation Guide
-
-Step-by-step instructions
-
-## Examples
-
-Practical examples
-
-## Best Practices
-
-Recommendations and tips
-
-## Common Pitfalls
-
-Mistakes to avoid
-
-## Resources
-
-- Official docs
-- Tutorials
-- References
+**Async Operations**:
+```typescript
+// Use Promise.all() for parallel operations
+const [portfolio, prices, allocations] = await Promise.all([
+  fetchPortfolio(),
+  fetchPrices(),
+  fetchAllocations(),
+]);
 ```
 
-## Hook Implementation Standards
-
-### Scout Block Hook Architecture
-
-**Cross-Platform Design Pattern**:
-- **Dispatcher Pattern**: Single Node.js entry point delegates to platform-specific implementations
-- **Platform Detection**: Use `process.platform` for automatic selection
-- **Security-First**: Input validation, sanitized errors, safe execution
-
-**File Organization**:
-```
-.claude/hooks/
-├── scout-block.js        # Node.js dispatcher (cross-platform entry)
-├── scout-block.sh        # Bash implementation (Unix)
-├── scout-block.ps1       # PowerShell implementation (Windows)
-├── test-scout-block.sh   # Unix test suite
-└── test-scout-block.ps1  # Windows test suite
-```
-
-**Implementation Requirements**:
-- **Node.js Dispatcher**:
-  - Read stdin synchronously
-  - Validate JSON structure before parsing
-  - Check platform via `process.platform`
-  - Execute platform-specific script with piped input
-  - Handle errors with exit codes (0 = success, 2 = error)
-
-- **Platform-Specific Scripts**:
-  - Parse JSON input (use Node.js for consistency, avoid jq dependency)
-  - Validate command structure and content
-  - Apply pattern matching for blocked paths
-  - Return appropriate exit codes
-  - Provide clear error messages
-
-**Security Standards**:
-```javascript
-// Input validation
-if (!hookInput || hookInput.trim().length === 0) {
-  console.error('ERROR: Empty input');
-  process.exit(2);
-}
-
-// JSON structure validation
-const data = JSON.parse(hookInput);
-if (!data.tool_input || typeof data.tool_input.command !== 'string') {
-  console.error('ERROR: Invalid JSON structure');
-  process.exit(2);
-}
-```
-
-**Testing Standards**:
-- Test both allowed and blocked patterns
-- Validate error handling (invalid JSON, empty input, missing fields)
-- Cross-platform test coverage
-- Clear pass/fail indicators
-
-## Configuration File Standards
-
-### package.json
-
-**Required Fields**:
-- name, version, description
-- repository (with URL)
-- author, license
-- engines (Node version >= 18.0.0)
-- scripts (test, lint, etc.)
-
-**Best Practices**:
-- Use semantic versioning
-- Specify exact dependency versions for stability
-- Include keywords for discoverability
-- Use `files` field to control published content
-- Specify minimum Node.js version (18.0.0+)
-
-### .gitignore
-
-**Standard Exclusions**:
-```
-# Dependencies
-node_modules/
-package-lock.json (for libraries)
-
-# Environment
-.env
-.env.*
-!.env.example
-
-# Build outputs
-dist/
-build/
-*.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing
-coverage/
-*.test.js.snap
-
-# Temporary
-tmp/
-temp/
-*.tmp
-```
-
-## Performance Standards
-
-### Code Performance
-
-**Optimization Priorities**:
-1. Correctness first
-2. Readability second
-3. Performance third (when needed)
-
-**Common Optimizations**:
-- Use appropriate data structures
-- Avoid unnecessary loops
-- Cache expensive computations
-- Lazy load when possible
-- Debounce/throttle frequent operations
-
-**Example**:
-```javascript
-// Cache expensive operations
-const memoize = (fn) => {
-  const cache = new Map();
-  return (...args) => {
-    const key = JSON.stringify(args);
-    if (cache.has(key)) return cache.get(key);
-    const result = fn(...args);
-    cache.set(key, result);
-    return result;
+**Caching**:
+```typescript
+// Cache expensive computations
+const memoizedCalculation = (() => {
+  let cached: number | null = null;
+  return () => {
+    if (cached === null) {
+      cached = expensiveComputation();
+    }
+    return cached;
   };
-};
-
-const expensiveCalculation = memoize((n) => {
-  // Complex calculation
-  return result;
-});
+})();
 ```
 
-### File I/O
+## Module Boundaries
 
-- Use async operations
-- Stream large files
-- Batch writes when possible
-- Clean up file handles
+### What Goes Where
 
-## Quality Assurance
+| Module | Responsibility |
+|--------|-----------------|
+| `exchange/` | CCXT Pro integration, order execution |
+| `price/` | Market data aggregation, technical indicators |
+| `portfolio/` | Holdings tracking, allocation calculation |
+| `rebalancer/` | Strategy logic, trade planning |
+| `executor/` | Order submission, trade recording |
+| `api/` | HTTP routes, WebSocket handlers |
+| `db/` | Schema, migrations, persistence |
+| `events/` | Event emission, event coordination |
+| `notifier/` | Telegram alerts, messages |
+| `scheduler/` | Cron tasks, scheduled execution |
 
-### Code Review Checklist
+## Configuration Management
 
-**Functionality**:
-- ✅ Implements required features
-- ✅ Handles edge cases
-- ✅ Error handling complete
-- ✅ Input validation present
+### Environment Variables
 
-**Code Quality**:
-- ✅ Follows naming conventions
-- ✅ Adheres to file size limits
-- ✅ DRY principle applied
-- ✅ KISS principle followed
-- ✅ Well-structured and organized
+```typescript
+// src/config/env.ts
+import { z } from 'zod';
 
-**Security**:
-- ✅ No hardcoded secrets
-- ✅ Input sanitization
-- ✅ Proper authentication/authorization
-- ✅ Secure dependencies
+const EnvSchema = z.object({
+  EXCHANGE_API_KEY: z.string(),
+  REBALANCE_THRESHOLD: z.coerce.number().min(0).max(1),
+  MIN_TRADE_USD: z.coerce.number().default(10),
+  PAPER_TRADING: z.enum(['true', 'false']).default('false'),
+  DATABASE_URL: z.string(),
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+});
 
-**Testing**:
-- ✅ Unit tests included
-- ✅ Integration tests for flows
-- ✅ Edge cases tested
-- ✅ Error paths covered
+export const config = EnvSchema.parse(process.env);
+```
 
-**Documentation**:
-- ✅ Code comments where needed
-- ✅ API documentation updated
-- ✅ README updated if needed
-- ✅ Changelog entry added
+### Secrets Management
 
-## Enforcement
-
-### Automated Checks
-
-**Pre-Commit**:
-- Commitlint (conventional commits)
-- Secret scanning
-- File size validation
-
-**Pre-Push**:
-- Linting (ESLint, Prettier)
-- Unit tests
-- Type checking
-
-**CI/CD**:
-- All tests
-- Build verification
-- Coverage reports
-- Security scans
-
-### Manual Review
-
-**Code Review Focus**:
-- Architecture and design decisions
-- Complex logic correctness
-- Security implications
-- Performance considerations
-- Maintainability and readability
-
-## Exceptions
-
-**When to Deviate**:
-- Performance-critical code (document reasons)
-- External library constraints
-- Generated code (mark clearly)
-- Legacy code (plan refactoring)
-
-**Documentation Required**:
-```javascript
-/**
- * EXCEPTION: File exceeds 500 lines
- * REASON: Critical performance optimization requires monolithic structure
- * TODO: Refactor when performance is no longer critical
- * DATE: 2025-10-26
- */
+```typescript
+// Never commit .env files
+// Use .env.example as template
+// Encrypt credentials in database
+// Decrypt only for API calls
 ```
 
 ## References
 
 ### Internal Documentation
-- [Project Overview PDR](./project-overview-pdr.md)
-- [Codebase Summary](./codebase-summary.md)
 - [System Architecture](./system-architecture.md)
+- [Project Overview](./project-overview-pdr.md)
+- [Codebase Summary](./codebase-summary.md)
 
 ### External Standards
 - [Conventional Commits](https://conventionalcommits.org/)
-- [Semantic Versioning](https://semver.org/)
-- [Keep a Changelog](https://keepachangelog.com/)
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-
-### Related Projects
-- [Claude Code Documentation](https://docs.claude.com/)
-- [Open Code Documentation](https://opencode.ai/docs)
-
-## Unresolved Questions
-
-None. All code standards are well-defined and documented.
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+- [Drizzle ORM Docs](https://orm.drizzle.team/)
+- [Hono Documentation](https://hono.dev/)

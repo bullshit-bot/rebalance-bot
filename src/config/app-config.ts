@@ -44,6 +44,13 @@ export const env = createEnv({
 
     // Database
     DATABASE_URL: z.string().default('file:./data/bot.db'),
+
+    // Advanced strategy settings
+    STRATEGY_MODE: z.enum(['threshold', 'equal-weight', 'momentum-tilt', 'vol-adjusted']).default('threshold'),
+    MOMENTUM_WINDOW_DAYS: z.coerce.number().int().positive().default(30),
+    VOLATILITY_THRESHOLD: z.coerce.number().positive().default(50),
+    DYNAMIC_THRESHOLD_LOW: z.coerce.number().positive().default(3),
+    DYNAMIC_THRESHOLD_HIGH: z.coerce.number().positive().default(8),
   },
 
   /**
@@ -78,6 +85,12 @@ export const env = createEnv({
     PAPER_TRADING: process.env['PAPER_TRADING'],
 
     DATABASE_URL: process.env['DATABASE_URL'],
+
+    STRATEGY_MODE: process.env['STRATEGY_MODE'],
+    MOMENTUM_WINDOW_DAYS: process.env['MOMENTUM_WINDOW_DAYS'],
+    VOLATILITY_THRESHOLD: process.env['VOLATILITY_THRESHOLD'],
+    DYNAMIC_THRESHOLD_LOW: process.env['DYNAMIC_THRESHOLD_LOW'],
+    DYNAMIC_THRESHOLD_HIGH: process.env['DYNAMIC_THRESHOLD_HIGH'],
   },
 
   // Skip validation during tests to avoid needing real env vars
