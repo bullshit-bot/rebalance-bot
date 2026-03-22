@@ -70,6 +70,17 @@ This ensures packages installed by `install.sh` (google-genai, pypdf, etc.) are 
 - After modularization, continue with main task
 - When not to modularize: Markdown files, plain text files, bash scripts, configuration files, environment variables files, etc.
 
+## Plan Status Sync (MANDATORY)
+
+After completing ANY implementation phase or task from a plan:
+1. Mark ALL `- [ ]` checkboxes as `- [x]` in the phase's plan.md (todo list + success criteria)
+2. Update the phase's `plan.md` frontmatter: `status: completed`
+3. Update the master `plan.md` phase table with `✅ Completed`
+4. If all phases done → set master plan `status: completed`
+5. Reload kanban dashboard if running (`/plans-kanban`)
+
+**This is NON-NEGOTIABLE.** Every phase completion MUST update plan files so the kanban dashboard reflects real progress.
+
 ## Documentation Management
 
 We keep all important docs in `./docs` folder and keep updating them, structure like below:

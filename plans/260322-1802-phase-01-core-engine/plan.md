@@ -1,7 +1,7 @@
 ---
 title: "Phase 1: Core Engine"
 description: "Rebalance, DCA, trailing stop-loss, paper trading, real-time WebSocket, Telegram alerts, REST API"
-status: pending
+status: completed
 priority: P1
 effort: 40h
 tags: [crypto, backend, core, phase-1]
@@ -288,33 +288,33 @@ drizzle.config.ts
 
 ## Todo List
 
-- [ ] Step 1: Project setup (Bun, deps, config files)
-- [ ] Step 2: Config validation + shared types + event bus
-- [ ] Step 3: Database layer (libSQL + Drizzle schema + migrations)
-- [ ] Step 4: Exchange manager (CCXT Pro + multi-exchange + auto-reconnect)
-- [ ] Step 5: Price aggregator (real-time tickers + cache)
-- [ ] Step 6: Portfolio tracker (balance streams + drift detection + snapshots)
-- [ ] Step 7: Rebalance engine (drift detector + trade calculator + orchestrator)
-- [ ] Step 8: Order executor + paper trading engine
-- [ ] Step 9: Trailing stop-loss manager
-- [ ] Step 10: Smart DCA service
-- [ ] Step 11: Telegram notifier (grammy)
-- [ ] Step 12: REST API (Hono) + WebSocket (Bun native)
-- [ ] Step 13: Scheduler + full integration wiring
+- [x] Step 1: Project setup (Bun, deps, config files)
+- [x] Step 2: Config validation + shared types + event bus
+- [x] Step 3: Database layer (libSQL + Drizzle schema + migrations)
+- [x] Step 4: Exchange manager (CCXT Pro + multi-exchange + auto-reconnect)
+- [x] Step 5: Price aggregator (real-time tickers + cache)
+- [x] Step 6: Portfolio tracker (balance streams + drift detection + snapshots)
+- [x] Step 7: Rebalance engine (drift detector + trade calculator + orchestrator)
+- [x] Step 8: Order executor + paper trading engine
+- [x] Step 9: Trailing stop-loss manager
+- [x] Step 10: Smart DCA service
+- [x] Step 11: Telegram notifier (grammy)
+- [x] Step 12: REST API (Hono) + WebSocket (Bun native)
+- [x] Step 13: Scheduler + full integration wiring
 
 ## Success Criteria
 
-- [ ] Bot connects to Binance + OKX + Bybit via WebSocket
-- [ ] Real-time prices stream to React via Bun WebSocket
-- [ ] Portfolio allocation calculated in real-time
-- [ ] Auto rebalance triggers when drift > threshold
-- [ ] Paper trading mode works with simulated fills
-- [ ] Trailing stop-loss triggers correctly
-- [ ] DCA allocates new deposits to underweight assets
-- [ ] Telegram sends trade notifications
-- [ ] All REST endpoints return correct data
-- [ ] Bot auto-reconnects on exchange disconnect
-- [ ] Circuit breaker stops trading on daily loss limit
+- [x] Bot connects to Binance + OKX + Bybit via WebSocket
+- [x] Real-time prices stream to React via Bun WebSocket
+- [x] Portfolio allocation calculated in real-time
+- [x] Auto rebalance triggers when drift > threshold
+- [x] Paper trading mode works with simulated fills
+- [x] Trailing stop-loss triggers correctly
+- [x] DCA allocates new deposits to underweight assets
+- [x] Telegram sends trade notifications
+- [x] All REST endpoints return correct data
+- [x] Bot auto-reconnects on exchange disconnect
+- [x] Circuit breaker stops trading on daily loss limit
 
 ## Risk Assessment
 

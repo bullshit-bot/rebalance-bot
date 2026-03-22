@@ -1,7 +1,7 @@
 ---
 title: "Crypto Rebalance Bot - Full Feature"
 description: "Self-hosted crypto rebalance bot with ALL features: rebalance, DCA, backtesting, grid trading, copy trading, AI intelligence, portfolio analytics"
-status: pending
+status: completed
 priority: P1
 effort: 120h
 branch: main
@@ -41,30 +41,10 @@ Build a self-hosted, fully-automated crypto rebalance bot that combines ALL feat
 
 | # | Phase | Status | Effort | Priority | Link |
 |---|-------|--------|--------|----------|------|
-| 1 | Core Engine | Pending | 40h | P1 | [phase-01](./phase-01-core-engine.md) |
-| 2 | Intelligence & Analytics | Pending | 30h | P1 | [phase-02](./phase-02-intelligence-analytics.md) |
-| 3 | Advanced Execution | Pending | 25h | P2 | [phase-03](./phase-03-advanced-execution.md) |
-| 4 | Social & AI | Pending | 25h | P2 | [phase-04](./phase-04-social-ai.md) |
-
-## Feature Matrix
-
-| Feature | Phase | Status |
-|---------|-------|--------|
-| Auto rebalance (threshold + periodic) | 1 | Pending |
-| Smart DCA | 1 | Pending |
-| Trailing stop-loss | 1 | Pending |
-| Paper trading mode | 1 | Pending |
-| Real-time WebSocket (Binance, OKX, Bybit) | 1 | Pending |
-| Telegram alerts | 1 | Pending |
-| REST API for React | 1 | Pending |
-| Multi-exchange support | 1 | Pending |
-| Backtesting engine | 2 | Pending |
-| Portfolio analytics dashboard | 2 | Pending |
-| Tax/PnL reports | 2 | Pending |
-| TWAP/VWAP smart orders | 3 | Pending |
-| Grid trading | 3 | Pending |
-| Copy trading | 4 | Pending |
-| OpenClaw AI market intelligence | 4 | Pending |
+| 1 | Core Engine | ✅ Completed | 40h | P1 | [phase-01](./phase-01-core-engine.md) |
+| 2 | Intelligence & Analytics | ✅ Completed | 30h | P1 | [phase-02](./phase-02-intelligence-analytics.md) |
+| 3 | Advanced Execution | ✅ Completed | 25h | P2 | [phase-03](./phase-03-advanced-execution.md) |
+| 4 | Social & AI | ✅ Completed | 25h | P2 | [phase-04](./phase-04-social-ai.md) |
 
 ## Dependencies
 

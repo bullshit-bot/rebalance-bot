@@ -232,7 +232,7 @@ CREATE TABLE copy_sync_log (
 - [ ] Step 1: AI suggestion handler (receive, validate, approve/reject)
 - [ ] Step 2: Market summary service (daily Telegram report)
 - [ ] Step 3: OpenClaw custom skills (news, analysis, advisor)
-- [ ] Step 4: Copy trading manager (sources, fetcher, sync engine)
+- [x] Step 4: Copy trading manager (sources, fetcher, sync engine)
 - [ ] Step 5: Copy trading scheduler (periodic sync)
 - [ ] Step 6: API routes + Docker compose for OpenClaw
 

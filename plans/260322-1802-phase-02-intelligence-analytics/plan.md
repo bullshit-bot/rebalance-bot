@@ -1,7 +1,7 @@
 ---
 title: "Phase 2: Intelligence & Analytics"
 description: "Backtesting engine, portfolio analytics dashboard API, tax/PnL reports with CSV export"
-status: pending
+status: completed
 priority: P1
 effort: 30h
 tags: [crypto, analytics, backtesting, phase-2]
@@ -198,21 +198,21 @@ CREATE TABLE backtest_results (
 
 ## Todo List
 
-- [ ] Step 1: Historical OHLCV data loader + caching
-- [ ] Step 2: Backtest simulator (reuse Phase 1 engine)
-- [ ] Step 3: Metrics calculator (Sharpe, drawdown, returns) + benchmark
-- [ ] Step 4: Analytics engine (equity curve, PnL, fees, drawdown)
-- [ ] Step 5: Tax reporter (FIFO cost basis + CSV export)
-- [ ] Step 6: API routes for backtest + analytics + tax
+- [x] Step 1: Historical OHLCV data loader + caching
+- [x] Step 2: Backtest simulator (reuse Phase 1 engine)
+- [x] Step 3: Metrics calculator (Sharpe, drawdown, returns) + benchmark
+- [x] Step 4: Analytics engine (equity curve, PnL, fees, drawdown)
+- [x] Step 5: Tax reporter (FIFO cost basis + CSV export)
+- [x] Step 6: API routes for backtest + analytics + tax
 
 ## Success Criteria
 
-- [ ] Backtest 2 years of 5 assets completes in < 30 seconds
-- [ ] Metrics match manual calculation (spot-check)
-- [ ] Equity curve data renders correctly in React chart
-- [ ] CSV export imports successfully into Koinly
-- [ ] Benchmark comparison shows rebalance vs hold difference
-- [ ] Historical data cached, no re-download on re-run
+- [x] Backtest 2 years of 5 assets completes in < 30 seconds
+- [x] Metrics match manual calculation (spot-check)
+- [x] Equity curve data renders correctly in React chart
+- [x] CSV export imports successfully into Koinly
+- [x] Benchmark comparison shows rebalance vs hold difference
+- [x] Historical data cached, no re-download on re-run
 
 ## Risk Assessment
 

@@ -1,7 +1,7 @@
 ---
 title: "Phase 4: Social & AI"
 description: "OpenClaw AI market intelligence, copy trading with portfolio sync"
-status: pending
+status: completed
 priority: P2
 effort: 25h
 tags: [crypto, ai, openclaw, copy-trading, phase-4]
@@ -239,23 +239,23 @@ CREATE TABLE copy_sync_log (
 
 ## Todo List
 
-- [ ] Step 1: AI suggestion handler (receive, validate, approve/reject)
-- [ ] Step 2: Market summary service (daily Telegram report)
-- [ ] Step 3: OpenClaw custom skills (news, analysis, advisor)
-- [ ] Step 4: Copy trading manager (sources, fetcher, sync engine)
-- [ ] Step 5: Copy trading scheduler (periodic sync)
-- [ ] Step 6: API routes + Docker compose for OpenClaw
+- [x] Step 1: AI suggestion handler (receive, validate, approve/reject)
+- [x] Step 2: Market summary service (daily Telegram report)
+- [x] Step 3: OpenClaw custom skills (news, analysis, advisor)
+- [x] Step 4: Copy trading manager (sources, fetcher, sync engine)
+- [x] Step 5: Copy trading scheduler (periodic sync)
+- [x] Step 6: API routes + Docker compose for OpenClaw
 
 ## Success Criteria
 
-- [ ] OpenClaw skill sends allocation suggestion to bot API
-- [ ] Suggestion appears in Telegram with approve/reject buttons
-- [ ] Approved suggestion updates target allocations
-- [ ] Auto-approve mode works without human intervention
-- [ ] Daily market summary sent via Telegram at configured time
-- [ ] Copy trading syncs from JSON URL correctly
-- [ ] Weighted merge of multiple sources calculates correctly
-- [ ] Bot works normally when OpenClaw is offline (graceful degradation)
+- [x] OpenClaw skill sends allocation suggestion to bot API
+- [x] Suggestion appears in Telegram with approve/reject buttons
+- [x] Approved suggestion updates target allocations
+- [x] Auto-approve mode works without human intervention
+- [x] Daily market summary sent via Telegram at configured time
+- [x] Copy trading syncs from JSON URL correctly
+- [x] Weighted merge of multiple sources calculates correctly
+- [x] Bot works normally when OpenClaw is offline (graceful degradation)
 
 ## Risk Assessment
 
