@@ -1,0 +1,97 @@
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { env } from '@config/app-config'
+import { authMiddleware } from '@api/middleware/auth-middleware'
+import { portfolioRoutes } from '@api/routes/portfolio-routes'
+import { rebalanceRoutes } from '@api/routes/rebalance-routes'
+import { tradeRoutes } from '@api/routes/trade-routes'
+import { configRoutes } from '@api/routes/config-routes'
+import { healthRoutes } from '@api/routes/health-routes'
+import { backtestRoutes } from '@api/routes/backtest-routes'
+import { analyticsRoutes } from '@api/routes/analytics-routes'
+import { smartOrderRoutes } from '@api/routes/smart-order-routes'
+import { gridRoutes } from '@api/routes/grid-routes'
+import { aiRoutes } from '@api/routes/ai-routes'
+import { copyTradingRoutes } from '@api/routes/copy-trading-routes'
+import { initWebSocket, handleOpen, handleClose } from '@api/ws/ws-handler'
+
+// ─── Hono app ─────────────────────────────────────────────────────────────────
+
+const app = new Hono()
+
+// CORS — permissive by default; restrict origins via reverse proxy in production
+app.use('*', cors())
+
+// Auth middleware applied to all /api/* routes except /api/health
+app.use('/api/*', async (c, next) => {
+  if (c.req.path === '/api/health') {
+    await next()
+    return
+  }
+  return authMiddleware(c, next)
+})
+
+// ─── Route groups ─────────────────────────────────────────────────────────────
+
+app.route('/api/health', healthRoutes)
+app.route('/api/portfolio', portfolioRoutes)
+app.route('/api/rebalance', rebalanceRoutes)
+app.route('/api/trades', tradeRoutes)
+app.route('/api/config', configRoutes)
+app.route('/api', backtestRoutes)
+app.route('/api', analyticsRoutes)
+app.route('/api', smartOrderRoutes)
+app.route('/api', gridRoutes)
+app.route('/api', aiRoutes)
+app.route('/api', copyTradingRoutes)
+
+// ─── 404 fallback ─────────────────────────────────────────────────────────────
+
+app.notFound((c) => c.json({ error: 'Not found' }, 404))
+
+// ─── Server startup ───────────────────────────────────────────────────────────
+
+/**
+ * Starts the HTTP + WebSocket server using Bun.serve().
+ *
+ * WebSocket upgrade requests to /ws are handled natively by Bun;
+ * all other requests are dispatched through Hono.
+ * Returns the server instance so callers can call server.stop() on shutdown.
+ */
+export function startServer(): ReturnType<typeof Bun.serve> {
+  // Wire eventBus → WebSocket broadcast bridges before accepting connections
+  initWebSocket()
+
+  const server = Bun.serve({
+    port: env.API_PORT,
+
+    fetch(req, server) {
+      const url = new URL(req.url)
+
+      // Upgrade /ws path to a native Bun WebSocket connection
+      if (url.pathname === '/ws') {
+        const upgraded = server.upgrade(req, { data: {} })
+        if (!upgraded) {
+          return new Response('WebSocket upgrade failed', { status: 400 })
+        }
+        // Returning undefined signals Bun to proceed with the upgrade
+        return undefined
+      }
+
+      return app.fetch(req)
+    },
+
+    websocket: {
+      open: handleOpen,
+      close: handleClose,
+      // Server-to-client push only — inbound messages are silently ignored
+      message(_ws, _message) {},
+    },
+  })
+
+  console.info('[Server] Listening on port %d (paper=%s)', env.API_PORT, env.PAPER_TRADING)
+
+  return server
+}
+
+export { app }

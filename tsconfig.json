@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@config/*": ["src/config/*"],
+      "@db/*": ["src/db/*"],
+      "@types/*": ["src/types/*"],
+      "@events/*": ["src/events/*"],
+      "@exchange/*": ["src/exchange/*"],
+      "@price/*": ["src/price/*"],
+      "@portfolio/*": ["src/portfolio/*"],
+      "@rebalancer/*": ["src/rebalancer/*"],
+      "@executor/*": ["src/executor/*"],
+      "@trailing-stop/*": ["src/trailing-stop/*"],
+      "@dca/*": ["src/dca/*"],
+      "@notifier/*": ["src/notifier/*"],
+      "@scheduler/*": ["src/scheduler/*"],
+      "@api/*": ["src/api/*"],
+      "@grid/*": ["src/grid/*"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

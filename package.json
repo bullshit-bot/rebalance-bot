@@ -1,60 +1,31 @@
 {
-  "name": "claudekit-engineer",
-  "version": "2.13.0",
-  "description": "A comprehensive boilerplate template for building professional software projects with CLI Coding Agents (Claude Code and Open Code).",
-  "main": "index.js",
+  "name": "rebalance-bot",
+  "version": "0.1.0",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Warning: no test specified\" && exit 0",
-    "lint": "echo \"Linting passed\"",
-    "semantic-release": "semantic-release",
-    "prepare": "husky install || true"
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "lint": "biome check .",
+    "lint:fix": "biome check --fix .",
+    "test": "bun test"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/claudekit/claudekit-engineer.git"
+  "dependencies": {
+    "ccxt": "^4.4.0",
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.38.0",
+    "@libsql/client": "^0.14.0",
+    "grammy": "^1.35.0",
+    "croner": "^9.0.0",
+    "zod": "^3.24.0",
+    "@t3-oss/env-core": "^0.11.0"
   },
-  "keywords": [
-    "claude-code",
-    "ai-agents",
-    "development-template",
-    "boilerplate",
-    "automation",
-    "cli-tools"
-  ],
-  "author": "Duy Nguyen",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/claudekit/claudekit-engineer/issues"
-  },
-  "homepage": "https://github.com/claudekit/claudekit-engineer#readme",
-  "files": [
-    ".claude/",
-    "plans/",
-    "AGENTS.md",
-    "CLAUDE.md",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE",
-    ".claude/metadata.json"
-  ],
   "devDependencies": {
-    "@commitlint/cli": "^18.4.3",
-    "@commitlint/config-conventional": "^18.4.3",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/commit-analyzer": "^11.1.0",
-    "@semantic-release/exec": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^9.2.6",
-    "@semantic-release/npm": "^11.0.2",
-    "@semantic-release/release-notes-generator": "^12.1.0",
-    "conventional-changelog-conventionalcommits": "^7.0.2",
-    "husky": "^8.0.3",
-    "semantic-release": "^22.0.12"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "publishConfig": {
-    "access": "public"
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.30.0",
+    "@biomejs/biome": "^1.9.0",
+    "typescript": "^5.7.0"
   }
 }
