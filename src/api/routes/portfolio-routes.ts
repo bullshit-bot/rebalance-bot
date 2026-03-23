@@ -1,21 +1,57 @@
+import { desc } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { db } from '@db/database'
+import { snapshots, allocations as allocationsTable } from '@db/schema'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
 import { snapshotService } from '@portfolio/snapshot-service'
 
 const portfolioRoutes = new Hono()
 
 /**
- * GET /api/portfolio
- * Returns the current portfolio state or 503 if not yet available.
+ * Build a portfolio object from the latest DB snapshot when live tracking
+ * is unavailable (e.g. no exchange connections in paper mode).
  */
-portfolioRoutes.get('/', (c) => {
+async function buildPortfolioFromSnapshot() {
+  const [latest] = await db.select().from(snapshots).orderBy(desc(snapshots.createdAt)).limit(1)
+  if (!latest) return null
+
+  const holdings: Record<string, { amount: number; valueUsd: number; exchange?: string }> =
+    JSON.parse(latest.holdings)
+  const targets = await db.select().from(allocationsTable)
+  const targetMap = new Map(targets.map(t => [t.asset, t.targetPct]))
+
+  const totalValue = latest.totalValueUsd
+  const assets = Object.entries(holdings).map(([asset, h]) => {
+    const currentPct = totalValue > 0 ? (h.valueUsd / totalValue) * 100 : 0
+    const targetPct = targetMap.get(asset) ?? 0
+    return {
+      asset,
+      amount: h.amount,
+      valueUsd: h.valueUsd,
+      currentPct: Math.round(currentPct * 10) / 10,
+      targetPct,
+      driftPct: Math.round((currentPct - targetPct) * 10) / 10,
+      exchange: (h.exchange ?? 'binance') as 'binance' | 'okx' | 'bybit',
+    }
+  })
+
+  return { totalValueUsd: totalValue, assets, updatedAt: (latest.createdAt ?? 0) * 1000 }
+}
+
+/**
+ * GET /api/portfolio
+ * Returns the current portfolio state.
+ * Falls back to latest DB snapshot when live tracker is unavailable.
+ */
+portfolioRoutes.get('/', async (c) => {
   const portfolio = portfolioTracker.getPortfolio()
+  if (portfolio) return c.json(portfolio)
 
-  if (!portfolio) {
-    return c.json({ error: 'Portfolio not yet available' }, 503)
-  }
+  // Fallback: build from latest snapshot
+  const fallback = await buildPortfolioFromSnapshot()
+  if (fallback) return c.json(fallback)
 
-  return c.json(portfolio)
+  return c.json({ error: 'Portfolio not yet available' }, 503)
 })
 
 /**

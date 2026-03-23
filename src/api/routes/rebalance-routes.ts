@@ -23,6 +23,7 @@ rebalanceRoutes.post('/', async (c) => {
 /**
  * GET /api/rebalance/preview
  * Dry-run: returns trades that would be generated without executing them.
+ * Returns empty trades array when portfolio is unavailable (no exchange connections).
  */
 rebalanceRoutes.get('/preview', async (c) => {
   try {
@@ -30,6 +31,10 @@ rebalanceRoutes.get('/preview', async (c) => {
     return c.json(result)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    // Return empty preview instead of 500 when portfolio unavailable
+    if (message.includes('Portfolio not yet available')) {
+      return c.json({ trades: [], portfolio: null })
+    }
     return c.json({ error: message }, 500)
   }
 })
