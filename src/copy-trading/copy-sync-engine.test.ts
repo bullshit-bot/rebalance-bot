@@ -140,11 +140,8 @@ describe('CopySyncEngine', () => {
   })
 
   describe('syncSource', () => {
-    it('should sync a valid source', async () => {
-      // Requires DB setup
-      expect(async () => {
-        await engine.syncSource('source-123')
-      }).not.toThrow()
+    it('should throw for non-existent source', async () => {
+      await expect(engine.syncSource('source-123')).rejects.toThrow()
     })
 
     it('should return sync result', async () => {

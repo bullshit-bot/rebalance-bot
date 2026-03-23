@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
-import { telegramNotifier } from './telegram-notifier'
+import { TelegramNotifier, telegramNotifier } from './telegram-notifier'
 
 describe('TelegramNotifier', () => {
   let notifier = telegramNotifier

@@ -223,7 +223,7 @@ describe('CopyTradingManager', () => {
     })
   })
 
-  describe('getSourceById', () => {
+  describe('getSource', () => {
     it('should get source by ID', async () => {
       const sourceId = await manager.addSource({
         name: 'Get Test',
@@ -231,13 +231,13 @@ describe('CopyTradingManager', () => {
         allocations: [{ asset: 'BTC', targetPct: 100 }],
       })
 
-      const source = await manager.getSourceById(sourceId)
+      const source = await manager.getSource(sourceId)
       expect(source).toBeTruthy()
     })
 
-    it('should return undefined for non-existent source', async () => {
-      const source = await manager.getSourceById('non-existent')
-      expect(source).toBeUndefined()
+    it('should return null for non-existent source', async () => {
+      const source = await manager.getSource('non-existent')
+      expect(source).toBeNull()
     })
   })
 
@@ -248,7 +248,7 @@ describe('CopyTradingManager', () => {
     })
 
     it('should support limit', async () => {
-      const history = await manager.getSyncHistory(10)
+      const history = await manager.getSyncHistory(undefined, 10)
       expect(Array.isArray(history)).toBe(true)
     })
   })

@@ -10,7 +10,7 @@ import type { ExchangeName, RebalanceEvent, TradeResult } from '@/types/index'
  * Gracefully disabled when TELEGRAM_BOT_TOKEN is not configured.
  * Throttles repeated event types to avoid spam (5-minute cooldown per type).
  */
-class TelegramNotifier {
+export class TelegramNotifier {
   private bot: Bot | null = null
   private chatId: string = ''
   /** eventType -> timestamp of last sent message */
