@@ -4,6 +4,9 @@
 /node_modules
 package-lock.json
 
+# coverage reports
+/coverage
+
 # database
 data/
 /.pnp
