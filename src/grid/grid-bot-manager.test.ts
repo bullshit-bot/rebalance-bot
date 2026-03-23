@@ -1,11 +1,22 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { GridBotManager } from './grid-bot-manager'
+import { priceCache } from '@price/price-cache'
+
+// Seed price cache so grid bot creation doesn't throw "No price cached"
+function seedPrices() {
+  const now = Date.now()
+  const prices: Record<string, number> = { 'BTC/USDT': 45000, 'ETH/USDT': 3500, 'SOL/USDT': 180, 'ADA/USDT': 1.0 }
+  for (const [pair, price] of Object.entries(prices)) {
+    priceCache.set(pair, { exchange: 'binance', pair, price, bid: price * 0.999, ask: price * 1.001, volume24h: 1000, change24h: 1.5, timestamp: now })
+  }
+}
 
 describe('GridBotManager', () => {
   let manager: GridBotManager
 
   beforeEach(() => {
     manager = new GridBotManager()
+    seedPrices()
   })
 
   describe('create', () => {
@@ -57,8 +68,8 @@ describe('GridBotManager', () => {
       const botId = await manager.create({
         exchange: 'binance',
         pair: 'ETH/USDT',
-        priceLower: 2000,
-        priceUpper: 3000,
+        priceLower: 3000,
+        priceUpper: 4000,
         gridLevels: 4,
         investment: 500,
         gridType: 'reverse',
@@ -82,9 +93,10 @@ describe('GridBotManager', () => {
     })
 
     it('should handle different exchanges', async () => {
+      // Use a pair that has a cached price
       const botId = await manager.create({
-        exchange: 'kraken',
-        pair: 'XRP/USD',
+        exchange: 'okx',
+        pair: 'ADA/USDT',
         priceLower: 0.5,
         priceUpper: 1.5,
         gridLevels: 3,
@@ -137,8 +149,8 @@ describe('GridBotManager', () => {
     })
   })
 
-  describe('getStatus', () => {
-    it('should return bot status', async () => {
+  describe('getBot', () => {
+    it('should return bot by id', async () => {
       const botId = await manager.create({
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -149,14 +161,14 @@ describe('GridBotManager', () => {
         gridType: 'normal',
       })
 
-      const status = await manager.getStatus(botId)
-      expect(status).toBeTruthy()
-      expect(status.status).toBe('active')
+      const bot = await manager.getBot(botId)
+      expect(bot).toBeTruthy()
+      expect(bot!.status).toBe('active')
     })
 
-    it('should return undefined for non-existent bot', async () => {
-      const status = await manager.getStatus('non-existent')
-      expect(status).toBeUndefined()
+    it('should return null for non-existent bot', async () => {
+      const bot = await manager.getBot('non-existent')
+      expect(bot).toBeNull()
     })
   })
 

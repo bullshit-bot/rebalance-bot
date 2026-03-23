@@ -106,12 +106,12 @@ describe('GridExecutor', () => {
 
   describe('cancelAllOrders', () => {
     it('should cancel all orders for a bot', async () => {
-      await executor.cancelAllOrders('bot-cancel')
+      await executor.cancelAll('bot-cancel')
       expect(true).toBe(true)
     })
 
     it('should handle cancel on unknown bot', async () => {
-      await executor.cancelAllOrders('unknown-bot')
+      await executor.cancelAll('unknown-bot')
       expect(true).toBe(true)
     })
   })
