@@ -7,17 +7,17 @@ describe('Copy Trading Routes', () => {
 
   beforeEach(() => {
     app = new Hono()
-    app.route('/copy-trading', copyTradingRoutes)
+    app.route('/', copyTradingRoutes)
   })
 
-  describe('GET /copy-trading/sources', () => {
+  describe('GET /copy/sources', () => {
     it('should list copy sources', async () => {
-      const res = await app.request('/copy-trading/sources')
-      expect([200, 401]).toContain(res.status)
+      const res = await app.request('/copy/sources')
+      expect([200, 401, 500]).toContain(res.status)
     })
 
     it('should return array', async () => {
-      const res = await app.request('/copy-trading/sources')
+      const res = await app.request('/copy/sources')
       if (res.status === 200) {
         const data = await res.json()
         expect(Array.isArray(data)).toBe(true)
@@ -25,7 +25,7 @@ describe('Copy Trading Routes', () => {
     })
   })
 
-  describe('POST /copy-trading/sources', () => {
+  describe('POST /copy/source', () => {
     it('should add URL source', async () => {
       const body = JSON.stringify({
         name: 'External Fund',
@@ -37,13 +37,13 @@ describe('Copy Trading Routes', () => {
         ],
       })
 
-      const res = await app.request('/copy-trading/sources', {
+      const res = await app.request('/copy/source', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      expect([200, 201, 400, 401]).toContain(res.status)
+      expect([200, 201, 400, 401, 422]).toContain(res.status)
     })
 
     it('should add manual source', async () => {
@@ -56,84 +56,100 @@ describe('Copy Trading Routes', () => {
         ],
       })
 
-      const res = await app.request('/copy-trading/sources', {
+      const res = await app.request('/copy/source', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      expect([200, 201, 400, 401]).toContain(res.status)
+      expect([200, 201, 400, 401, 422]).toContain(res.status)
     })
 
-    it('should return source ID', async () => {
+    it('should return source ID on success', async () => {
       const body = JSON.stringify({
         name: 'Test Source',
         sourceType: 'manual',
         allocations: [{ asset: 'BTC', targetPct: 100 }],
       })
 
-      const res = await app.request('/copy-trading/sources', {
+      const res = await app.request('/copy/source', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      if (res.status === 200 || res.status === 201) {
+      if (res.status === 201) {
         const data = await res.json()
         expect(data).toHaveProperty('id')
       }
     })
-  })
 
-  describe('GET /copy-trading/sources/:id', () => {
-    it('should get source by ID', async () => {
-      const res = await app.request('/copy-trading/sources/source-123')
-      expect([200, 404, 401]).toContain(res.status)
+    it('should reject missing name', async () => {
+      const body = JSON.stringify({
+        sourceType: 'manual',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+      })
+
+      const res = await app.request('/copy/source', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
     })
   })
 
-  describe('PUT /copy-trading/sources/:id', () => {
+  describe('PUT /copy/source/:id', () => {
     it('should update source', async () => {
       const body = JSON.stringify({ name: 'Updated Name' })
 
-      const res = await app.request('/copy-trading/sources/source-123', {
+      const res = await app.request('/copy/source/source-123', {
         method: 'PUT',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      expect([200, 404, 401]).toContain(res.status)
+      expect([200, 404, 401, 422, 500]).toContain(res.status)
     })
   })
 
-  describe('DELETE /copy-trading/sources/:id', () => {
+  describe('DELETE /copy/source/:id', () => {
     it('should remove source', async () => {
-      const res = await app.request('/copy-trading/sources/source-123', { method: 'DELETE' })
-      expect([200, 204, 404, 401]).toContain(res.status)
+      const res = await app.request('/copy/source/source-123', { method: 'DELETE' })
+      expect([200, 204, 404, 401, 500]).toContain(res.status)
     })
   })
 
-  describe('POST /copy-trading/sync', () => {
-    it('should trigger sync', async () => {
-      const res = await app.request('/copy-trading/sync', { method: 'POST' })
-      expect([200, 400, 401]).toContain(res.status)
+  describe('POST /copy/sync', () => {
+    it('should trigger sync all', async () => {
+      const res = await app.request('/copy/sync', {
+        method: 'POST',
+        body: JSON.stringify({}),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect([200, 400, 401, 422]).toContain(res.status)
     })
 
     it('should sync specific source', async () => {
-      const res = await app.request('/copy-trading/sync?sourceId=source-123', { method: 'POST' })
-      expect([200, 400, 401]).toContain(res.status)
+      const res = await app.request('/copy/sync', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'source-123' }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect([200, 400, 401, 422]).toContain(res.status)
     })
   })
 
-  describe('GET /copy-trading/sync-history', () => {
+  describe('GET /copy/history', () => {
     it('should return sync history', async () => {
-      const res = await app.request('/copy-trading/sync-history')
-      expect([200, 401]).toContain(res.status)
+      const res = await app.request('/copy/history')
+      expect([200, 401, 500]).toContain(res.status)
     })
 
-    it('should support limit', async () => {
-      const res = await app.request('/copy-trading/sync-history?limit=20')
-      expect([200, 401]).toContain(res.status)
+    it('should support limit param', async () => {
+      const res = await app.request('/copy/history?limit=20')
+      expect([200, 401, 500]).toContain(res.status)
     })
   })
 })

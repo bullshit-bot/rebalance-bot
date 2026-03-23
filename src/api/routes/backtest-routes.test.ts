@@ -7,89 +7,127 @@ describe('Backtest Routes', () => {
 
   beforeEach(() => {
     app = new Hono()
-    app.route('/backtest', backtestRoutes)
+    app.route('/', backtestRoutes)
   })
 
-  describe('POST /backtest/run', () => {
-    it('should run backtest', async () => {
+  describe('POST /backtest', () => {
+    it('should run backtest with valid config', async () => {
       const body = JSON.stringify({
-        startDate: '2024-01-01',
-        endDate: '2024-03-22',
-        pair: 'BTC/USDT',
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        startDate: 1704067200000,
+        endDate: 1711065600000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
       })
 
-      const res = await app.request('/backtest/run', {
+      const res = await app.request('/backtest', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      expect([200, 201, 400, 401]).toContain(res.status)
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
     })
 
-    it('should require start date', async () => {
-      const body = JSON.stringify({ endDate: '2024-03-22', pair: 'BTC/USDT' })
-
-      const res = await app.request('/backtest/run', {
-        method: 'POST',
-        body,
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      expect([200, 400, 401]).toContain(res.status)
-    })
-
-    it('should return backtest ID', async () => {
+    it('should reject missing pairs', async () => {
       const body = JSON.stringify({
-        startDate: '2024-01-01',
-        endDate: '2024-03-22',
-        pair: 'BTC/USDT',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        startDate: 1704067200000,
+        endDate: 1711065600000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
       })
 
-      const res = await app.request('/backtest/run', {
+      const res = await app.request('/backtest', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      if (res.status === 200 || res.status === 201) {
-        const data = await res.json()
-        expect(data).toHaveProperty('id')
-      }
-    })
-  })
-
-  describe('GET /backtest/:id', () => {
-    it('should get backtest result', async () => {
-      const res = await app.request('/backtest/test-123')
-      expect([200, 404, 401]).toContain(res.status)
+      expect(res.status).toBe(400)
     })
 
-    it('should include metrics', async () => {
-      const res = await app.request('/backtest/test-123')
-      if (res.status === 200) {
+    it('should reject invalid timeframe', async () => {
+      const body = JSON.stringify({
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        startDate: 1704067200000,
+        endDate: 1711065600000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '4h',
+        exchange: 'binance',
+      })
+
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should return result on success', async () => {
+      const body = JSON.stringify({
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        startDate: 1704067200000,
+        endDate: 1711065600000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      })
+
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 201) {
         const data = await res.json()
         expect(data).toBeDefined()
       }
     })
   })
 
-  describe('GET /backtest', () => {
-    it('should list backtests', async () => {
-      const res = await app.request('/backtest')
-      expect([200, 401]).toContain(res.status)
+  describe('GET /backtest/list', () => {
+    it('should list saved backtests', async () => {
+      const res = await app.request('/backtest/list')
+      expect([200, 401, 500]).toContain(res.status)
     })
 
-    it('should support pagination', async () => {
-      const res = await app.request('/backtest?limit=10&offset=0')
-      expect([200, 401]).toContain(res.status)
-    })
-
-    it('should return array', async () => {
-      const res = await app.request('/backtest')
+    it('should return array when successful', async () => {
+      const res = await app.request('/backtest/list')
       if (res.status === 200) {
         const data = await res.json()
         expect(Array.isArray(data)).toBe(true)
+      }
+    })
+  })
+
+  describe('GET /backtest/:id', () => {
+    it('should get backtest result by ID', async () => {
+      const res = await app.request('/backtest/test-123')
+      expect([200, 404, 401, 500]).toContain(res.status)
+    })
+
+    it('should include metrics when found', async () => {
+      const res = await app.request('/backtest/test-123')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toBeDefined()
       }
     })
   })

@@ -95,16 +95,20 @@ describe('PriceAggregator', () => {
   beforeEach(() => {
     aggregator = new MockPriceAggregator()
 
+    // watchTicker must have a delay to prevent infinite tight loop
     mockExchange = {
-      watchTicker: mock(async (pair: string) => ({
-        last: 50000,
-        close: 49999,
-        bid: 49999,
-        ask: 50001,
-        baseVolume: 1000,
-        percentage: 2.5,
-        timestamp: Date.now(),
-      })),
+      watchTicker: mock(async (pair: string) => {
+        await new Promise(r => setTimeout(r, 20))
+        return {
+          last: 50000,
+          close: 49999,
+          bid: 49999,
+          ask: 50001,
+          baseVolume: 1000,
+          percentage: 2.5,
+          timestamp: Date.now(),
+        }
+      }),
       close: mock(async () => {}),
     }
 
@@ -154,15 +158,13 @@ describe('PriceAggregator', () => {
 
   test('should skip zero prices', async () => {
     const mockExchangeWithZero = {
-      watchTicker: mock(async (pair: string) => ({
-        last: 0, // Zero price should be skipped
-        close: 0,
-        bid: 0,
-        ask: 0,
-        baseVolume: 0,
-        percentage: 0,
-        timestamp: Date.now(),
-      })),
+      watchTicker: mock(async (pair: string) => {
+        await new Promise(r => setTimeout(r, 20))
+        return {
+          last: 0, close: 0, bid: 0, ask: 0,
+          baseVolume: 0, percentage: 0, timestamp: Date.now(),
+        }
+      }),
       close: mock(async () => {}),
     }
 
@@ -208,15 +210,14 @@ describe('PriceAggregator', () => {
 
   test('should use fallback values from ticker', async () => {
     const mockExchangeWithFallback = {
-      watchTicker: mock(async () => ({
-        last: undefined,
-        close: 45000, // Fallback to close
-        bid: undefined,
-        ask: undefined,
-        baseVolume: undefined,
-        percentage: undefined,
-        timestamp: undefined,
-      })),
+      watchTicker: mock(async () => {
+        await new Promise(r => setTimeout(r, 20))
+        return {
+          last: undefined, close: 45000,
+          bid: undefined, ask: undefined,
+          baseVolume: undefined, percentage: undefined, timestamp: undefined,
+        }
+      }),
       close: mock(async () => {}),
     }
 

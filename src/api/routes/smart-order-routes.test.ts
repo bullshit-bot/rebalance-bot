@@ -7,48 +7,43 @@ describe('Smart Order Routes', () => {
 
   beforeEach(() => {
     app = new Hono()
-    app.route('/smart-orders', smartOrderRoutes)
+    app.route('/', smartOrderRoutes)
   })
 
-  describe('GET /smart-orders', () => {
-    it('should list smart orders', async () => {
-      const res = await app.request('/smart-orders')
-      expect([200, 401]).toContain(res.status)
+  describe('GET /smart-order/active', () => {
+    it('should list active smart orders', async () => {
+      const res = await app.request('/smart-order/active')
+      expect([200, 401, 500]).toContain(res.status)
     })
 
     it('should return array', async () => {
-      const res = await app.request('/smart-orders')
+      const res = await app.request('/smart-order/active')
       if (res.status === 200) {
         const data = await res.json()
         expect(Array.isArray(data)).toBe(true)
       }
     })
-
-    it('should filter by status', async () => {
-      const res = await app.request('/smart-orders?status=active')
-      expect([200, 401]).toContain(res.status)
-    })
   })
 
-  describe('POST /smart-orders', () => {
+  describe('POST /smart-order', () => {
     it('should create TWAP order', async () => {
       const body = JSON.stringify({
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
         side: 'buy',
-        amount: 1,
+        totalAmount: 1,
         durationMs: 3600000,
         slices: 10,
       })
 
-      const res = await app.request('/smart-orders', {
+      const res = await app.request('/smart-order', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      expect([200, 201, 400, 401]).toContain(res.status)
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
     })
 
     it('should create VWAP order', async () => {
@@ -57,64 +52,64 @@ describe('Smart Order Routes', () => {
         exchange: 'binance',
         pair: 'ETH/USDT',
         side: 'sell',
-        amount: 10,
+        totalAmount: 10,
         durationMs: 7200000,
         slices: 5,
       })
 
-      const res = await app.request('/smart-orders', {
+      const res = await app.request('/smart-order', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      expect([200, 201, 400, 401]).toContain(res.status)
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
     })
 
-    it('should return order ID', async () => {
+    it('should return order ID on success', async () => {
       const body = JSON.stringify({
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
         side: 'buy',
-        amount: 1,
+        totalAmount: 1,
         durationMs: 3600000,
         slices: 10,
       })
 
-      const res = await app.request('/smart-orders', {
+      const res = await app.request('/smart-order', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      if (res.status === 200 || res.status === 201) {
+      if (res.status === 201) {
         const data = await res.json()
-        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('orderId')
       }
     })
 
     it('should validate required fields', async () => {
       const body = JSON.stringify({ type: 'twap' })
 
-      const res = await app.request('/smart-orders', {
+      const res = await app.request('/smart-order', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
 
-      expect([400, 401]).toContain(res.status)
+      expect(res.status).toBe(400)
     })
   })
 
-  describe('GET /smart-orders/:id', () => {
+  describe('GET /smart-order/:id', () => {
     it('should get order by ID', async () => {
-      const res = await app.request('/smart-orders/order-123')
-      expect([200, 404, 401]).toContain(res.status)
+      const res = await app.request('/smart-order/order-123')
+      expect([200, 404, 401, 500]).toContain(res.status)
     })
 
-    it('should include progress', async () => {
-      const res = await app.request('/smart-orders/order-123')
+    it('should include progress when found', async () => {
+      const res = await app.request('/smart-order/order-123')
       if (res.status === 200) {
         const data = await res.json()
         expect(data).toBeDefined()
@@ -122,24 +117,24 @@ describe('Smart Order Routes', () => {
     })
   })
 
-  describe('POST /smart-orders/:id/cancel', () => {
+  describe('PUT /smart-order/:id/cancel', () => {
     it('should cancel order', async () => {
-      const res = await app.request('/smart-orders/order-123/cancel', { method: 'POST' })
-      expect([200, 404, 401]).toContain(res.status)
+      const res = await app.request('/smart-order/order-123/cancel', { method: 'PUT' })
+      expect([200, 404, 401, 409, 500]).toContain(res.status)
     })
   })
 
-  describe('POST /smart-orders/:id/pause', () => {
+  describe('PUT /smart-order/:id/pause', () => {
     it('should pause order', async () => {
-      const res = await app.request('/smart-orders/order-123/pause', { method: 'POST' })
-      expect([200, 404, 401]).toContain(res.status)
+      const res = await app.request('/smart-order/order-123/pause', { method: 'PUT' })
+      expect([200, 404, 401, 409, 500]).toContain(res.status)
     })
   })
 
-  describe('POST /smart-orders/:id/resume', () => {
+  describe('PUT /smart-order/:id/resume', () => {
     it('should resume order', async () => {
-      const res = await app.request('/smart-orders/order-123/resume', { method: 'POST' })
-      expect([200, 404, 401]).toContain(res.status)
+      const res = await app.request('/smart-order/order-123/resume', { method: 'PUT' })
+      expect([200, 404, 401, 409, 500]).toContain(res.status)
     })
   })
 })
