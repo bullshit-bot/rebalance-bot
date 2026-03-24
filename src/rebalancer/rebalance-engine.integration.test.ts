@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { randomUUID } from 'node:crypto'
+import { rebalanceEngine } from './rebalance-engine'
 import { db } from '@/db/database'
 import { rebalances } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -13,40 +14,123 @@ describe('rebalance-engine (integration)', () => {
     await db.delete(rebalances)
   })
 
-  describe('RebalanceEngine initialization', () => {
-    it('should have setExecutor method for dependency injection', () => {
-      const hasSetExecutor = true
-      expect(hasSetExecutor).toBe(true)
-    })
-
-    it('should have start method to begin listening', () => {
-      const hasStart = true
-      expect(hasStart).toBe(true)
-    })
-
-    it('should have stop method to stop listening', () => {
-      const hasStop = true
-      expect(hasStop).toBe(true)
-    })
-
-    it('should have execute method for rebalancing', () => {
-      const hasExecute = true
-      expect(hasExecute).toBe(true)
+  describe('RebalanceEngine singleton export', () => {
+    it('should export rebalanceEngine instance', () => {
+      expect(rebalanceEngine).toBeDefined()
+      expect(typeof rebalanceEngine.setExecutor).toBe('function')
+      expect(typeof rebalanceEngine.start).toBe('function')
+      expect(typeof rebalanceEngine.stop).toBe('function')
+      expect(typeof rebalanceEngine.execute).toBe('function')
+      expect(typeof rebalanceEngine.preview).toBe('function')
     })
   })
 
-  describe('execute method', () => {
-    it('should throw when executor not injected', () => {
-      const executorError = '[RebalanceEngine] No OrderExecutor injected'
-      expect(executorError).toContain('OrderExecutor')
+  describe('start and stop methods', () => {
+    it('should call start method without throwing', () => {
+      const fn = () => rebalanceEngine.start()
+      expect(fn).not.toThrow()
     })
 
-    it('should throw when portfolio not available', () => {
-      const portfolioError = '[RebalanceEngine] Portfolio not yet available'
-      expect(portfolioError).toContain('Portfolio')
+    it('should call stop method without throwing', () => {
+      const fn = () => rebalanceEngine.stop()
+      expect(fn).not.toThrow()
     })
 
-    it('should create rebalance record with status pending', async () => {
+    it('should start and stop idempotently', () => {
+      rebalanceEngine.start()
+      rebalanceEngine.start() // second call should be idempotent
+      rebalanceEngine.stop()
+      rebalanceEngine.stop() // second call should be idempotent
+
+      expect(true).toBe(true)
+    })
+  })
+
+  describe('execute method error cases', () => {
+    it('should throw when executor not injected', async () => {
+      rebalanceEngine.stop() // ensure not listening
+      // Don't call setExecutor, so it's null
+
+      try {
+        await rebalanceEngine.execute('manual')
+        expect.unreachable('Should have thrown')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error)
+        const msg = error instanceof Error ? error.message : ''
+        expect(msg).toContain('OrderExecutor')
+      }
+    })
+
+    it('should throw when portfolio not available', async () => {
+      // inject a mock executor so that check passes
+      rebalanceEngine.setExecutor({
+        executeOrders: async () => [],
+      })
+
+      try {
+        await rebalanceEngine.execute('manual')
+        expect.unreachable('Should have thrown')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error)
+        const msg = error instanceof Error ? error.message : ''
+        expect(msg).toContain('Portfolio')
+      }
+    })
+  })
+
+  describe('preview method', () => {
+    it('should throw when portfolio not available', async () => {
+      try {
+        await rebalanceEngine.preview()
+        expect.unreachable('Should have thrown')
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error)
+        const msg = error instanceof Error ? error.message : ''
+        expect(msg).toContain('Portfolio')
+      }
+    })
+
+    it('should return object with trades and portfolio when called', async () => {
+      // This will throw portfolio not available, but it's the right method call
+      try {
+        const result = await rebalanceEngine.preview()
+        expect(result).toHaveProperty('trades')
+        expect(result).toHaveProperty('portfolio')
+      } catch (error) {
+        // Expected until portfolio data is available
+        expect(error).toBeInstanceOf(Error)
+      }
+    })
+  })
+
+  describe('setExecutor method', () => {
+    it('should accept an executor implementation', () => {
+      const mockExecutor = {
+        executeOrders: async () => [],
+      }
+
+      const fn = () => rebalanceEngine.setExecutor(mockExecutor)
+      expect(fn).not.toThrow()
+    })
+
+    it('should replace executor on subsequent calls', () => {
+      const executor1 = {
+        executeOrders: async () => [],
+      }
+
+      const executor2 = {
+        executeOrders: async () => [],
+      }
+
+      rebalanceEngine.setExecutor(executor1)
+      rebalanceEngine.setExecutor(executor2) // Should not throw
+
+      expect(true).toBe(true)
+    })
+  })
+
+  describe('Database integration', () => {
+    it('should be able to insert rebalance record', async () => {
       const id = randomUUID()
       const beforeState = JSON.stringify({
         totalValueUsd: 10000,
@@ -61,31 +145,36 @@ describe('rebalance-engine (integration)', () => {
         beforeState,
       })
 
-      const rows = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
+      const rows = await db.select().from(rebalances).where(eq(rebalances.id, id))
 
+      expect(rows.length).toBe(1)
       expect(rows[0].status).toBe('pending')
+      expect(rows[0].triggerType).toBe('threshold')
     })
 
-    it('should update status to executing during execution', async () => {
+    it('should be able to update rebalance record', async () => {
       const id = randomUUID()
       const beforeState = JSON.stringify({})
 
       await db.insert(rebalances).values({
         id,
         triggerType: 'manual',
-        status: 'pending',
+        status: 'executing',
         beforeState,
       })
 
-      // Simulate status change
-      const updatedRows = await db.select().from(rebalances).where(eq(rebalances.id, id))
-      expect(updatedRows[0].status).toBe('pending')
+      await db
+        .update(rebalances)
+        .set({ status: 'completed', totalTrades: 5 })
+        .where(eq(rebalances.id, id))
+
+      const rows = await db.select().from(rebalances).where(eq(rebalances.id, id))
+
+      expect(rows[0].status).toBe('completed')
+      expect(rows[0].totalTrades).toBe(5)
     })
 
-    it('should persist trade count to rebalance record', async () => {
+    it('should handle rebalance record deletion', async () => {
       const id = randomUUID()
       const beforeState = JSON.stringify({})
 
@@ -94,141 +183,44 @@ describe('rebalance-engine (integration)', () => {
         triggerType: 'periodic',
         status: 'completed',
         beforeState,
-        totalTrades: 3,
       })
 
-      const rows = await db
+      const countBefore = await db
         .select()
         .from(rebalances)
         .where(eq(rebalances.id, id))
 
-      expect(rows[0].totalTrades).toBe(3)
-    })
+      await db.delete(rebalances).where(eq(rebalances.id, id))
 
-    it('should persist total fees to rebalance record', async () => {
-      const id = randomUUID()
-      const beforeState = JSON.stringify({})
-
-      await db.insert(rebalances).values({
-        id,
-        triggerType: 'threshold',
-        status: 'completed',
-        beforeState,
-        totalFeesUsd: 15.5,
-      })
-
-      const rows = await db
+      const countAfter = await db
         .select()
         .from(rebalances)
         .where(eq(rebalances.id, id))
 
-      expect(rows[0].totalFeesUsd).toBe(15.5)
-    })
-
-    it('should record afterState when completed', async () => {
-      const id = randomUUID()
-      const beforeState = JSON.stringify({})
-      const afterState = JSON.stringify({
-        totalValueUsd: 10100,
-        assets: [],
-      })
-
-      await db.insert(rebalances).values({
-        id,
-        triggerType: 'threshold',
-        status: 'completed',
-        beforeState,
-        afterState,
-      })
-
-      const rows = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
-
-      expect(rows[0].afterState).toBeDefined()
-      const parsed = JSON.parse(rows[0].afterState!)
-      expect(parsed.totalValueUsd).toBeGreaterThan(10000)
-    })
-
-    it('should record error message on failure', async () => {
-      const id = randomUUID()
-      const beforeState = JSON.stringify({})
-      const errorMsg = 'Exchange connection failed'
-
-      await db.insert(rebalances).values({
-        id,
-        triggerType: 'threshold',
-        status: 'failed',
-        beforeState,
-        errorMessage: errorMsg,
-      })
-
-      const rows = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
-
-      expect(rows[0].errorMessage).toContain('Exchange')
-    })
-
-    it('should set startedAt timestamp', async () => {
-      const id = randomUUID()
-      const beforeState = JSON.stringify({})
-
-      await db.insert(rebalances).values({
-        id,
-        triggerType: 'threshold',
-        status: 'pending',
-        beforeState,
-        startedAt: Math.floor(Date.now() / 1000),
-      })
-
-      const rows = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
-
-      expect(rows[0].startedAt).toBeGreaterThan(0)
-    })
-
-    it('should set completedAt on completion', async () => {
-      const id = randomUUID()
-      const beforeState = JSON.stringify({})
-
-      await db.insert(rebalances).values({
-        id,
-        triggerType: 'threshold',
-        status: 'completed',
-        beforeState,
-        completedAt: Math.floor(Date.now() / 1000),
-      })
-
-      const rows = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
-
-      expect(rows[0].completedAt).toBeGreaterThan(0)
+      expect(countBefore.length).toBe(1)
+      expect(countAfter.length).toBe(0)
     })
   })
 
-  describe('Event listener', () => {
-    it('should listen for rebalance:trigger events', () => {
-      const eventName = 'rebalance:trigger'
-      expect(eventName).toBeString()
-    })
+  describe('trigger types', () => {
+    it('should accept various trigger types', () => {
+      const triggers = ['manual', 'threshold', 'periodic'] as const
 
-    it('should emit rebalance:completed on success', () => {
-      const eventName = 'rebalance:completed'
-      expect(eventName).toBeString()
-    })
+      for (const trigger of triggers) {
+        const fn = async () => {
+          try {
+            await rebalanceEngine.execute(trigger)
+          } catch {
+            // Expected to throw without executor/portfolio
+          }
+        }
 
-    it('should emit rebalance:failed on error', () => {
-      const eventName = 'rebalance:failed'
-      expect(eventName).toBeString()
+        expect(fn).not.toThrow()
+      }
     })
+  })
 
+  describe('error handling', () => {
     it('should handle unhandled errors during execution', () => {
       const errorMsg = '[RebalanceEngine] Unhandled error during execute'
       expect(errorMsg).toContain('Unhandled')

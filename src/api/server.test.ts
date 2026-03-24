@@ -10,6 +10,11 @@ describe('API Server', () => {
       expect([200, 404]).toContain(res.status)
     })
 
+    it('should return 200 for health endpoint', async () => {
+      const res = await app.request('/api/health')
+      expect(res.status).toBe(200)
+    })
+
     it('should mount portfolio routes', async () => {
       const res = await app.request('/api/portfolio')
       expect([200, 401, 404]).toContain(res.status)

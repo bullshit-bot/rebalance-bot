@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { CronScheduler } from './cron-scheduler'
 
 describe('CronScheduler', () => {
@@ -8,53 +8,65 @@ describe('CronScheduler', () => {
     scheduler = new CronScheduler()
   })
 
+  afterEach(() => {
+    // Clean up after each test
+    try {
+      scheduler.stop()
+    } catch {
+      // Ignore if already stopped
+    }
+  })
+
   describe('start', () => {
-    it('should start all cron jobs', () => {
+    it('should start all cron jobs without errors', () => {
       scheduler.start()
+      // Should not throw
       expect(true).toBe(true)
     })
 
-    it('should register 5 jobs', () => {
+    it('should register jobs on start', () => {
       scheduler.start()
-      // Scheduler has 5 cron jobs registered
-      expect(true).toBe(true)
+      // Internal jobs array should be populated
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
     })
 
-    it('should be idempotent', () => {
+    it('should be idempotent when called twice', () => {
       scheduler.start()
+      const firstJobCount = scheduler['jobs'].length
       scheduler.start()
-      // Should not create duplicate jobs
-      expect(true).toBe(true)
+      const secondJobCount = scheduler['jobs'].length
+      // Second start should not create new jobs
+      expect(secondJobCount).toBe(firstJobCount)
     })
 
-    it('should emit rebalance:trigger every 4 hours', () => {
+    it('should initialize with 5 jobs', () => {
       scheduler.start()
-      // Job: '0 */4 * * *'
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBe(5)
     })
 
-    it('should snapshot portfolio every 5 minutes', () => {
+    it('should register rebalance trigger job', () => {
       scheduler.start()
-      // Job: '*/5 * * * *'
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
     })
 
-    it('should clear stale prices every 60 seconds', () => {
+    it('should register snapshot job', () => {
       scheduler.start()
-      // Job: '* * * * *'
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
     })
 
-    it('should sync copy trading every 4 hours', () => {
+    it('should register price cache cleanup job', () => {
       scheduler.start()
-      // Job: '0 */4 * * *'
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
     })
 
-    it('should generate daily summary at 08:00 UTC', () => {
+    it('should register copy sync job', () => {
       scheduler.start()
-      // Job: '0 8 * * *'
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
+    })
+
+    it('should register daily summary job', () => {
+      scheduler.start()
+      expect(scheduler['jobs'].length).toBe(5)
     })
   })
 
@@ -62,41 +74,43 @@ describe('CronScheduler', () => {
     it('should stop all running jobs', () => {
       scheduler.start()
       scheduler.stop()
+      // Should not throw
       expect(true).toBe(true)
     })
 
-    it('should clear job list', () => {
+    it('should clear job list after stop', () => {
       scheduler.start()
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
       scheduler.stop()
-      // Jobs array should be empty
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBe(0)
     })
 
     it('should be idempotent', () => {
       scheduler.start()
       scheduler.stop()
       scheduler.stop()
-      // Should not throw
-      expect(true).toBe(true)
+      // Second stop should not throw
+      expect(scheduler['jobs'].length).toBe(0)
     })
 
     it('should work when not started', () => {
       scheduler.stop()
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBe(0)
     })
 
     it('should prevent further job execution', () => {
       scheduler.start()
+      const jobsBefore = scheduler['jobs'].length
       scheduler.stop()
-      // Jobs should be stopped
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBe(0)
     })
 
     it('should allow restart after stop', () => {
       scheduler.start()
       scheduler.stop()
+      expect(scheduler['jobs'].length).toBe(0)
       scheduler.start()
-      expect(true).toBe(true)
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
     })
   })
 

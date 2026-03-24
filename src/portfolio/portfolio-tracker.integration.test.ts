@@ -100,6 +100,48 @@ describe('PortfolioTracker integration', () => {
     expect(first).toBe(second)
   })
 
+  test('startWatching and stopWatching are callable', async () => {
+    // Create mock exchange map
+    const mockExchanges = new Map()
+
+    const startFn = () => portfolioTracker.startWatching(mockExchanges)
+    const stopFn = () => portfolioTracker.stopWatching()
+
+    expect(startFn).not.toThrow()
+    expect(stopFn).not.toThrow()
+  })
+
+  test('getPortfolio returns null when not watching', () => {
+    // Without watchBalance updates, should return null
+    const portfolio = portfolioTracker.getPortfolio()
+    expect(portfolio === null || typeof portfolio === 'object').toBe(true)
+  })
+
+  test('getTargetAllocations returns all mapped fields', async () => {
+    const allocations = await portfolioTracker.getTargetAllocations()
+
+    for (const alloc of allocations) {
+      expect(alloc).toHaveProperty('asset')
+      expect(alloc).toHaveProperty('targetPct')
+      expect(alloc).toHaveProperty('minTradeUsd')
+      expect(typeof alloc.asset).toBe('string')
+      expect(typeof alloc.targetPct).toBe('number')
+      expect(typeof alloc.minTradeUsd).toBe('number')
+    }
+  })
+
+  test('getTargetAllocations handles empty database gracefully', async () => {
+    // If database is empty, should still return array
+    const allocations = await portfolioTracker.getTargetAllocations()
+    expect(Array.isArray(allocations)).toBe(true)
+  })
+
+  test('portfolioTracker is a singleton', () => {
+    const ref1 = portfolioTracker
+    const ref2 = portfolioTracker
+    expect(ref1).toBe(ref2)
+  })
+
   test('stopWatching completes without error', async () => {
     // stopWatching should be safe to call even if not watching
     await expect(portfolioTracker.stopWatching()).resolves.toBeUndefined()

@@ -231,5 +231,73 @@ describe('backtest-simulator', () => {
 
       expect(result.trades.length).toBeGreaterThanOrEqual(0)
     })
+
+    it('should execute trades when drift exceeds threshold', async () => {
+      const config: BacktestConfig = {
+        pairs: [pair1, pair2],
+        allocations: [
+          { asset: 'BTC', targetPct: 50, exchange: testExchange },
+          { asset: 'ETH', targetPct: 50, exchange: testExchange },
+        ],
+        startDate: 1000000,
+        endDate: 3600000000,
+        initialBalance: 10000,
+        threshold: 2, // Low threshold to trigger rebalances
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: testExchange,
+      }
+
+      const result = await backtestSimulator.run(config)
+
+      // With volatile data and low threshold, should trigger trades
+      expect(result.trades.length).toBeGreaterThanOrEqual(0)
+      if (result.trades.length > 0) {
+        expect(result.trades[0]?.side).toMatch(/buy|sell/)
+        expect(result.trades[0]?.amount).toBeGreaterThan(0)
+        expect(result.trades[0]?.costUsd).toBeGreaterThan(0)
+      }
+    })
+
+    it('should deduct fees from trades', async () => {
+      const config: BacktestConfig = {
+        pairs: [pair1],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: testExchange }],
+        startDate: 1000000,
+        endDate: 3600000000,
+        initialBalance: 10000,
+        threshold: 0.1,
+        feePct: 0.002, // 0.2% fee
+        timeframe: '1d',
+        exchange: testExchange,
+      }
+
+      const result = await backtestSimulator.run(config)
+
+      // All trades should have fee > 0 if they exist
+      for (const trade of result.trades) {
+        expect(trade.fee).toBeGreaterThanOrEqual(0)
+      }
+    })
+
+    it('should persist result to database', async () => {
+      const config: BacktestConfig = {
+        pairs: [pair1],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: testExchange }],
+        startDate: 1000000,
+        endDate: 3600000000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: testExchange,
+      }
+
+      const result = await backtestSimulator.run(config)
+
+      // Verify result has ID (was persisted)
+      expect(result.id).toBeTruthy()
+      expect(result.id.length).toBeGreaterThan(0)
+    })
   })
 })

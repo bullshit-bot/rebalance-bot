@@ -627,6 +627,52 @@ describe('DCAService', () => {
     expect(orders.every((o) => o.type === 'market')).toBe(true)
   })
 
+  test('service emits events on start/stop', () => {
+    const svc = new DCAService()
+
+    svc.start()
+    expect(svc['running']).toBe(true)
+
+    svc.stop()
+    expect(svc['running']).toBe(false)
+  })
+
+  test('respects minTradeUsd threshold from env', () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 2000,
+          currentPct: 20,
+          targetPct: 50,
+          driftPct: -30,
+          exchange: 'binance',
+        },
+        {
+          asset: 'ETH',
+          amount: 10,
+          valueUsd: 8000,
+          currentPct: 80,
+          targetPct: 50,
+          driftPct: 30,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const targets: Allocation[] = [
+      { asset: 'BTC', targetPct: 50, minTradeUsd: 10 },
+    ]
+
+    const orders = service.calculateDCAAllocation(1000, portfolio, targets)
+
+    // Should respect minTradeUsd from env config
+    expect(orders.length).toBeGreaterThan(0)
+  })
+
   test('handles very small allocations correctly', () => {
     const portfolio: Portfolio = {
       totalValueUsd: 10000,

@@ -315,4 +315,56 @@ describe('BacktestSimulator', () => {
     expect(pricesList[1]['BTC/USDT']).toBe(34000)
     expect(pricesList[2]['BTC/USDT']).toBe(35000)
   })
+
+  it('handles empty OHLCV data', () => {
+    const ohlcvData: Record<string, OHLCVCandle[]> = {}
+    const timeline = sim._buildTimeline(ohlcvData)
+    expect(timeline.length).toBe(0)
+  })
+
+  it('handles no overlapping timestamps', () => {
+    const now = Date.now()
+    const ohlcvData: Record<string, OHLCVCandle[]> = {
+      'BTC/USDT': [{ timestamp: now, open: 30000, high: 31000, low: 29000, close: 30000, volume: 100 }],
+      'ETH/USDT': [{ timestamp: now + 86400000, open: 1000, high: 1100, low: 900, close: 1050, volume: 500 }],
+    }
+
+    const timeline = sim._buildTimeline(ohlcvData)
+    expect(timeline.length).toBe(0)
+  })
+
+  it('returns correct drift detection on rebalance', () => {
+    const holdings: Record<string, { amount: number; valueUsd: number }> = {
+      'BTC/USDT': { amount: 1, valueUsd: 30000 },
+      'ETH/USDT': { amount: 10, valueUsd: 15000 },
+    }
+    const allocations = [
+      { asset: 'BTC', targetPct: 40 },
+      { asset: 'ETH', targetPct: 60 },
+    ]
+    const totalValue = 45000
+
+    // BTC at 66.67%, target 40% → drift 26.67% > 5% threshold
+    const needsRebalance = sim._needsRebalance(holdings, allocations, totalValue, 5)
+    expect(needsRebalance).toBe(true)
+  })
+
+  it('handles zero total value in rebalance check', () => {
+    const holdings: Record<string, { amount: number; valueUsd: number }> = {}
+    const allocations = [{ asset: 'BTC', targetPct: 50 }]
+    const totalValue = 0
+
+    const needsRebalance = sim._needsRebalance(holdings, allocations, totalValue, 5)
+    expect(needsRebalance).toBe(false)
+  })
+
+  it('calculates correct prices for missing timestamp', () => {
+    const now = Date.now()
+    const ohlcvData: Record<string, OHLCVCandle[]> = {
+      'BTC/USDT': [{ timestamp: now, open: 30000, high: 31000, low: 29000, close: 30500, volume: 100 }],
+    }
+
+    const prices = sim._pricesAtTimestamp(ohlcvData, now + 86400000) // Missing timestamp
+    expect(Object.keys(prices).length).toBe(0)
+  })
 })

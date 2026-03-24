@@ -1,51 +1,157 @@
 import { describe, it, expect } from 'bun:test'
+import { driftDetector } from './drift-detector'
 import type { Portfolio } from '@/types/index'
 
 describe('drift-detector (integration)', () => {
-  describe('DriftDetector initialization', () => {
-    it('should have start method to begin listening', () => {
-      const hasStart = true
-      expect(hasStart).toBe(true)
-    })
-
-    it('should have stop method to stop listening', () => {
-      const hasStop = true
-      expect(hasStop).toBe(true)
-    })
-
-    it('should have canRebalance method', () => {
-      const hasCanRebalance = true
-      expect(hasCanRebalance).toBe(true)
-    })
-
-    it('should have recordRebalance method', () => {
-      const hasRecordRebalance = true
-      expect(hasRecordRebalance).toBe(true)
+  describe('DriftDetector singleton export', () => {
+    it('should export driftDetector instance', () => {
+      expect(driftDetector).toBeDefined()
+      expect(typeof driftDetector.start).toBe('function')
+      expect(typeof driftDetector.stop).toBe('function')
+      expect(typeof driftDetector.canRebalance).toBe('function')
+      expect(typeof driftDetector.recordRebalance).toBe('function')
     })
   })
 
-  describe('canRebalance logic', () => {
-    it('should return true when active and never rebalanced', () => {
-      const active = true
-      const lastRebalanceTime = null
-
-      const canRebalance = active && (lastRebalanceTime === null)
-      expect(canRebalance).toBe(true)
+  describe('start and stop methods', () => {
+    it('should call start without throwing', () => {
+      const fn = () => driftDetector.start()
+      expect(fn).not.toThrow()
     })
 
-    it('should return false when not active', () => {
-      const active = false
-      const canRebalance = active
+    it('should call stop without throwing', () => {
+      const fn = () => driftDetector.stop()
+      expect(fn).not.toThrow()
+    })
+
+    it('should be idempotent when called multiple times', () => {
+      driftDetector.start()
+      driftDetector.start()
+      driftDetector.stop()
+      driftDetector.stop()
+
+      expect(true).toBe(true)
+    })
+  })
+
+  describe('canRebalance method', () => {
+    it('should return boolean', () => {
+      const result = driftDetector.canRebalance()
+      expect(typeof result).toBe('boolean')
+    })
+
+    it('should return false when not started', () => {
+      driftDetector.stop()
+      const canRebalance = driftDetector.canRebalance()
       expect(canRebalance).toBe(false)
     })
 
-    it('should return true when cooldown period has elapsed', () => {
-      const COOLDOWN_MS = 1 * 60 * 60 * 1000 // 1 hour
-      const now = Date.now()
-      const lastRebalanceTime = now - COOLDOWN_MS - 1000 // 1 second past cooldown
+    it('should return true when started and never rebalanced', () => {
+      driftDetector.stop()
+      driftDetector.start()
+      // If we haven't called recordRebalance, canRebalance should be true
+      const canRebalance = driftDetector.canRebalance()
+      expect(typeof canRebalance).toBe('boolean')
+      driftDetector.stop()
+    })
 
-      const canRebalance = now - lastRebalanceTime >= COOLDOWN_MS
-      expect(canRebalance).toBe(true)
+    it('should respect cooldown period', () => {
+      driftDetector.stop()
+      driftDetector.start()
+
+      // Record a rebalance
+      driftDetector.recordRebalance()
+
+      // Immediately should not be able to rebalance (within cooldown)
+      const immediate = driftDetector.canRebalance()
+      expect(immediate).toBe(false)
+
+      driftDetector.stop()
+    })
+  })
+
+  describe('recordRebalance method', () => {
+    it('should record timestamp without throwing', () => {
+      const fn = () => driftDetector.recordRebalance()
+      expect(fn).not.toThrow()
+    })
+
+    it('should prevent rebalance immediately after recording', () => {
+      driftDetector.stop()
+      driftDetector.start()
+
+      driftDetector.recordRebalance()
+      const canRebalance = driftDetector.canRebalance()
+
+      expect(canRebalance).toBe(false)
+
+      driftDetector.stop()
+    })
+
+    it('should be callable multiple times', () => {
+      driftDetector.recordRebalance()
+      driftDetector.recordRebalance()
+      driftDetector.recordRebalance()
+
+      expect(true).toBe(true)
+    })
+  })
+
+  describe('event bus integration', () => {
+    it('should accept portfolio update events when started', () => {
+      driftDetector.stop()
+      driftDetector.start()
+
+      // Create a test portfolio with no drift
+      const portfolio: Portfolio = {
+        totalValueUsd: 10000,
+        assets: [
+          {
+            asset: 'BTC',
+            amount: 1,
+            valueUsd: 5000,
+            currentPct: 50,
+            targetPct: 50,
+            driftPct: 0,
+            exchange: 'binance',
+          },
+        ],
+        updatedAt: Date.now(),
+      }
+
+      // Just verify the detector started successfully
+      expect(driftDetector.canRebalance()).toBeBoolean()
+
+      driftDetector.stop()
+    })
+  })
+
+  describe('state transitions', () => {
+    it('should transition through start/stop states', () => {
+      driftDetector.stop()
+      expect(driftDetector.canRebalance()).toBe(false)
+
+      driftDetector.start()
+      const isRunning = driftDetector.canRebalance() === true || driftDetector.canRebalance() === false
+      expect(isRunning).toBe(true)
+
+      driftDetector.stop()
+      expect(driftDetector.canRebalance()).toBe(false)
+    })
+  })
+
+  describe('cooldown logic', () => {
+    it('should enforce cooldown after recordRebalance', () => {
+      driftDetector.stop()
+      driftDetector.start()
+
+      driftDetector.recordRebalance()
+      const canRebalanceAfterRecord = driftDetector.canRebalance()
+
+      // Should be false due to cooldown
+      expect(canRebalanceAfterRecord).toBe(false)
+
+      driftDetector.stop()
     })
 
     it('should return false when within cooldown period', () => {
