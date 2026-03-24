@@ -496,4 +496,330 @@ describe('MetricsCalculator', () => {
     expect(metrics.sharpeRatio).toBe(0)
     expect(metrics.maxDrawdownPct).toBe(0)
   })
+
+  describe('daily returns calculation', () => {
+    it('calculates returns from multi-day equity curve', () => {
+      const now = Date.now()
+      const dayMs = 86400000
+
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + dayMs, value: 10100 },
+        { timestamp: now + 2 * dayMs, value: 10200 },
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + 2 * dayMs,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      expect(metrics.volatility).toBeGreaterThanOrEqual(0)
+      expect(metrics.totalTrades).toBe(0)
+    })
+
+    it('handles overlapping timestamps in same day', () => {
+      const now = Date.now()
+      const dayMs = 86400000
+
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + 1000, value: 10050 }, // Same day
+        { timestamp: now + 2000, value: 10100 }, // Same day
+        { timestamp: now + dayMs, value: 10200 }, // Next day
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + dayMs,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      // Should take last value of each day
+      expect(metrics.totalReturnPct).toBeCloseTo(2, 1)
+    })
+  })
+
+  describe('edge cases', () => {
+    it('handles zero portfolio value gracefully', () => {
+      const now = Date.now()
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + 86400000, value: 0 },
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + 86400000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      expect(metrics.totalReturnPct).toBeCloseTo(-100, 1)
+      expect(metrics.maxDrawdownPct).toBeCloseTo(100, 1)
+    })
+
+    it('handles identical daily returns (flat performance)', () => {
+      const now = Date.now()
+      const dayMs = 86400000
+
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + dayMs, value: 10000 },
+        { timestamp: now + 2 * dayMs, value: 10000 },
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + 2 * dayMs,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      expect(metrics.totalReturnPct).toBe(0)
+      expect(metrics.sharpeRatio).toBe(0)
+      expect(metrics.volatility).toBe(0)
+    })
+
+    it('handles very high volatility', () => {
+      const now = Date.now()
+      const dayMs = 86400000
+
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + dayMs, value: 15000 }, // +50%
+        { timestamp: now + 2 * dayMs, value: 5000 }, // -67%
+        { timestamp: now + 3 * dayMs, value: 20000 }, // +300%
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + 3 * dayMs,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      expect(metrics.volatility).toBeGreaterThan(100)
+      expect(metrics.maxDrawdownPct).toBeGreaterThan(50)
+    })
+
+    it('handles negative returns on trade', () => {
+      const now = Date.now()
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + 86400000, value: 9500 },
+      ]
+
+      const trades: SimulatedTrade[] = [
+        {
+          timestamp: now,
+          pair: 'BTC/USDT',
+          side: 'buy',
+          amount: 0.1,
+          price: 30000,
+          costUsd: 3000,
+          fee: 30,
+        },
+      ]
+
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + 86400000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      expect(metrics.totalReturnPct).toBeCloseTo(-5, 1)
+      expect(metrics.totalFeesPaid).toBe(30)
+    })
+
+    it('handles empty trades array', () => {
+      const now = Date.now()
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + 86400000, value: 11000 },
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + 86400000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      expect(metrics.totalTrades).toBe(0)
+      expect(metrics.totalFeesPaid).toBe(0)
+      expect(metrics.avgTradeSize).toBe(0)
+    })
+
+    it('calculates correct win rate with multiple rebalances', () => {
+      const now = Date.now()
+      const dayMs = 86400000
+
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + dayMs, value: 10500 }, // Win
+        { timestamp: now + 2 * dayMs, value: 10200 }, // Loss
+        { timestamp: now + 3 * dayMs, value: 11000 }, // Win
+      ]
+
+      const trades: SimulatedTrade[] = [
+        {
+          timestamp: now,
+          pair: 'BTC/USDT',
+          side: 'buy',
+          amount: 0.1,
+          price: 30000,
+          costUsd: 3000,
+          fee: 3,
+        },
+        {
+          timestamp: now + dayMs,
+          pair: 'ETH/USDT',
+          side: 'sell',
+          amount: 1,
+          price: 2000,
+          costUsd: 2000,
+          fee: 2,
+        },
+        {
+          timestamp: now + 2 * dayMs,
+          pair: 'BTC/USDT',
+          side: 'buy',
+          amount: 0.05,
+          price: 31000,
+          costUsd: 1550,
+          fee: 1.55,
+        },
+      ]
+
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT', 'ETH/USDT'],
+        allocations: [
+          { asset: 'BTC', targetPct: 50, exchange: 'binance' },
+          { asset: 'ETH', targetPct: 50, exchange: 'binance' },
+        ],
+        startDate: now,
+        endDate: now + 3 * dayMs,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      expect(metrics.winRate).toBeGreaterThanOrEqual(0)
+      expect(metrics.winRate).toBeLessThanOrEqual(100)
+      expect(metrics.totalTrades).toBe(3)
+    })
+  })
+
+  describe('annualized metrics', () => {
+    it('calculates annualized return for shorter periods', () => {
+      const now = Date.now()
+      const thirtyDaysMs = 30 * 86400000
+
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + thirtyDaysMs, value: 10100 },
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + thirtyDaysMs,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      // 1% return over 30 days → higher annualized return
+      expect(metrics.annualizedReturnPct).toBeGreaterThan(metrics.totalReturnPct)
+    })
+
+    it('handles very short duration (< 1 day)', () => {
+      const now = Date.now()
+      const oneHourMs = 3600000
+
+      const equityCurve = [
+        { timestamp: now, value: 10000 },
+        { timestamp: now + oneHourMs, value: 10100 },
+      ]
+      const trades: SimulatedTrade[] = []
+      const config: BacktestConfig = {
+        pairs: ['BTC/USDT'],
+        allocations: [{ asset: 'BTC', targetPct: 100, exchange: 'binance' }],
+        startDate: now,
+        endDate: now + oneHourMs,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1h',
+        exchange: 'binance',
+      }
+
+      const metrics = calc.calculate(equityCurve, trades, config)
+
+      // Even with very short duration, should calculate meaningful metrics
+      expect(metrics.totalReturnPct).toBeCloseTo(1, 0)
+    })
+  })
 })

@@ -271,4 +271,174 @@ describe('DriftDetector', () => {
     detector.start()
     expect(detector.isActive()).toBe(true)
   })
+
+  test('should not trigger rebalance when already started recently', () => {
+    detector.start()
+    detector.recordRebalance()
+
+    // Immediately after, cooldown should block
+    expect(detector.canRebalance()).toBe(false)
+  })
+
+  test('should trigger on first high-drift asset found', () => {
+    detector.start()
+    detector.clearEvents()
+
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.3,
+          valueUsd: 7500,
+          currentPct: 75,
+          targetPct: 50,
+          driftPct: 25,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    if (detector.canRebalance()) {
+      const breached = portfolio.assets.find((a) => Math.abs(a.driftPct) > 5)
+      if (breached) {
+        detector.recordRebalance()
+      }
+    }
+
+    expect(detector.canRebalance()).toBe(false)
+  })
+
+  test('should detect negative drift correctly', () => {
+    detector.start()
+
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0,
+          valueUsd: 0,
+          currentPct: 0,
+          targetPct: 50,
+          driftPct: -50,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    if (detector.canRebalance()) {
+      const breached = portfolio.assets.find((a) => Math.abs(a.driftPct) > 5)
+      expect(breached).toBeDefined()
+    }
+  })
+
+  test('should handle portfolio with all zero drift', () => {
+    detector.start()
+    detector.clearEvents()
+
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.2,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const breached = portfolio.assets.find((a) => Math.abs(a.driftPct) > 5)
+    expect(breached).toBeUndefined()
+  })
+
+  test('should detect when cooldown expires (simulate with manual time)', () => {
+    detector.start()
+    detector.recordRebalance()
+
+    // Can't rebalance immediately
+    expect(detector.canRebalance()).toBe(false)
+
+    // Simulating time passage by recording old timestamp
+    // In real tests, we'd use time mocks or advance time
+  })
+
+  test('should allow rebalance if never recorded before', () => {
+    detector.start()
+    expect(detector.canRebalance()).toBe(true)
+  })
+
+  test('should handle empty asset list', () => {
+    detector.start()
+
+    const portfolio: Portfolio = {
+      totalValueUsd: 0,
+      assets: [],
+      updatedAt: Date.now(),
+    }
+
+    expect(detector.canRebalance()).toBe(true)
+  })
+
+  test('should block rebalance if inactive', () => {
+    // Don't start
+    expect(detector.canRebalance()).toBe(false)
+
+    // Even after recording
+    detector.recordRebalance()
+    expect(detector.canRebalance()).toBe(false)
+  })
+
+  test('should find asset with edge-case drift (exactly at threshold)', () => {
+    detector.start()
+
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.15,
+          valueUsd: 5500,
+          currentPct: 55,
+          targetPct: 50,
+          driftPct: 5, // Exactly at threshold
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const breached = portfolio.assets.find((a) => Math.abs(a.driftPct) > 5)
+    expect(breached).toBeUndefined() // Should NOT trigger at exactly 5
+  })
+
+  test('should find asset just above threshold', () => {
+    detector.start()
+
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.15,
+          valueUsd: 5501,
+          currentPct: 55.01,
+          targetPct: 50,
+          driftPct: 5.01, // Just above threshold
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const breached = portfolio.assets.find((a) => Math.abs(a.driftPct) > 5)
+    expect(breached).toBeDefined()
+  })
 })

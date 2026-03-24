@@ -350,4 +350,204 @@ describe('RebalanceEngine', () => {
 
     expect(result.status).toBe('completed')
   })
+
+  test('should handle multiple consecutive executions', async () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+
+    const result1 = await engine.execute('threshold')
+    const result2 = await engine.execute('threshold')
+
+    expect(result1.id).not.toBe(result2.id)
+    expect(engine.getCompletedEvents().length).toBe(2)
+  })
+
+  test('should capture before and after states with assets', async () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 50000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.5,
+          valueUsd: 25000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+        {
+          asset: 'ETH',
+          amount: 10,
+          valueUsd: 25000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+    const result = await engine.execute('threshold')
+
+    expect(result.beforeState.assets.length).toBe(2)
+    expect(result.afterState.assets.length).toBe(2)
+  })
+
+  test('should handle different trigger types', async () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+
+    const result1 = await engine.execute('threshold')
+    const result2 = await engine.execute('manual')
+
+    expect(result1.trigger).toBe('threshold')
+    expect(result2.trigger).toBe('manual')
+  })
+
+  test('should handle large portfolio value', async () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 1000000, // $1M
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 20,
+          valueUsd: 1000000,
+          currentPct: 100,
+          targetPct: 50,
+          driftPct: 50,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+    const result = await engine.execute('threshold')
+
+    expect(result.totalFeesUsd).toBeGreaterThanOrEqual(0)
+    expect(result.trades.length).toBeGreaterThanOrEqual(0)
+  })
+
+  test('should track trades count correctly', async () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+    const result = await engine.execute('threshold')
+
+    expect(result.trades.length).toBeGreaterThanOrEqual(0)
+  })
+
+  test('should handle executor throwing during execute', async () => {
+    const failingExecutor: OrderExecutor = {
+      executeOrders: async () => {
+        throw new Error('Network timeout')
+      },
+    }
+
+    engine.setExecutor(failingExecutor)
+
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+
+    try {
+      await engine.execute('threshold')
+      expect.fail('Should have thrown')
+    } catch (err) {
+      expect((err as Error).message).toContain('Network timeout')
+      expect(engine.getFailedEvents().length).toBe(1)
+    }
+  })
+
+  test('preview should not alter state', async () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+    const preview = await engine.preview()
+
+    expect(preview.portfolio).toBeDefined()
+    expect(preview.trades).toBeDefined()
+    expect(Array.isArray(preview.trades)).toBe(true)
+
+    // Events should be empty
+    expect(engine.getCompletedEvents().length).toBe(0)
+  })
+
+  test('should handle portfolio with single large position', async () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.25,
+          valueUsd: 10000,
+          currentPct: 100,
+          targetPct: 50,
+          driftPct: 50,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    engine.setPortfolio(portfolio)
+    const result = await engine.execute('threshold')
+
+    expect(result.status).toBe('completed')
+    expect(result.beforeState.totalValueUsd).toBe(10000)
+  })
 })

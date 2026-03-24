@@ -121,6 +121,44 @@ describe('PortfolioTracker', () => {
     expect(tracker.getPortfolio()).toBeNull()
   })
 
+  test('should handle single-asset portfolio correctly', () => {
+    tracker.setBalances('binance', {
+      BTC: 1,
+    })
+
+    const portfolio = tracker.getPortfolio()
+    expect(portfolio).not.toBeNull()
+    expect(portfolio!.assets.length).toBe(1)
+    expect(portfolio!.assets[0].asset).toBe('BTC')
+    expect(portfolio!.assets[0].currentPct).toBeCloseTo(100, 1)
+  })
+
+  test('should compute negative drift for underweight assets', () => {
+    tracker.setBalances('binance', {
+      BTC: 0.05, // 2500 = 25% vs 50% target
+      ETH: 25, // 50000 = 50% vs 50% target (but this gives 75% total)
+      USDT: 25000, // 25000 = 25% vs 20% target
+    })
+
+    const portfolio = tracker.getPortfolio()
+    const btc = portfolio!.assets.find((a) => a.asset === 'BTC')
+    expect(btc).toBeDefined() // Should be in portfolio
+    expect(btc!.driftPct).toBeLessThan(0) // Negative drift = underweight
+  })
+
+  test('should only include assets in portfolio that have value', () => {
+    tracker.setBalances('binance', {
+      BTC: 1,
+      USDT: 5000,
+    })
+
+    const portfolio = tracker.getPortfolio()
+    const assetNames = portfolio!.assets.map((a) => a.asset)
+    expect(assetNames).toContain('BTC')
+    expect(assetNames).toContain('USDT')
+    expect(assetNames.length).toBe(2)
+  })
+
   test('should calculate allocation percentages', () => {
     tracker.setBalances('binance', {
       BTC: 1, // 50000
@@ -236,5 +274,83 @@ describe('PortfolioTracker', () => {
 
     expect(btc!.exchange).toBe('binance')
     expect(eth!.exchange).toBe('okx')
+  })
+
+  test('should handle single-asset portfolio correctly', () => {
+    tracker.setBalances('binance', {
+      BTC: 1,
+    })
+
+    const portfolio = tracker.getPortfolio()
+    expect(portfolio).not.toBeNull()
+    expect(portfolio!.assets.length).toBe(1)
+    expect(portfolio!.assets[0].asset).toBe('BTC')
+    expect(portfolio!.assets[0].currentPct).toBeCloseTo(100, 1)
+  })
+
+  test('should handle multiple stablecoins together', () => {
+    tracker.setBalances('binance', {
+      USDT: 1000,
+      USDC: 500,
+    })
+
+    const portfolio = tracker.getPortfolio()
+    expect(portfolio).not.toBeNull()
+    expect(portfolio!.assets.length).toBe(2)
+  })
+
+  test('should compute currentPct sum to ~100%', () => {
+    tracker.setBalances('binance', {
+      BTC: 1, // 50000
+      ETH: 10, // 30000
+      USDT: 20000, // 20000
+    })
+
+    const portfolio = tracker.getPortfolio()
+    const totalPct = portfolio!.assets.reduce((sum, a) => sum + a.currentPct, 0)
+    expect(totalPct).toBeCloseTo(100, 0)
+  })
+
+  test('should handle portfolio with three assets', () => {
+    tracker.setBalances('binance', {
+      BTC: 0.5,
+      ETH: 15,
+      USDT: 10000,
+    })
+
+    const portfolio = tracker.getPortfolio()
+    expect(portfolio!.assets.length).toBe(3)
+    expect(portfolio!.totalValueUsd).toBeGreaterThan(0)
+  })
+
+  test('should update portfolio on second exchange update', () => {
+    tracker.setBalances('binance', { BTC: 0.5, USDT: 5000 })
+    const p1 = tracker.getPortfolio()
+
+    tracker.setBalances('okx', { BTC: 0.5, USDT: 5000 })
+    const p2 = tracker.getPortfolio()
+
+    expect(p2).not.toBeNull()
+    expect(p2!.assets.find((a) => a.asset === 'BTC')!.amount).toBeCloseTo(1.0, 1)
+  })
+
+  test('should handle price unavailability for some assets', () => {
+    tracker.setBalances('binance', {
+      BTC: 1,
+      UNKNOWN: 100, // No price
+      ETH: 10,
+    })
+
+    const portfolio = tracker.getPortfolio()
+    // BTC and ETH should be included
+    expect(portfolio!.assets.map((a) => a.asset)).toContain('BTC')
+    expect(portfolio!.assets.map((a) => a.asset)).toContain('ETH')
+    // UNKNOWN should not be included
+    expect(portfolio!.assets.map((a) => a.asset)).not.toContain('UNKNOWN')
+  })
+
+  test('should skip recalculation if totalValue is zero', () => {
+    // No balances set
+    expect(tracker.getPortfolio()).toBeNull()
   })
 })

@@ -257,6 +257,192 @@ describe('DCAService', () => {
     expect(orders[0].exchange).toBe('okx')
   })
 
+  test('skips assets with zero amount or valueUsd', () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 5000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0, // Zero amount
+          valueUsd: 0,
+          currentPct: 0,
+          targetPct: 50,
+          driftPct: -50,
+          exchange: 'binance',
+        },
+        {
+          asset: 'ETH',
+          amount: 10,
+          valueUsd: 5000,
+          currentPct: 100,
+          targetPct: 50,
+          driftPct: 50,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const targets: Allocation[] = [
+      { asset: 'BTC', targetPct: 50, minTradeUsd: 10 },
+      { asset: 'ETH', targetPct: 50, minTradeUsd: 10 },
+    ]
+
+    const orders = service.calculateDCAAllocation(1000, portfolio, targets)
+
+    // BTC should be skipped due to zero amount, no orders should be generated
+    expect(orders.length).toBe(0)
+  })
+
+  test('filters orders below minTradeUsd per allocation', () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 2000,
+          currentPct: 20,
+          targetPct: 50,
+          driftPct: -30,
+          exchange: 'binance',
+        },
+        {
+          asset: 'ETH',
+          amount: 10,
+          valueUsd: 8000,
+          currentPct: 80,
+          targetPct: 50,
+          driftPct: 30,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const targets: Allocation[] = [
+      { asset: 'BTC', targetPct: 50, minTradeUsd: 500 }, // Minimum trade is $500
+    ]
+
+    // Deposit is $1000. BTC is 30% underweight, gets 100% = $1000 > $500 minTradeUsd
+    const orders = service.calculateDCAAllocation(1000, portfolio, targets)
+
+    expect(orders.length).toBe(1) // BTC meets minimum
+  })
+
+  test('handles assets not in targets', () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+        {
+          asset: 'ETH', // No target for ETH
+          amount: 10,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 0, // Not in targets
+          driftPct: 50,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const targets: Allocation[] = [
+      { asset: 'BTC', targetPct: 50, minTradeUsd: 10 },
+    ]
+
+    const orders = service.calculateDCAAllocation(1000, portfolio, targets)
+
+    // Should only return BTC (ETH not in targets)
+    expect(orders.every((o) => o.pair === 'BTC/USDT')).toBe(true)
+  })
+
+  test('service lifecycle: start and stop', () => {
+    const svc = new DCAService()
+
+    // Initially not running
+    expect(svc['running']).toBe(false)
+
+    // Start the service
+    svc.start()
+    expect(svc['running']).toBe(true)
+
+    // Start again should be idempotent
+    svc.start()
+    expect(svc['running']).toBe(true)
+
+    // Stop the service
+    svc.stop()
+    expect(svc['running']).toBe(false)
+
+    // Stop again should be idempotent
+    svc.stop()
+    expect(svc['running']).toBe(false)
+  })
+
+  test('service resets state on stop', () => {
+    const svc = new DCAService()
+    svc.start()
+
+    // Simulate setting internal state
+    svc['previousTotalValue'] = 50000
+    svc['lastDepositAt'] = Date.now()
+
+    svc.stop()
+
+    // State should be reset
+    expect(svc['previousTotalValue']).toBe(0)
+    expect(svc['running']).toBe(false)
+  })
+
+  test('calculates correct coin amounts from prices', () => {
+    const portfolio: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.5,
+          valueUsd: 5000, // Price = 10000 per BTC
+          currentPct: 50,
+          targetPct: 75,
+          driftPct: -25,
+          exchange: 'binance',
+        },
+        {
+          asset: 'ETH',
+          amount: 100,
+          valueUsd: 5000, // Price = 50 per ETH
+          currentPct: 50,
+          targetPct: 25,
+          driftPct: 25,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const targets: Allocation[] = [
+      { asset: 'BTC', targetPct: 75, minTradeUsd: 10 },
+    ]
+
+    const orders = service.calculateDCAAllocation(2000, portfolio, targets)
+
+    expect(orders.length).toBe(1)
+    const btcOrder = orders[0]!
+
+    // 2000 USD at 10000 per BTC = 0.2 BTC
+    expect(btcOrder.amount).toBeCloseTo(0.2, 1)
+  })
+
   test('ignores assets not in targets', () => {
     const portfolio: Portfolio = {
       totalValueUsd: 10000,

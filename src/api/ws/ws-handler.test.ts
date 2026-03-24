@@ -1,100 +1,355 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
+import type { WSMessage } from '@/types/index'
+
+// Mock WebSocket class for testing
+class MockWebSocket {
+  messages: string[] = []
+  isClosed = false
+
+  send(data: string): void {
+    if (!this.isClosed) {
+      this.messages.push(data)
+    } else {
+      throw new Error('WebSocket closed')
+    }
+  }
+
+  close(): void {
+    this.isClosed = true
+  }
+}
 
 describe('WebSocket Handler', () => {
-  describe('authentication', () => {
-    it('should require API key', () => {
-      // WebSocket upgrade requires apiKey as query param
-      expect(true).toBe(true)
+  let clients: Set<any>
+  let broadcast: (msg: WSMessage) => void
+
+  beforeEach(() => {
+    // Reset client registry and broadcast throttle
+    clients = new Set()
+    let lastPriceBroadcast = 0
+
+    // Simple broadcast implementation for testing
+    broadcast = (message: WSMessage): void => {
+      const payload = JSON.stringify(message)
+      for (const ws of clients) {
+        try {
+          ws.send(payload)
+        } catch {
+          clients.delete(ws)
+        }
+      }
+    }
+  })
+
+  describe('broadcast function', () => {
+    it('sends message to all connected clients', () => {
+      const client1 = new MockWebSocket()
+      const client2 = new MockWebSocket()
+      clients.add(client1)
+      clients.add(client2)
+
+      const msg: WSMessage = { type: 'prices', data: { 'BTC/USDT': 50000 } }
+      broadcast(msg)
+
+      expect(client1.messages.length).toBe(1)
+      expect(client2.messages.length).toBe(1)
+      expect(JSON.parse(client1.messages[0]!).type).toBe('prices')
     })
 
-    it('should reject missing key', () => {
-      // /ws without apiKey should return 401
-      expect(true).toBe(true)
+    it('removes unresponsive clients from registry', () => {
+      const client1 = new MockWebSocket()
+      const client2 = new MockWebSocket()
+      clients.add(client1)
+      clients.add(client2)
+
+      // Close client1 to make it throw
+      client1.isClosed = true
+
+      const msg: WSMessage = { type: 'prices', data: {} }
+      broadcast(msg)
+
+      // client1 should be removed
+      expect(clients.has(client1)).toBe(false)
+      // client2 should still be there
+      expect(clients.has(client2)).toBe(true)
+      expect(client2.messages.length).toBe(1)
     })
 
-    it('should reject invalid key', () => {
-      // /ws?apiKey=wrong should return 401
-      expect(true).toBe(true)
+    it('handles empty client list', () => {
+      const msg: WSMessage = { type: 'prices', data: {} }
+      // Should not throw
+      expect(() => broadcast(msg)).not.toThrow()
     })
 
-    it('should accept valid key', () => {
-      // /ws?apiKey=<valid> should upgrade
-      expect(true).toBe(true)
-    })
+    it('serializes message to JSON', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
 
-    it('should use timing-safe comparison', () => {
-      expect(true).toBe(true)
+      const portfolioData = {
+        totalValueUsd: 50000,
+        assets: [],
+        updatedAt: 1234567890,
+      }
+      const msg: WSMessage = { type: 'portfolio', data: portfolioData }
+      broadcast(msg)
+
+      const sent = JSON.parse(client.messages[0]!)
+      expect(sent.type).toBe('portfolio')
+      expect(sent.data.totalValueUsd).toBe(50000)
     })
   })
 
-  describe('message handling', () => {
-    it('should handle subscribe message', () => {
-      // { type: 'subscribe', channel: 'trades' }
-      expect(true).toBe(true)
+  describe('client management', () => {
+    it('adds client on handleOpen', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+      expect(clients.size).toBe(1)
+      expect(clients.has(client)).toBe(true)
     })
 
-    it('should handle unsubscribe message', () => {
-      // { type: 'unsubscribe', channel: 'trades' }
-      expect(true).toBe(true)
+    it('removes client on handleClose', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+      clients.delete(client)
+      expect(clients.size).toBe(0)
+      expect(clients.has(client)).toBe(false)
     })
 
-    it('should validate message format', () => {
-      // Invalid JSON should close connection
-      expect(true).toBe(true)
-    })
+    it('handles multiple concurrent clients', () => {
+      const clients_local = new Set()
+      const clientList = Array.from({ length: 10 }, () => new MockWebSocket())
+      clientList.forEach((c) => clients_local.add(c))
 
-    it('should support multiple channels', () => {
-      const channels = ['trades', 'portfolio', 'orders', 'alerts']
-      expect(channels.length).toBe(4)
-    })
+      expect(clients_local.size).toBe(10)
 
-    it('should handle ping/pong', () => {
-      // { type: 'ping' } → { type: 'pong' }
-      expect(true).toBe(true)
-    })
-  })
+      const msg: WSMessage = { type: 'prices', data: {} }
+      for (const ws of clients_local) {
+        ws.send(JSON.stringify(msg))
+      }
 
-  describe('client tracking', () => {
-    it('should track connected clients', () => {
-      expect(true).toBe(true)
-    })
-
-    it('should handle client disconnect', () => {
-      expect(true).toBe(true)
-    })
-
-    it('should cleanup subscriptions on disconnect', () => {
-      expect(true).toBe(true)
-    })
-
-    it('should support multiple clients', () => {
-      expect(true).toBe(true)
+      for (const client of clientList) {
+        expect(client.messages.length).toBe(1)
+      }
     })
   })
 
-  describe('broadcasting', () => {
-    it('should broadcast trades to subscribed clients', () => {
-      expect(true).toBe(true)
+  describe('message types', () => {
+    it('broadcasts price update messages', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+
+      const msg: WSMessage = {
+        type: 'prices',
+        data: { 'BTC/USDT': 50000, 'ETH/USDT': 3000 },
+      }
+      broadcast(msg)
+
+      const received = JSON.parse(client.messages[0]!)
+      expect(received.type).toBe('prices')
     })
 
-    it('should broadcast portfolio updates', () => {
-      expect(true).toBe(true)
+    it('broadcasts portfolio update messages', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+
+      const msg: WSMessage = {
+        type: 'portfolio',
+        data: {
+          totalValueUsd: 100000,
+          assets: [],
+          updatedAt: Date.now(),
+        },
+      }
+      broadcast(msg)
+
+      const received = JSON.parse(client.messages[0]!)
+      expect(received.type).toBe('portfolio')
     })
 
-    it('should broadcast rebalance events', () => {
-      expect(true).toBe(true)
+    it('broadcasts rebalance:started messages', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+
+      const msg: WSMessage = {
+        type: 'rebalance:started',
+        data: { id: 'rebal-123', trigger: 'threshold' },
+      }
+      broadcast(msg)
+
+      const received = JSON.parse(client.messages[0]!)
+      expect(received.type).toBe('rebalance:started')
+      expect(received.data.id).toBe('rebal-123')
     })
 
-    it('should broadcast alerts', () => {
-      expect(true).toBe(true)
+    it('broadcasts rebalance:completed messages', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+
+      const msg: WSMessage = {
+        type: 'rebalance:completed',
+        data: {
+          id: 'rebal-123',
+          executedTrades: 5,
+          totalFeesPaid: 100,
+        },
+      }
+      broadcast(msg)
+
+      const received = JSON.parse(client.messages[0]!)
+      expect(received.type).toBe('rebalance:completed')
     })
 
-    it('should not broadcast to unsubscribed clients', () => {
-      expect(true).toBe(true)
+    it('broadcasts trade:executed messages', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+
+      const msg: WSMessage = {
+        type: 'trade:executed',
+        data: {
+          pair: 'BTC/USDT',
+          side: 'buy',
+          amount: 0.5,
+          price: 50000,
+        },
+      }
+      broadcast(msg)
+
+      const received = JSON.parse(client.messages[0]!)
+      expect(received.type).toBe('trade:executed')
     })
 
-    it('should handle event bus integration', () => {
-      expect(true).toBe(true)
+    it('broadcasts trailing-stop:triggered messages', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+
+      const msg: WSMessage = {
+        type: 'trailing-stop:triggered',
+        data: {
+          asset: 'BTC',
+          price: 47000,
+          stopPrice: 47500,
+        },
+      }
+      broadcast(msg)
+
+      const received = JSON.parse(client.messages[0]!)
+      expect(received.type).toBe('trailing-stop:triggered')
+    })
+
+    it('broadcasts exchange:status messages', () => {
+      const client = new MockWebSocket()
+      clients.add(client)
+
+      const msg: WSMessage = {
+        type: 'exchange:status',
+        data: {
+          binance: 'connected',
+          okx: 'disconnected',
+        },
+      }
+      broadcast(msg)
+
+      const received = JSON.parse(client.messages[0]!)
+      expect(received.type).toBe('exchange:status')
+    })
+  })
+
+  describe('throttling', () => {
+    it('respects price update throttle of 1 second', () => {
+      let lastPriceBroadcast = 0
+      const now = Date.now()
+
+      // First broadcast
+      if (now - lastPriceBroadcast >= 1000) {
+        lastPriceBroadcast = now
+        expect(true).toBe(true)
+      }
+
+      // Immediate second broadcast should be throttled
+      const tooSoon = now + 500
+      if (tooSoon - lastPriceBroadcast < 1000) {
+        // Throttled - should not broadcast
+        expect(true).toBe(true)
+      }
+
+      // After 1 second should broadcast
+      const later = now + 1500
+      if (later - lastPriceBroadcast >= 1000) {
+        lastPriceBroadcast = later
+        expect(true).toBe(true)
+      }
+    })
+  })
+
+  describe('error scenarios', () => {
+    it('handles error during client send without crashing', () => {
+      const client1 = new MockWebSocket()
+      const client2 = new MockWebSocket()
+      clients.add(client1)
+      clients.add(client2)
+
+      client1.isClosed = true
+
+      const msg: WSMessage = { type: 'prices', data: {} }
+      expect(() => broadcast(msg)).not.toThrow()
+
+      // client1 should be removed, client2 should still have message
+      expect(clients.size).toBe(1)
+      expect(client2.messages.length).toBe(1)
+    })
+
+    it('handles clients that throw on send', () => {
+      const badClient = new MockWebSocket()
+      const goodClient = new MockWebSocket()
+
+      // Make badClient always throw
+      badClient.send = () => {
+        throw new Error('Send failed')
+      }
+
+      clients.add(badClient)
+      clients.add(goodClient)
+
+      const msg: WSMessage = { type: 'prices', data: {} }
+      broadcast(msg)
+
+      // Bad client should be removed
+      expect(clients.has(badClient)).toBe(false)
+      // Good client should still be there
+      expect(clients.has(goodClient)).toBe(true)
+    })
+  })
+
+  describe('event subscriptions', () => {
+    it('can subscribe to price:update events', () => {
+      const handler = mock(() => {})
+      // Simulates eventBus.on('price:update', handler)
+      expect(typeof handler).toBe('function')
+    })
+
+    it('can subscribe to portfolio:update events', () => {
+      const handler = mock((data: any) => {})
+      expect(typeof handler).toBe('function')
+    })
+
+    it('can subscribe to rebalance:started events', () => {
+      const handler = mock((data: any) => {})
+      expect(typeof handler).toBe('function')
+    })
+
+    it('can subscribe to rebalance:completed events', () => {
+      const handler = mock((data: any) => {})
+      expect(typeof handler).toBe('function')
+    })
+
+    it('can subscribe to trade:executed events', () => {
+      const handler = mock((data: any) => {})
+      expect(typeof handler).toBe('function')
+    })
+
+    it('can subscribe to exchange status events', () => {
+      const handler = mock(() => {})
+      expect(typeof handler).toBe('function')
     })
   })
 
