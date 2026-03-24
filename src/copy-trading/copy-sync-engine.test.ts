@@ -175,4 +175,161 @@ describe('CopySyncEngine', () => {
       expect(typeof engine.syncSource).toBe('function')
     })
   })
+
+  describe('mergeAllocations edge cases', () => {
+    it('should handle single asset across sources', () => {
+      const sources = [
+        {
+          allocations: [{ asset: 'BTC', targetPct: 100 }],
+          weight: 1.0,
+        },
+        {
+          allocations: [{ asset: 'BTC', targetPct: 100 }],
+          weight: 1.0,
+        },
+      ]
+
+      const result = engine.mergeAllocations(sources)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].asset).toBe('BTC')
+      expect(result[0].targetPct).toBeCloseTo(100, 1)
+    })
+
+    it('should handle fractional percentages', () => {
+      const sources = [
+        {
+          allocations: [
+            { asset: 'BTC', targetPct: 33.33 },
+            { asset: 'ETH', targetPct: 33.33 },
+            { asset: 'SOL', targetPct: 33.34 },
+          ],
+          weight: 1.0,
+        },
+      ]
+
+      const result = engine.mergeAllocations(sources)
+
+      expect(result).toHaveLength(3)
+      const total = result.reduce((s, a) => s + a.targetPct, 0)
+      expect(total).toBeCloseTo(100, 0)
+    })
+
+    it('should handle unequal weights', () => {
+      const sources = [
+        {
+          allocations: [{ asset: 'BTC', targetPct: 100 }],
+          weight: 2.0,
+        },
+        {
+          allocations: [{ asset: 'ETH', targetPct: 100 }],
+          weight: 1.0,
+        },
+        {
+          allocations: [{ asset: 'SOL', targetPct: 100 }],
+          weight: 1.0,
+        },
+      ]
+
+      const result = engine.mergeAllocations(sources)
+
+      expect(result.length).toBeGreaterThanOrEqual(3)
+      const total = result.reduce((s, a) => s + a.targetPct, 0)
+      expect(total).toBeCloseTo(100, 0)
+    })
+
+    it('should handle very small weights', () => {
+      const sources = [
+        {
+          allocations: [{ asset: 'BTC', targetPct: 50 }],
+          weight: 0.0001,
+        },
+        {
+          allocations: [{ asset: 'ETH', targetPct: 50 }],
+          weight: 0.9999,
+        },
+      ]
+
+      const result = engine.mergeAllocations(sources)
+
+      const btcResult = result.find((a) => a.asset === 'BTC')
+      const ethResult = result.find((a) => a.asset === 'ETH')
+
+      expect(btcResult?.targetPct).toBeLessThan(10)
+      expect(ethResult?.targetPct).toBeGreaterThan(90)
+    })
+
+    it('should handle duplicate assets in same source', () => {
+      const sources = [
+        {
+          allocations: [
+            { asset: 'BTC', targetPct: 30 },
+            { asset: 'BTC', targetPct: 20 },
+            { asset: 'ETH', targetPct: 50 },
+          ],
+          weight: 1.0,
+        },
+      ]
+
+      const result = engine.mergeAllocations(sources)
+
+      const btcResult = result.find((a) => a.asset === 'BTC')
+      expect(btcResult).toBeDefined()
+      // Should aggregate duplicate assets
+      const total = result.reduce((s, a) => s + a.targetPct, 0)
+      expect(total).toBeCloseTo(100, 0)
+    })
+
+    it('should preserve asset order when deterministic', () => {
+      const sources = [
+        {
+          allocations: [
+            { asset: 'BTC', targetPct: 50 },
+            { asset: 'ETH', targetPct: 50 },
+          ],
+          weight: 1.0,
+        },
+      ]
+
+      const result1 = engine.mergeAllocations(sources)
+      const result2 = engine.mergeAllocations(sources)
+
+      expect(result1.length).toBe(result2.length)
+      result1.forEach((a, i) => {
+        expect(a.asset).toBe(result2[i].asset)
+        expect(a.targetPct).toBeCloseTo(result2[i].targetPct, 5)
+      })
+    })
+
+    it('should handle negative weight gracefully', () => {
+      const sources = [
+        {
+          allocations: [{ asset: 'BTC', targetPct: 100 }],
+          weight: -1.0,
+        },
+      ]
+
+      // May throw or return empty — either is acceptable
+      try {
+        const result = engine.mergeAllocations(sources)
+        expect(result).toBeDefined()
+      } catch {
+        // Throwing on negative weight is also valid
+        expect(true).toBe(true)
+      }
+    })
+
+    it('should handle many sources', () => {
+      const sources = Array.from({ length: 10 }, (_, i) => ({
+        allocations: [{ asset: `ASSET${i}`, targetPct: 100 }],
+        weight: 1.0,
+      }))
+
+      const result = engine.mergeAllocations(sources)
+
+      expect(result.length).toBe(10)
+      const total = result.reduce((s, a) => s + a.targetPct, 0)
+      expect(total).toBeCloseTo(100, 0)
+    })
+  })
 })

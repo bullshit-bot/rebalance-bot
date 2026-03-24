@@ -1,7 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import { CronScheduler } from './cron-scheduler'
+import { CronScheduler, cronScheduler } from './cron-scheduler'
 
 describe('CronScheduler', () => {
+  describe('singleton export', () => {
+    it('should export cronScheduler instance', () => {
+      expect(cronScheduler).toBeDefined()
+      expect(cronScheduler instanceof CronScheduler).toBe(true)
+      expect(typeof cronScheduler.start).toBe('function')
+      expect(typeof cronScheduler.stop).toBe('function')
+    })
+
+    it('should be the same instance on multiple accesses', () => {
+      const ref1 = cronScheduler
+      const ref2 = cronScheduler
+      expect(ref1).toBe(ref2)
+    })
+  })
   let scheduler: CronScheduler
 
   beforeEach(() => {

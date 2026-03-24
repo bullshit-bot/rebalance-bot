@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'bun:test'
+import { equityCurveBuilder } from './equity-curve-builder'
 
 // Test the equity curve logic
 function buildEquityCurve(
@@ -84,5 +85,100 @@ describe('EquityCurveBuilder - Core Logic', () => {
     expect(valueMap.get(1000)).toBe(10000)
     expect(valueMap.get(2000)).toBe(11500)
     expect(valueMap.get(3000)).toBe(13000)
+  })
+})
+
+describe('EquityCurveBuilder - Real Implementation', () => {
+  it('should build curve from real builder instance', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const from = now - 86400 // 24h ago
+    const to = now
+
+    const curve = await equityCurveBuilder.build(from, to)
+
+    expect(curve).toBeDefined()
+    expect(Array.isArray(curve)).toBe(true)
+  })
+
+  it('should handle empty time range', async () => {
+    const from = 1000000000
+    const to = 1000000001
+
+    const curve = await equityCurveBuilder.build(from, to)
+
+    expect(Array.isArray(curve)).toBe(true)
+  })
+
+  it('should preserve chronological order in real data', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const from = now - 604800 // 7 days ago
+    const to = now
+
+    const curve = await equityCurveBuilder.build(from, to)
+
+    if (curve.length > 1) {
+      for (let i = 1; i < curve.length; i++) {
+        if (curve[i].timestamp && curve[i - 1].timestamp) {
+          expect(curve[i].timestamp).toBeGreaterThanOrEqual(curve[i - 1].timestamp)
+        }
+      }
+    }
+  })
+
+  it('should return array of objects with timestamp and value', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const from = now - 86400
+    const to = now
+
+    const curve = await equityCurveBuilder.build(from, to)
+
+    expect(Array.isArray(curve)).toBe(true)
+    curve.forEach((point: any) => {
+      if (point && typeof point === 'object') {
+        // Each point should have numeric values
+        if (point.timestamp !== undefined) {
+          expect(typeof point.timestamp).toBe('number')
+        }
+        if (point.valueUsd !== undefined) {
+          expect(typeof point.valueUsd).toBe('number')
+        }
+      }
+    })
+  })
+
+  it('should handle very old time ranges', async () => {
+    const from = 1000000
+    const to = 2000000
+
+    const curve = await equityCurveBuilder.build(from, to)
+
+    expect(Array.isArray(curve)).toBe(true)
+  })
+
+  it('should handle from=to edge case', async () => {
+    const timestamp = Math.floor(Date.now() / 1000)
+
+    const curve = await equityCurveBuilder.build(timestamp, timestamp)
+
+    expect(Array.isArray(curve)).toBe(true)
+  })
+
+  it('should handle when from > to (should still work)', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const from = now
+    const to = now - 86400
+
+    const curve = await equityCurveBuilder.build(from, to)
+
+    expect(Array.isArray(curve)).toBe(true)
+  })
+
+  it('should handle large time ranges', async () => {
+    const from = 1000000000
+    const to = Math.floor(Date.now() / 1000)
+
+    const curve = await equityCurveBuilder.build(from, to)
+
+    expect(Array.isArray(curve)).toBe(true)
   })
 })

@@ -764,4 +764,46 @@ describe('DCAService', () => {
     expect(btcOrder).toBeDefined()
     expect(ethOrder).toBeDefined()
   })
+
+  test('singleton dcaService is exported', () => {
+    const { dcaService } = require('./dca-service')
+    expect(dcaService).toBeDefined()
+    expect(typeof dcaService.start).toBe('function')
+    expect(typeof dcaService.stop).toBe('function')
+    expect(typeof dcaService.calculateDCAAllocation).toBe('function')
+  })
+
+  test('start/stop transitions state correctly', () => {
+    const svc = new DCAService()
+
+    expect(svc['running']).toBe(false)
+    svc.start()
+    expect(svc['running']).toBe(true)
+    svc.stop()
+    expect(svc['running']).toBe(false)
+  })
+
+  test('idempotent start calls', () => {
+    const svc = new DCAService()
+
+    svc.start()
+    const first = svc['running']
+    svc.start()
+    const second = svc['running']
+
+    expect(first).toBe(true)
+    expect(second).toBe(true)
+  })
+
+  test('idempotent stop calls', () => {
+    const svc = new DCAService()
+
+    svc.stop()
+    const first = svc['running']
+    svc.stop()
+    const second = svc['running']
+
+    expect(first).toBe(false)
+    expect(second).toBe(false)
+  })
 })

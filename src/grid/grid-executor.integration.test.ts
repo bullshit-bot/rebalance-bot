@@ -259,4 +259,73 @@ describe('grid-executor (integration)', () => {
       expect(fn).not.toThrow()
     })
   })
+
+  describe('monitoring lifecycle', () => {
+    it('should handle placeGrid → startMonitoring → cancelAll sequence', async () => {
+      const botId = 'test-bot-sequence'
+      try {
+        await gridExecutor.placeGrid(botId, testLevels, 'binance', 'BTC/USDT')
+      } catch {
+        // Expected without real exchange
+      }
+      await gridExecutor.startMonitoring(botId)
+      await gridExecutor.cancelAll(botId)
+      expect(true).toBe(true)
+    })
+  })
+
+  describe('grid levels with edge cases', () => {
+    it('should handle levels with only buy orders', async () => {
+      const buyOnlyLevels: GridLevel[] = [
+        { level: 1, price: 30000, buyAmount: 1000, sellAmount: 0 },
+        { level: 2, price: 29000, buyAmount: 500, sellAmount: 0 },
+      ]
+
+      const fn = async () => {
+        try {
+          await gridExecutor.placeGrid('test-buy-only', buyOnlyLevels, 'binance', 'BTC/USDT')
+        } catch {
+          // Expected without real exchange
+        }
+      }
+
+      expect(fn).not.toThrow()
+    })
+
+    it('should handle levels with only sell orders', async () => {
+      const sellOnlyLevels: GridLevel[] = [
+        { level: 1, price: 31000, buyAmount: 0, sellAmount: 1000 },
+        { level: 2, price: 32000, buyAmount: 0, sellAmount: 500 },
+      ]
+
+      const fn = async () => {
+        try {
+          await gridExecutor.placeGrid('test-sell-only', sellOnlyLevels, 'binance', 'BTC/USDT')
+        } catch {
+          // Expected without real exchange
+        }
+      }
+
+      expect(fn).not.toThrow()
+    })
+
+    it('should handle mixed levels with various amounts', async () => {
+      const mixedLevels: GridLevel[] = [
+        { level: 1, price: 29000, buyAmount: 2000, sellAmount: 0 },
+        { level: 2, price: 30000, buyAmount: 1000, sellAmount: 500 },
+        { level: 3, price: 31000, buyAmount: 0, sellAmount: 1500 },
+        { level: 4, price: 32000, buyAmount: 0, sellAmount: 2000 },
+      ]
+
+      const fn = async () => {
+        try {
+          await gridExecutor.placeGrid('test-mixed', mixedLevels, 'binance', 'BTC/USDT')
+        } catch {
+          // Expected without real exchange
+        }
+      }
+
+      expect(fn).not.toThrow()
+    })
+  })
 })

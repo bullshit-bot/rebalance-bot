@@ -1,6 +1,24 @@
 import { describe, it, expect } from 'bun:test'
+import { app, startServer } from './server'
 
 describe('api-server (integration)', () => {
+  describe('app export', () => {
+    it('should export app instance', () => {
+      expect(app).toBeDefined()
+      expect(typeof app.fetch).toBe('function')
+    })
+
+    it('should have fetch method from Hono', () => {
+      expect(typeof app.fetch).toBe('function')
+    })
+  })
+
+  describe('startServer function', () => {
+    it('should be a function', () => {
+      expect(typeof startServer).toBe('function')
+    })
+  })
+
   describe('Server configuration', () => {
     it('should have Hono app defined', () => {
       // The app is created via new Hono()

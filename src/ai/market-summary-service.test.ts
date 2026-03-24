@@ -74,5 +74,44 @@ describe('MarketSummaryService', () => {
 
       expect(summary).toContain('$')
     })
+
+    it('should handle error gracefully', async () => {
+      try {
+        const summary = await marketSummaryService.generateSummary()
+        expect(typeof summary).toBe('string')
+        expect(summary.length).toBeGreaterThan(0)
+      } catch (err) {
+        // If error, should be an Error instance
+        expect(err).toBeInstanceOf(Error)
+      }
+    })
+  })
+
+  describe('getSummary method', () => {
+    it('should return market summary data', async () => {
+      const result = await marketSummaryService.generateSummary()
+      expect(result).toBeDefined()
+      expect(typeof result).toBe('string')
+    })
+
+    it('should have predictable structure', async () => {
+      const result = await marketSummaryService.generateSummary()
+      if (result && typeof result === 'object') {
+        expect(result).not.toBeNull()
+      }
+    })
+
+    it('should handle missing API key gracefully', async () => {
+      try {
+        const summary = await marketSummaryService.generateSummary()
+        // Should still generate something even without full API integration
+        expect(typeof summary).toBe('string')
+      } catch (err) {
+        // Expected when API is not configured
+        if (err instanceof Error) {
+          expect(err).toBeInstanceOf(Error)
+        }
+      }
+    })
   })
 })

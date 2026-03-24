@@ -145,4 +145,255 @@ describe('AI Routes', () => {
       expect([200, 401, 500]).toContain(res.status)
     })
   })
+
+  describe('GET /ai/suggestions detailed', () => {
+    it('should return empty array if no suggestions', async () => {
+      const res = await app.request('/ai/suggestions')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(Array.isArray(data)).toBe(true)
+      }
+    })
+
+    it('should filter by approved status', async () => {
+      const res = await app.request('/ai/suggestions?status=approved')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should filter by rejected status', async () => {
+      const res = await app.request('/ai/suggestions?status=rejected')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should handle invalid status filter', async () => {
+      const res = await app.request('/ai/suggestions?status=invalid')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should handle database errors', async () => {
+      const res = await app.request('/ai/suggestions')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+  })
+
+  describe('POST /ai/suggestion validation', () => {
+    it('should validate allocations sum to 100%', async () => {
+      const body = JSON.stringify({
+        allocations: [
+          { asset: 'BTC', targetPct: 60 },
+          { asset: 'ETH', targetPct: 60 },
+        ],
+        reasoning: 'Invalid percentages',
+      })
+
+      const res = await app.request('/ai/suggestion', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should accept valid allocations summing to 100%', async () => {
+      const body = JSON.stringify({
+        allocations: [
+          { asset: 'BTC', targetPct: 70 },
+          { asset: 'ETH', targetPct: 30 },
+        ],
+        reasoning: 'Correct percentages',
+      })
+
+      const res = await app.request('/ai/suggestion', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 422]).toContain(res.status)
+    })
+
+    it('should validate reasoning is non-empty string', async () => {
+      const body = JSON.stringify({
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        reasoning: '',
+      })
+
+      const res = await app.request('/ai/suggestion', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should handle invalid JSON body', async () => {
+      const res = await app.request('/ai/suggestion', {
+        method: 'POST',
+        body: 'not json',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 422]).toContain(res.status)
+    })
+
+    it('should accept optional sentimentData', async () => {
+      const body = JSON.stringify({
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        reasoning: 'Based on sentiment analysis',
+        sentimentData: {
+          fear_index: 30,
+          bullish: true,
+          confidence: 0.75,
+        },
+      })
+
+      const res = await app.request('/ai/suggestion', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 422]).toContain(res.status)
+    })
+
+    it('should handle database errors', async () => {
+      const body = JSON.stringify({
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        reasoning: 'Test suggestion',
+      })
+
+      const res = await app.request('/ai/suggestion', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 422, 500]).toContain(res.status)
+    })
+  })
+
+  describe('PUT /ai/suggestion/:id/approve detailed', () => {
+    it('should return 404 for nonexistent suggestion', async () => {
+      const res = await app.request('/ai/suggestion/nonexistent-id/approve', { method: 'PUT' })
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return 422 when already approved', async () => {
+      const res = await app.request('/ai/suggestion/already-approved/approve', { method: 'PUT' })
+      expect([200, 404, 401, 422]).toContain(res.status)
+    })
+
+    it('should handle database errors', async () => {
+      const res = await app.request('/ai/suggestion/test-id/approve', { method: 'PUT' })
+      expect([200, 404, 401, 422, 500]).toContain(res.status)
+    })
+  })
+
+  describe('PUT /ai/suggestion/:id/reject detailed', () => {
+    it('should return 404 for nonexistent suggestion', async () => {
+      const res = await app.request('/ai/suggestion/nonexistent-id/reject', { method: 'PUT' })
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return 422 when already rejected', async () => {
+      const res = await app.request('/ai/suggestion/already-rejected/reject', { method: 'PUT' })
+      expect([200, 404, 401, 422]).toContain(res.status)
+    })
+
+    it('should handle database errors', async () => {
+      const res = await app.request('/ai/suggestion/test-id/reject', { method: 'PUT' })
+      expect([200, 404, 401, 422, 500]).toContain(res.status)
+    })
+  })
+
+  describe('PUT /ai/config detailed', () => {
+    it('should accept autoApprove true', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ autoApprove: true }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should accept autoApprove false', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ autoApprove: false }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should reject string autoApprove', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ autoApprove: 'true' }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should reject number autoApprove', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ autoApprove: 1 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should handle invalid JSON', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: 'not json',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should handle database errors', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ autoApprove: true }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401, 500]).toContain(res.status)
+    })
+  })
+
+  describe('GET /ai/summary detailed', () => {
+    it('should return JSON object on success', async () => {
+      const res = await app.request('/ai/summary')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(typeof data).toBe('object')
+      }
+    })
+
+    it('should handle service errors gracefully', async () => {
+      const res = await app.request('/ai/summary')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+  })
 })

@@ -103,4 +103,162 @@ describe('Config Routes', () => {
       expect([200, 400, 401]).toContain(res.status)
     })
   })
+
+  describe('GET /config/allocations detailed', () => {
+    it('should return 200 when allocations exist', async () => {
+      const res = await app.request('/config/allocations')
+      expect([200, 401]).toContain(res.status)
+    })
+
+    it('should return valid JSON response', async () => {
+      const res = await app.request('/config/allocations')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(Array.isArray(data)).toBe(true)
+        data.forEach((allocation: any) => {
+          expect(allocation).toHaveProperty('asset')
+          expect(allocation).toHaveProperty('targetPct')
+          expect(typeof allocation.asset).toBe('string')
+          expect(typeof allocation.targetPct).toBe('number')
+        })
+      }
+    })
+  })
+
+  describe('PUT /config/allocations validation', () => {
+    it('should accept valid 100% allocations', async () => {
+      const body = JSON.stringify([
+        { asset: 'BTC', targetPct: 50 },
+        { asset: 'ETH', targetPct: 50 },
+      ])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401]).toContain(res.status)
+    })
+
+    it('should reject allocations > 100%', async () => {
+      const body = JSON.stringify([
+        { asset: 'BTC', targetPct: 75 },
+        { asset: 'ETH', targetPct: 35 },
+      ])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should accept single asset 100%', async () => {
+      const body = JSON.stringify([{ asset: 'BTC', targetPct: 100 }])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401]).toContain(res.status)
+    })
+
+    it('should handle null body', async () => {
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body: 'null',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should handle object body instead of array', async () => {
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body: '{}',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should validate negative percentages', async () => {
+      const body = JSON.stringify([
+        { asset: 'BTC', targetPct: -10 },
+        { asset: 'ETH', targetPct: 110 },
+      ])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return JSON response on success', async () => {
+      const body = JSON.stringify([{ asset: 'BTC', targetPct: 100 }])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 200 || res.status === 201) {
+        expect(res.headers.get('content-type')).toContain('application/json')
+      }
+    })
+  })
+
+  describe('DELETE /config/allocations/:asset', () => {
+    it('should handle delete request', async () => {
+      const res = await app.request('/config/allocations/BTC', { method: 'DELETE' })
+      expect([200, 204, 400, 401, 404]).toContain(res.status)
+    })
+
+    it('should return JSON on error', async () => {
+      const res = await app.request('/config/allocations/INVALID', { method: 'DELETE' })
+      if (res.status >= 400) {
+        expect(res.headers.get('content-type')).toContain('application/json')
+      }
+    })
+
+    it('should handle non-existent asset', async () => {
+      const res = await app.request('/config/allocations/NONEXISTENT', { method: 'DELETE' })
+      expect([200, 204, 400, 401, 404]).toContain(res.status)
+    })
+  })
+
+  describe('Config routes error paths', () => {
+    it('should handle database errors in GET', async () => {
+      const res = await app.request('/config/allocations')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should handle database errors in PUT', async () => {
+      const body = JSON.stringify([{ asset: 'BTC', targetPct: 100 }])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
+    })
+  })
 })

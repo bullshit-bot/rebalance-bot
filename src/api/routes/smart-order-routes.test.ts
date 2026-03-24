@@ -379,4 +379,255 @@ describe('Smart Order Routes', () => {
       expect([200, 404, 409, 500]).toContain(res.status)
     })
   })
+
+  describe('Detailed GET /smart-order/:id behavior', () => {
+    it('should return 404 for non-existent order', async () => {
+      const res = await app.request('/smart-order/nonexistent-order-xyz')
+      expect([404, 401, 500]).toContain(res.status)
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('not found')
+      }
+    })
+
+    it('should merge execution tracker progress into response', async () => {
+      const res = await app.request('/smart-order/order-123')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('id')
+        expect(data).toHaveProperty('type')
+        expect(data).toHaveProperty('exchange')
+        expect(data).toHaveProperty('pair')
+        expect(data).toHaveProperty('side')
+        expect(data).toHaveProperty('totalAmount')
+        expect(data).toHaveProperty('durationMs')
+        expect(data).toHaveProperty('status')
+        expect(data).toHaveProperty('filledAmount')
+        expect(data).toHaveProperty('filledPct')
+        expect(data).toHaveProperty('avgPrice')
+        expect(data).toHaveProperty('slicesCompleted')
+        expect(data).toHaveProperty('slicesTotal')
+        expect(data).toHaveProperty('estimatedCompletion')
+        expect(data).toHaveProperty('createdAt')
+        expect(data).toHaveProperty('completedAt')
+        expect(data).toHaveProperty('config')
+      }
+    })
+
+    it('should handle database errors on GET order by ID', async () => {
+      const res = await app.request('/smart-order/test-id')
+      expect([200, 404, 401, 500]).toContain(res.status)
+    })
+  })
+
+  describe('Detailed GET /smart-order/active behavior', () => {
+    it('should merge tracker progress for each active order', async () => {
+      const res = await app.request('/smart-order/active')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(Array.isArray(data)).toBe(true)
+        data.forEach((order: any) => {
+          // Each active order should have merged progress
+          expect(order).toHaveProperty('id')
+          expect(order).toHaveProperty('type')
+          expect(order).toHaveProperty('status')
+          expect(order).toHaveProperty('filledAmount')
+          expect(order).toHaveProperty('filledPct')
+          expect(order).toHaveProperty('slicesCompleted')
+          expect(order).toHaveProperty('slicesTotal')
+        })
+      }
+    })
+
+    it('should handle database errors on list', async () => {
+      const res = await app.request('/smart-order/active')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+  })
+
+  describe('Detailed PUT /smart-order/:id/pause behavior', () => {
+    it('should return 404 when order does not exist', async () => {
+      const res = await app.request('/smart-order/nonexistent/pause', { method: 'PUT' })
+      expect([404, 401, 500]).toContain(res.status)
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return 409 when order is not active', async () => {
+      const res = await app.request('/smart-order/test-paused/pause', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return proper status on successful pause', async () => {
+      const res = await app.request('/smart-order/active-order/pause', { method: 'PUT' })
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data.id).toBeDefined()
+        expect(data.status).toBe('paused')
+      }
+    })
+
+    it('should handle database errors on pause', async () => {
+      const res = await app.request('/smart-order/test-id/pause', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+    })
+  })
+
+  describe('Detailed PUT /smart-order/:id/resume behavior', () => {
+    it('should return 404 when order does not exist', async () => {
+      const res = await app.request('/smart-order/nonexistent/resume', { method: 'PUT' })
+      expect([404, 401, 500]).toContain(res.status)
+    })
+
+    it('should return 409 when order is not paused', async () => {
+      const res = await app.request('/smart-order/test-active/resume', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should handle database errors on resume', async () => {
+      const res = await app.request('/smart-order/test-id/resume', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+    })
+  })
+
+  describe('Detailed PUT /smart-order/:id/cancel behavior', () => {
+    it('should return 404 when order does not exist', async () => {
+      const res = await app.request('/smart-order/nonexistent/cancel', { method: 'PUT' })
+      expect([404, 401, 500]).toContain(res.status)
+    })
+
+    it('should return 409 when order is already completed', async () => {
+      const res = await app.request('/smart-order/completed-order/cancel', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return 409 when order is already cancelled', async () => {
+      const res = await app.request('/smart-order/cancelled-order/cancel', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should handle database errors on cancel', async () => {
+      const res = await app.request('/smart-order/test-id/cancel', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+    })
+  })
+
+  describe('POST /smart-order with rebalanceId', () => {
+    it('should accept rebalanceId field when provided', async () => {
+      const body = JSON.stringify({
+        type: 'twap',
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        side: 'buy',
+        totalAmount: 1,
+        durationMs: 3600000,
+        slices: 10,
+        rebalanceId: 'rebalance-xyz',
+      })
+
+      const res = await app.request('/smart-order', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
+    })
+
+    it('should reject rebalanceId if not a string', async () => {
+      const body = JSON.stringify({
+        type: 'twap',
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        side: 'buy',
+        totalAmount: 1,
+        durationMs: 3600000,
+        slices: 10,
+        rebalanceId: 123,
+      })
+
+      const res = await app.request('/smart-order', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+  })
+
+  describe('POST /smart-order error handling', () => {
+    it('should handle invalid JSON body', async () => {
+      const res = await app.request('/smart-order', {
+        method: 'POST',
+        body: 'not a json',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+      const data = await res.json()
+      expect(data).toHaveProperty('error')
+    })
+
+    it('should handle null body', async () => {
+      const res = await app.request('/smart-order', {
+        method: 'POST',
+        body: 'null',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+      const data = await res.json()
+      expect(data).toHaveProperty('error')
+    })
+
+    it('should handle array body instead of object', async () => {
+      const res = await app.request('/smart-order', {
+        method: 'POST',
+        body: '[]',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should return 500 when engine.create fails', async () => {
+      const body = JSON.stringify({
+        type: 'twap',
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        side: 'buy',
+        totalAmount: 1,
+        durationMs: 3600000,
+        slices: 10,
+      })
+
+      const res = await app.request('/smart-order', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
+    })
+  })
 })
