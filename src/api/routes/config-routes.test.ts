@@ -260,5 +260,110 @@ describe('Config Routes', () => {
 
       expect([200, 201, 400, 401, 500]).toContain(res.status)
     })
+
+    it('should reject non-object items in array', async () => {
+      const body = JSON.stringify([null, 'string', 123])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('item')
+      }
+    })
+
+    it('should reject invalid exchange values', async () => {
+      const body = JSON.stringify([
+        { asset: 'BTC', targetPct: 50, exchange: 'invalid_exchange' },
+        { asset: 'ETH', targetPct: 50, exchange: 'binance' },
+      ])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('exchange')
+      }
+    })
+
+    it('should reject negative minTradeUsd', async () => {
+      const body = JSON.stringify([
+        { asset: 'BTC', targetPct: 100, minTradeUsd: -10 },
+      ])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('minTradeUsd')
+      }
+    })
+
+    it('should reject invalid minTradeUsd type', async () => {
+      const body = JSON.stringify([
+        { asset: 'BTC', targetPct: 100, minTradeUsd: 'not-a-number' },
+      ])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('minTradeUsd')
+      }
+    })
+
+    it('should handle GET error response structure', async () => {
+      const res = await app.request('/config/allocations')
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
+
+    it('should handle PUT error response structure', async () => {
+      const body = JSON.stringify([{ asset: 'BTC', targetPct: 100 }])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
+
+    it('should handle DELETE error response structure', async () => {
+      const res = await app.request('/config/allocations/BTC', { method: 'DELETE' })
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
   })
 })

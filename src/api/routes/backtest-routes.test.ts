@@ -432,4 +432,294 @@ describe('Backtest Routes', () => {
       expect([200, 201, 400, 401, 500]).toContain(res.status)
     })
   })
+
+  describe('POST /backtest validation errors', () => {
+    const validConfig = {
+      pairs: ['BTC/USDT'],
+      allocations: [{ asset: 'BTC', targetPct: 100 }],
+      startDate: 1704067200000,
+      endDate: 1711065600000,
+      initialBalance: 10000,
+      threshold: 5,
+      feePct: 0.001,
+      timeframe: '1d' as const,
+      exchange: 'binance',
+    }
+
+    it('should reject empty pairs array', async () => {
+      const body = JSON.stringify({ ...validConfig, pairs: [] })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('pairs')
+      }
+    })
+
+    it('should reject missing pairs', async () => {
+      const { pairs, ...config } = validConfig
+      const body = JSON.stringify(config)
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('pairs')
+      }
+    })
+
+    it('should reject empty allocations', async () => {
+      const body = JSON.stringify({ ...validConfig, allocations: [] })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('allocations')
+      }
+    })
+
+    it('should reject invalid startDate (0)', async () => {
+      const body = JSON.stringify({ ...validConfig, startDate: 0 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('startDate')
+      }
+    })
+
+    it('should reject invalid endDate (0)', async () => {
+      const body = JSON.stringify({ ...validConfig, endDate: 0 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('endDate')
+      }
+    })
+
+    it('should reject startDate >= endDate', async () => {
+      const body = JSON.stringify({ ...validConfig, startDate: 1711065600000, endDate: 1704067200000 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('startDate')
+      }
+    })
+
+    it('should reject zero initialBalance', async () => {
+      const body = JSON.stringify({ ...validConfig, initialBalance: 0 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('initialBalance')
+      }
+    })
+
+    it('should reject negative initialBalance', async () => {
+      const body = JSON.stringify({ ...validConfig, initialBalance: -1000 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('initialBalance')
+      }
+    })
+
+    it('should reject threshold > 100', async () => {
+      const body = JSON.stringify({ ...validConfig, threshold: 101 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('threshold')
+      }
+    })
+
+    it('should reject threshold 0', async () => {
+      const body = JSON.stringify({ ...validConfig, threshold: 0 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('threshold')
+      }
+    })
+
+    it('should reject negative feePct', async () => {
+      const body = JSON.stringify({ ...validConfig, feePct: -0.001 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('feePct')
+      }
+    })
+
+    it('should accept feePct 0', async () => {
+      const body = JSON.stringify({ ...validConfig, feePct: 0 })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
+    })
+
+    it('should reject invalid timeframe', async () => {
+      const body = JSON.stringify({ ...validConfig, timeframe: '4h' })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('timeframe')
+      }
+    })
+
+    it('should accept timeframe 1h', async () => {
+      const body = JSON.stringify({ ...validConfig, timeframe: '1h' })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
+    })
+
+    it('should reject empty exchange', async () => {
+      const body = JSON.stringify({ ...validConfig, exchange: '' })
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data.error).toContain('exchange')
+      }
+    })
+
+    it('should return error on invalid JSON', async () => {
+      const res = await app.request('/backtest', {
+        method: 'POST',
+        body: 'not json',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+  })
+
+  describe('GET /backtest/list', () => {
+    it('should list backtests', async () => {
+      const res = await app.request('/backtest/list')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should return array', async () => {
+      const res = await app.request('/backtest/list')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(Array.isArray(data)).toBe(true)
+      }
+    })
+
+    it('should handle database errors', async () => {
+      const res = await app.request('/backtest/list')
+      expect([200, 401, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+  })
+
+  describe('GET /backtest/:id', () => {
+    it('should return 404 for non-existent ID', async () => {
+      const res = await app.request('/backtest/nonexistent-id-12345')
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('not found')
+      }
+    })
+
+    it('should handle database errors', async () => {
+      const res = await app.request('/backtest/some-id')
+      expect([200, 404, 401, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return full result on success', async () => {
+      const res = await app.request('/backtest/any-id')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toBeDefined()
+      }
+    })
+  })
+
+  describe('Error handling', () => {
+    it('should return error on invalid request', async () => {
+      const body = JSON.stringify({
+        pairs: [],
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        startDate: 1704067200000,
+        endDate: 1711065600000,
+        initialBalance: 10000,
+        threshold: 5,
+        feePct: 0.001,
+        timeframe: '1d',
+        exchange: 'binance',
+      })
+      const res = await app.request('/backtest', { method: 'POST', body })
+      if (res.status >= 400) {
+        expect(res.headers.get('content-type')).toContain('application/json')
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+  })
 })

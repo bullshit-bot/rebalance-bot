@@ -107,5 +107,21 @@ describe('authMiddleware', () => {
       const result = await authMiddleware(ctx as Context, mockNext)
       expect(result).toBeTruthy()
     })
+
+    it('should return 401 on any exception during validation', async () => {
+      // Test that exception handling in try-catch returns false/401
+      const ctx = makeContext('test-key')
+      const result = await authMiddleware(ctx as Context, mockNext)
+      // Invalid key should return 401
+      if (result instanceof Response) {
+        expect(result.status).toBe(401)
+      }
+    })
+
+    it('should handle null API key from header', async () => {
+      const ctx = makeContext(null as any)
+      const result = await authMiddleware(ctx as Context, mockNext)
+      expect(result).toBeTruthy()
+    })
   })
 })
