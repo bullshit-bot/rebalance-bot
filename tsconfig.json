@@ -34,7 +34,8 @@
       "@notifier/*": ["src/notifier/*"],
       "@scheduler/*": ["src/scheduler/*"],
       "@api/*": ["src/api/*"],
-      "@grid/*": ["src/grid/*"]
+      "@grid/*": ["src/grid/*"],
+      "@test-utils/*": ["src/test-utils/*"]
     }
   },
   "include": ["src/**/*.ts"],
