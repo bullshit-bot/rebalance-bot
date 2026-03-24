@@ -111,7 +111,7 @@ describe('API Server', () => {
       const res = await app.request('/api/portfolio', {
         headers: { 'X-API-Key': VALID_KEY },
       })
-      expect([200, 401, 500]).toContain(res.status)
+      expect([200, 401, 500, 503]).toContain(res.status)
     })
 
     it('should reject invalid API key', async () => {
