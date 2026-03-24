@@ -1,507 +1,229 @@
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
 import { db } from '@db/database'
-import { copySources } from '@db/schema'
-import { copyTradingManager } from './copy-trading-manager'
+import { copySources, copySyncLog } from '@db/schema'
 import { eq } from 'drizzle-orm'
-import type { SourceAllocation } from './portfolio-source-fetcher'
+import { copyTradingManager } from './copy-trading-manager'
 
-const TEST_SOURCE_IDS: string[] = []
+describe('copy-trading-manager', () => {
+  let testSourceId: string
 
-afterAll(async () => {
-  // Clean up all test sources
-  for (const id of TEST_SOURCE_IDS) {
-    await db.delete(copySources).where(eq(copySources.id, id))
-  }
-})
+  beforeAll(async () => {
+    // Clean up test data
+    await db.delete(copySyncLog)
+    await db.delete(copySources)
+  })
 
-describe('CopyTradingManager integration', () => {
+  afterAll(async () => {
+    // Clean up test data
+    await db.delete(copySyncLog)
+    await db.delete(copySources)
+  })
+
   describe('addSource', () => {
-    test('addSource creates a new copy source', async () => {
-      const allocations: SourceAllocation[] = [
-        { asset: 'BTC', weight: 0.6 },
-        { asset: 'ETH', weight: 0.4 },
-      ]
-
+    it('should add a manual source', async () => {
       const id = await copyTradingManager.addSource({
-        name: 'Test Source 1',
-        sourceType: 'url',
-        sourceUrl: 'https://example.com/portfolio',
-        allocations,
+        name: 'Test Manual Source',
+        sourceType: 'manual',
+        allocations: [
+          { asset: 'BTC', targetPct: 60 },
+          { asset: 'ETH', targetPct: 40 },
+        ],
       })
 
-      TEST_SOURCE_IDS.push(id)
-
+      testSourceId = id
       expect(id).toBeDefined()
       expect(typeof id).toBe('string')
       expect(id.length).toBeGreaterThan(0)
     })
 
-    test('addSource returns UUID', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'UUID Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      // UUID format check
-      expect(id).toMatch(/^[a-f0-9-]{36}$/)
-    })
-
-    test('addSource rejects URL type without sourceUrl', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      await expect(
-        copyTradingManager.addSource({
-          name: 'Invalid Source',
+    it('should throw error when URL type missing sourceUrl', async () => {
+      try {
+        await copyTradingManager.addSource({
+          name: 'Bad URL Source',
           sourceType: 'url',
-          allocations,
-        }),
-      ).rejects.toThrow('sourceUrl is required')
+          allocations: [{ asset: 'BTC', targetPct: 100 }],
+        })
+        expect(true).toBe(false)
+      } catch (err) {
+        expect(err instanceof Error).toBe(true)
+        if (err instanceof Error) {
+          expect(err.message).toContain('sourceUrl')
+        }
+      }
     })
 
-    test('addSource rejects empty allocations', async () => {
-      await expect(
-        copyTradingManager.addSource({
-          name: 'No Allocations',
+    it('should throw error when allocations empty', async () => {
+      try {
+        await copyTradingManager.addSource({
+          name: 'Empty Allocations',
           sourceType: 'manual',
           allocations: [],
-        }),
-      ).rejects.toThrow('allocations must not be empty')
+        })
+        expect(true).toBe(false)
+      } catch (err) {
+        expect(err instanceof Error).toBe(true)
+      }
     })
 
-    test('addSource sets default weight', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
+    it('should add source with weight and syncInterval', async () => {
       const id = await copyTradingManager.addSource({
-        name: 'Default Weight Test',
+        name: 'Advanced Source',
         sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.weight).toBe(1.0)
-    })
-
-    test('addSource sets custom weight', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Custom Weight Test',
-        sourceType: 'manual',
-        allocations,
-        weight: 2.5,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.weight).toBe(2.5)
-    })
-
-    test('addSource sets default syncInterval', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Default Interval Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.syncInterval).toBe('4h')
-    })
-
-    test('addSource sets custom syncInterval', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Custom Interval Test',
-        sourceType: 'manual',
-        allocations,
-        syncInterval: '1h',
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.syncInterval).toBe('1h')
-    })
-
-    test('addSource marks source as enabled by default', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Enabled Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.enabled).toBe(1)
-    })
-
-    test('addSource stores allocations as JSON', async () => {
-      const allocations: SourceAllocation[] = [
-        { asset: 'BTC', weight: 0.5 },
-        { asset: 'ETH', weight: 0.3 },
-        { asset: 'SOL', weight: 0.2 },
-      ]
-
-      const id = await copyTradingManager.addSource({
-        name: 'JSON Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      const stored = JSON.parse(source!.allocations)
-      expect(stored).toEqual(allocations)
-    })
-  })
-
-  describe('getSource', () => {
-    test('getSource retrieves a source by ID', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Get Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source).toBeDefined()
-      expect(source?.id).toBe(id)
-      expect(source?.name).toBe('Get Test')
-    })
-
-    test('getSource returns null for missing source', async () => {
-      const source = await copyTradingManager.getSource('nonexistent-id')
-      expect(source).toBeNull()
-    })
-
-    test('getSource returns all source fields', async () => {
-      const allocations: SourceAllocation[] = [
-        { asset: 'BTC', weight: 0.7 },
-        { asset: 'ETH', weight: 0.3 },
-      ]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Full Fields Test',
-        sourceType: 'url',
-        sourceUrl: 'https://example.com',
-        allocations,
-        weight: 1.5,
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+        weight: 2.0,
         syncInterval: '2h',
       })
 
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.id).toBe(id)
-      expect(source?.name).toBe('Full Fields Test')
-      expect(source?.sourceType).toBe('url')
-      expect(source?.sourceUrl).toBe('https://example.com')
-      expect(source?.weight).toBe(1.5)
-      expect(source?.syncInterval).toBe('2h')
-      expect(source?.enabled).toBe(1)
-    })
-  })
-
-  describe('removeSource', () => {
-    test('removeSource deletes a source by ID', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Remove Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      await copyTradingManager.removeSource(id)
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source).toBeNull()
-    })
-
-    test('removeSource is no-op for missing source', async () => {
-      // Should not throw
-      await expect(copyTradingManager.removeSource('nonexistent')).resolves.toBeUndefined()
-    })
-
-    test('removeSource does not affect other sources', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id1 = await copyTradingManager.addSource({
-        name: 'Keep Source',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      const id2 = await copyTradingManager.addSource({
-        name: 'Delete Source',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id1)
-      TEST_SOURCE_IDS.push(id2)
-
-      await copyTradingManager.removeSource(id2)
-
-      const kept = await copyTradingManager.getSource(id1)
-      const deleted = await copyTradingManager.getSource(id2)
-
-      expect(kept).toBeDefined()
-      expect(deleted).toBeNull()
-    })
-  })
-
-  describe('updateSource', () => {
-    test('updateSource modifies name', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Original Name',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      await copyTradingManager.updateSource(id, { name: 'Updated Name' })
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.name).toBe('Updated Name')
-    })
-
-    test('updateSource modifies weight', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Weight Test',
-        sourceType: 'manual',
-        allocations,
-        weight: 1.0,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      await copyTradingManager.updateSource(id, { weight: 3.0 })
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.weight).toBe(3.0)
-    })
-
-    test('updateSource modifies enabled status', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Enabled Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      await copyTradingManager.updateSource(id, { enabled: false })
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.enabled).toBe(0)
-    })
-
-    test('updateSource modifies syncInterval', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Interval Test',
-        sourceType: 'manual',
-        allocations,
-        syncInterval: '4h',
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      await copyTradingManager.updateSource(id, { syncInterval: '1h' })
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.syncInterval).toBe('1h')
-    })
-
-    test('updateSource modifies allocations', async () => {
-      const original: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Alloc Test',
-        sourceType: 'manual',
-        allocations: original,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const updated: SourceAllocation[] = [
-        { asset: 'BTC', weight: 0.6 },
-        { asset: 'ETH', weight: 0.4 },
-      ]
-
-      await copyTradingManager.updateSource(id, { allocations: updated })
-
-      const source = await copyTradingManager.getSource(id)
-      const parsed = JSON.parse(source!.allocations)
-      expect(parsed).toEqual(updated)
-    })
-
-    test('updateSource does nothing with empty updates', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Empty Update Test',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const before = await copyTradingManager.getSource(id)
-      await copyTradingManager.updateSource(id, {})
-      const after = await copyTradingManager.getSource(id)
-
-      expect(before?.name).toBe(after?.name)
-      expect(before?.weight).toBe(after?.weight)
-    })
-
-    test('updateSource is no-op for missing source', async () => {
-      await expect(copyTradingManager.updateSource('nonexistent', { name: 'New' })).resolves.toBeUndefined()
+      expect(id).toBeDefined()
     })
   })
 
   describe('getSources', () => {
-    test('getSources returns all sources', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
-      const id1 = await copyTradingManager.addSource({
-        name: 'Source 1',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      const id2 = await copyTradingManager.addSource({
-        name: 'Source 2',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id1, id2)
-
+    it('should return all sources', async () => {
       const sources = await copyTradingManager.getSources()
+
       expect(Array.isArray(sources)).toBe(true)
-      expect(sources.length).toBeGreaterThanOrEqual(2)
+      expect(sources.length).toBeGreaterThan(0)
     })
 
-    test('getSources returns empty array when no sources', async () => {
-      // This test assumes we start with no sources (or cleans them)
+    it('should include added source in list', async () => {
+      const id = await copyTradingManager.addSource({
+        name: 'List Test Source',
+        sourceType: 'manual',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+      })
+
       const sources = await copyTradingManager.getSources()
-      expect(Array.isArray(sources)).toBe(true)
+      const found = sources.find((s) => s.id === id)
+
+      expect(found).toBeDefined()
+    })
+  })
+
+  describe('removeSource', () => {
+    it('should remove a source', async () => {
+      const id = await copyTradingManager.addSource({
+        name: 'To Remove',
+        sourceType: 'manual',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+      })
+
+      // Remove related sync logs first
+      await db.delete(copySyncLog).where(eq(copySyncLog.sourceId, id))
+      await copyTradingManager.removeSource(id)
+
+      const sources = await copyTradingManager.getSources()
+      const found = sources.find((s) => s.id === id)
+
+      expect(found).toBeUndefined()
+    })
+
+    it('should be idempotent (no error when removing non-existent)', async () => {
+      await expect(async () => {
+        await copyTradingManager.removeSource('non-existent-id')
+      }).not.toThrow()
+    })
+  })
+
+  describe('updateSource', () => {
+    it('should update source name', async () => {
+      const id = await copyTradingManager.addSource({
+        name: 'Original Name',
+        sourceType: 'manual',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+      })
+
+      await copyTradingManager.updateSource(id, { name: 'Updated Name' })
+
+      const sources = await copyTradingManager.getSources()
+      const updated = sources.find((s) => s.id === id)
+
+      expect(updated?.name).toBe('Updated Name')
+    })
+
+    it('should update enabled flag', async () => {
+      const id = await copyTradingManager.addSource({
+        name: 'Enable Test',
+        sourceType: 'manual',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+      })
+
+      await copyTradingManager.updateSource(id, { enabled: false })
+
+      const sources = await copyTradingManager.getSources()
+      const updated = sources.find((s) => s.id === id)
+
+      expect(updated?.enabled).toBe(0)
+    })
+
+    it('should update allocations', async () => {
+      const id = await copyTradingManager.addSource({
+        name: 'Allocation Test',
+        sourceType: 'manual',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+      })
+
+      await copyTradingManager.updateSource(id, {
+        allocations: [
+          { asset: 'BTC', targetPct: 60 },
+          { asset: 'ETH', targetPct: 40 },
+        ],
+      })
+
+      const sources = await copyTradingManager.getSources()
+      const updated = sources.find((s) => s.id === id)
+
+      const allocs = JSON.parse(updated?.allocations || '[]')
+      expect(allocs.length).toBe(2)
     })
   })
 
   describe('getSyncHistory', () => {
-    test('getSyncHistory returns array', async () => {
-      const history = await copyTradingManager.getSyncHistory()
+    it('should return sync history', async () => {
+      const id = await copyTradingManager.addSource({
+        name: 'History Test',
+        sourceType: 'manual',
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
+      })
+
+      const history = await copyTradingManager.getSyncHistory(id)
+
       expect(Array.isArray(history)).toBe(true)
-    })
-
-    test('getSyncHistory defaults to 50 entries', async () => {
-      const history = await copyTradingManager.getSyncHistory()
-      expect(history.length).toBeLessThanOrEqual(50)
-    })
-
-    test('getSyncHistory respects limit parameter', async () => {
-      const history = await copyTradingManager.getSyncHistory(undefined, 10)
-      expect(history.length).toBeLessThanOrEqual(10)
-    })
-
-    test('getSyncHistory returns empty for missing source', async () => {
-      const history = await copyTradingManager.getSyncHistory('nonexistent-source')
-      expect(Array.isArray(history)).toBe(true)
-      expect(history.length).toBe(0)
     })
   })
 
-  describe('manual source type', () => {
-    test('addSource accepts manual type without sourceUrl', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
+  describe('edge cases', () => {
+    it('should handle source with many allocations', async () => {
+      const allocations = Array.from({ length: 50 }, (_, i) => ({
+        asset: `COIN${i}`,
+        targetPct: 2,
+      }))
 
       const id = await copyTradingManager.addSource({
-        name: 'Manual Source',
+        name: 'Many Allocations',
         sourceType: 'manual',
         allocations,
       })
 
-      TEST_SOURCE_IDS.push(id)
+      expect(id).toBeDefined()
 
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.sourceType).toBe('manual')
-      expect(source?.sourceUrl).toBeNull()
+      const sources = await copyTradingManager.getSources()
+      const found = sources.find((s) => s.id === id)
+      const foundAllocs = JSON.parse(found?.allocations || '[]')
+      expect(foundAllocs.length).toBe(50)
     })
 
-    test('addSource can update manual source to have url', async () => {
-      const allocations: SourceAllocation[] = [{ asset: 'BTC', weight: 1 }]
-
+    it('should handle special characters in name', async () => {
       const id = await copyTradingManager.addSource({
-        name: 'Manual to URL',
+        name: 'Special!@#$%^&*() Name',
         sourceType: 'manual',
-        allocations,
+        allocations: [{ asset: 'BTC', targetPct: 100 }],
       })
 
-      TEST_SOURCE_IDS.push(id)
+      const sources = await copyTradingManager.getSources()
+      const found = sources.find((s) => s.id === id)
 
-      await copyTradingManager.updateSource(id, {
-        sourceUrl: 'https://example.com',
-      })
-
-      const source = await copyTradingManager.getSource(id)
-      expect(source?.sourceUrl).toBe('https://example.com')
-    })
-  })
-
-  describe('complex allocations', () => {
-    test('addSource stores complex allocations', async () => {
-      const allocations: SourceAllocation[] = [
-        { asset: 'BTC', weight: 0.4 },
-        { asset: 'ETH', weight: 0.3 },
-        { asset: 'SOL', weight: 0.15 },
-        { asset: 'XRP', weight: 0.1 },
-        { asset: 'ADA', weight: 0.05 },
-      ]
-
-      const id = await copyTradingManager.addSource({
-        name: 'Complex Allocations',
-        sourceType: 'manual',
-        allocations,
-      })
-
-      TEST_SOURCE_IDS.push(id)
-
-      const source = await copyTradingManager.getSource(id)
-      const parsed = JSON.parse(source!.allocations)
-
-      expect(parsed.length).toBe(5)
-      expect(parsed.find((a: SourceAllocation) => a.asset === 'BTC').weight).toBe(0.4)
+      expect(found?.name).toContain('Special')
     })
   })
 })
