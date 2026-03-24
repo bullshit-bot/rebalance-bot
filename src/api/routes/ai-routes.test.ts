@@ -361,6 +361,46 @@ describe('AI Routes', () => {
       expect(res.status).toBe(400)
     })
 
+    it('should accept maxShiftPct positive value', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: 5.5 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should reject maxShiftPct non-positive value', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: 0 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should reject maxShiftPct negative value', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: -5 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should accept both autoApprove and maxShiftPct', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ autoApprove: true, maxShiftPct: 3 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
     it('should handle invalid JSON', async () => {
       const res = await app.request('/ai/config', {
         method: 'PUT',

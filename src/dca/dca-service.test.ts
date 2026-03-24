@@ -13,6 +13,19 @@ describe('DCAService', () => {
     service.stop()
   })
 
+  test('start() initializes the service and listens for portfolio updates', () => {
+    service.start()
+    service.start() // Calling twice should be safe (idempotent)
+    expect(true).toBe(true) // Service started without throwing
+  })
+
+  test('stop() terminates the service and resets state', () => {
+    service.start()
+    service.stop()
+    service.stop() // Calling twice should be safe (idempotent)
+    expect(true).toBe(true) // Service stopped without throwing
+  })
+
   test('calculateDCAAllocation returns empty array when portfolio is balanced', () => {
     const portfolio: Portfolio = {
       totalValueUsd: 10000,

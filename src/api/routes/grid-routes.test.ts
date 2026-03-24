@@ -70,6 +70,30 @@ describe('Grid Routes', () => {
       expect(res.status).toBe(400)
     })
 
+    it('should create grid bot with valid input', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 10,
+        investment: 1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 422, 500]).toContain(res.status)
+      if (res.status === 201) {
+        const data = await res.json()
+        expect(data).toHaveProperty('id')
+      }
+    })
+
     it('should reject non-positive priceLower', async () => {
       const body = JSON.stringify({
         exchange: 'binance',

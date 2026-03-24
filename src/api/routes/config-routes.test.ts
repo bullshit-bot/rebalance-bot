@@ -230,6 +230,14 @@ describe('Config Routes', () => {
       expect([200, 204, 400, 401, 404]).toContain(res.status)
     })
 
+    it('should return JSON on success', async () => {
+      const res = await app.request('/config/allocations/BTC', { method: 'DELETE' })
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('deleted')
+      }
+    })
+
     it('should return JSON on error', async () => {
       const res = await app.request('/config/allocations/INVALID', { method: 'DELETE' })
       if (res.status >= 400) {
@@ -240,6 +248,15 @@ describe('Config Routes', () => {
     it('should handle non-existent asset', async () => {
       const res = await app.request('/config/allocations/NONEXISTENT', { method: 'DELETE' })
       expect([200, 204, 400, 401, 404]).toContain(res.status)
+    })
+
+    it('should uppercase asset parameter', async () => {
+      const res = await app.request('/config/allocations/btc', { method: 'DELETE' })
+      expect([200, 204, 400, 401, 404]).toContain(res.status)
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data.deleted).toBe('BTC')
+      }
     })
   })
 
