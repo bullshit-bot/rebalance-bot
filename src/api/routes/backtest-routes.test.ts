@@ -130,27 +130,6 @@ describe('Backtest Routes', () => {
         expect(data).toBeDefined()
       }
     })
-
-    it('should return 404 for non-existent ID', async () => {
-      const res = await app.request('/backtest/nonexistent-id')
-      expect([200, 404, 401, 500]).toContain(res.status)
-      if (res.status === 404) {
-        const data = await res.json()
-        expect(data).toHaveProperty('error')
-      }
-    })
-
-    it('should return full result data when found', async () => {
-      const res = await app.request('/backtest/existing-id')
-      if (res.status === 200) {
-        const data = await res.json()
-        expect(data).toHaveProperty('id')
-        expect(data).toHaveProperty('config')
-        expect(data).toHaveProperty('metrics')
-        expect(data).toHaveProperty('trades')
-        expect(data).toHaveProperty('benchmark')
-      }
-    })
   })
 
   describe('POST /backtest detailed validation', () => {

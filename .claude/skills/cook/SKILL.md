@@ -70,16 +70,6 @@ See `references/intent-detection.md` for detection logic.
 ✓ Step [N]: [Brief status] - [Key metrics]
 ```
 
-## Post-Implementation Checklist (NEVER SKIP)
-
-After EVERY phase/task completion, Claude MUST do these BEFORE responding to user:
-1. `sed -i 's/- \[ \]/- [x]/g'` on the phase's plan.md (mark all checkboxes done)
-2. Update phase plan.md frontmatter: `status: completed`
-3. Update master plan.md phase table: `✅ Completed`
-4. If all phases done → set master plan `status: completed`
-
-**This is automated housekeeping, not optional.** Failure to update = broken kanban = user confusion.
-
 ## Blocking Gates (Non-Auto Mode)
 
 Human review required at these checkpoints (skipped with `--auto`):

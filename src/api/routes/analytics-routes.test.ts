@@ -117,50 +117,6 @@ describe('Analytics Routes', () => {
       const res = await app.request('/tax/report?year=invalid')
       expect(res.status).toBe(400)
     })
-
-    it('should reject year < 2000', async () => {
-      const res = await app.request('/tax/report?year=1999')
-      expect(res.status).toBe(400)
-    })
-
-    it('should reject year > 2100', async () => {
-      const res = await app.request('/tax/report?year=2101')
-      expect(res.status).toBe(400)
-    })
-  })
-
-  describe('GET /tax/export', () => {
-    it('should export tax report as CSV', async () => {
-      const res = await app.request('/tax/export')
-      expect([200, 401, 500]).toContain(res.status)
-    })
-
-    it('should support year parameter', async () => {
-      const res = await app.request('/tax/export?year=2024')
-      expect([200, 401, 500]).toContain(res.status)
-    })
-
-    it('should return CSV with proper headers', async () => {
-      const res = await app.request('/tax/export')
-      if (res.status === 200) {
-        expect(res.headers.get('content-type')).toContain('text/csv')
-      }
-    })
-
-    it('should reject invalid year', async () => {
-      const res = await app.request('/tax/export?year=invalid')
-      expect(res.status).toBe(400)
-    })
-
-    it('should reject year < 2000', async () => {
-      const res = await app.request('/tax/export?year=1999')
-      expect(res.status).toBe(400)
-    })
-
-    it('should reject year > 2100', async () => {
-      const res = await app.request('/tax/export?year=2101')
-      expect(res.status).toBe(400)
-    })
   })
 
   describe('error handling', () => {

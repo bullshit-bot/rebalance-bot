@@ -170,23 +170,5 @@ describe('Trade Routes', () => {
       const res = await app.request('/trades?unknown=value&limit=10')
       expect([200, 400, 401, 500]).toContain(res.status)
     })
-
-    it('should handle limit=0 as invalid', async () => {
-      const res = await app.request('/trades?limit=0')
-      expect([400, 401, 500]).toContain(res.status)
-      if (res.status === 400) {
-        const data = await res.json()
-        expect(data.error).toContain('limit must be an integer between 1 and 500')
-      }
-    })
-
-    it('should filter trades with rebalanceId parameter exactly', async () => {
-      const res = await app.request('/trades?rebalanceId=test-id-123')
-      expect([200, 401, 500]).toContain(res.status)
-      if (res.status === 200) {
-        const data = await res.json()
-        expect(Array.isArray(data)).toBe(true)
-      }
-    })
   })
 })

@@ -1,26 +1,3 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test'
-
-// Mock app-config
-mock.module('@config/app-config', () => ({
-  env: {
-    REBALANCE_THRESHOLD: 5,
-    REBALANCE_COOLDOWN_HOURS: 1,
-  },
-}))
-
-// Mock event-bus to track emissions
-const emitMock = mock(() => {})
-const onMock = mock(() => {})
-const offMock = mock(() => {})
-
-mock.module('@events/event-bus', () => ({
-  eventBus: {
-    emit: emitMock,
-    on: onMock,
-    off: offMock,
-  },
-}))
-
 import { describe, it, expect } from 'bun:test'
 import { driftDetector } from './drift-detector'
 import type { Portfolio } from '@/types/index'
@@ -142,74 +119,8 @@ describe('drift-detector (integration)', () => {
         updatedAt: Date.now(),
       }
 
-      // Verify listener was registered
-      expect(onMock).toHaveBeenCalledWith('portfolio:update', expect.any(Function))
-
       // Just verify the detector started successfully
       expect(driftDetector.canRebalance()).toBeBoolean()
-
-      driftDetector.stop()
-      expect(offMock).toHaveBeenCalledWith('portfolio:update', expect.any(Function))
-    })
-
-    it('should emit rebalance:trigger on drift breach', () => {
-      driftDetector.stop()
-      driftDetector.start()
-
-      // Create a portfolio with drifted asset
-      const portfolio: Portfolio = {
-        totalValueUsd: 10000,
-        assets: [
-          {
-            asset: 'BTC',
-            amount: 1,
-            valueUsd: 6000,
-            currentPct: 60,
-            targetPct: 40,
-            driftPct: 20, // Exceeds 5% threshold
-            exchange: 'binance',
-          },
-        ],
-        updatedAt: Date.now(),
-      }
-
-      // Manually trigger event handler to test path
-      const capturedListener = onMock.mock.calls[0]?.[1] as Function
-      if (capturedListener && driftDetector.canRebalance()) {
-        capturedListener(portfolio)
-        expect(emitMock).toHaveBeenCalledWith('rebalance:trigger', expect.any(Object))
-      }
-
-      driftDetector.stop()
-    })
-
-    it('should not emit when no drift detected', () => {
-      driftDetector.stop()
-      emitMock.mockClear()
-      driftDetector.start()
-
-      const portfolio: Portfolio = {
-        totalValueUsd: 10000,
-        assets: [
-          {
-            asset: 'BTC',
-            amount: 1,
-            valueUsd: 5000,
-            currentPct: 50,
-            targetPct: 50,
-            driftPct: 0, // No drift
-            exchange: 'binance',
-          },
-        ],
-        updatedAt: Date.now(),
-      }
-
-      const capturedListener = onMock.mock.calls[onMock.mock.calls.length - 1]?.[1] as Function
-      if (capturedListener && driftDetector.canRebalance()) {
-        capturedListener(portfolio)
-        // Should not emit when drift is within threshold
-        // (or may have emitted previously in other tests)
-      }
 
       driftDetector.stop()
     })

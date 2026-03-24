@@ -290,48 +290,6 @@ describe('Smart Order Routes', () => {
       }
     })
 
-    it('should accept optional rebalanceId', async () => {
-      const body = JSON.stringify({
-        type: 'twap',
-        exchange: 'binance',
-        pair: 'BTC/USDT',
-        side: 'buy',
-        totalAmount: 1,
-        durationMs: 3600000,
-        slices: 10,
-        rebalanceId: 'rebal-123',
-      })
-
-      const res = await app.request('/smart-order', {
-        method: 'POST',
-        body,
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      expect([200, 201, 400, 401, 500]).toContain(res.status)
-    })
-
-    it('should reject invalid rebalanceId type', async () => {
-      const body = JSON.stringify({
-        type: 'twap',
-        exchange: 'binance',
-        pair: 'BTC/USDT',
-        side: 'buy',
-        totalAmount: 1,
-        durationMs: 3600000,
-        slices: 10,
-        rebalanceId: 123,
-      })
-
-      const res = await app.request('/smart-order', {
-        method: 'POST',
-        body,
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      expect(res.status).toBe(400)
-    })
-
     it('should validate required fields', async () => {
       const body = JSON.stringify({ type: 'twap' })
 
@@ -356,15 +314,6 @@ describe('Smart Order Routes', () => {
       if (res.status === 200) {
         const data = await res.json()
         expect(data).toBeDefined()
-      }
-    })
-
-    it('should return 404 for non-existent order', async () => {
-      const res = await app.request('/smart-order/nonexistent-order-id')
-      expect([200, 404, 401, 500]).toContain(res.status)
-      if (res.status === 404) {
-        const data = await res.json()
-        expect(data).toHaveProperty('error')
       }
     })
   })

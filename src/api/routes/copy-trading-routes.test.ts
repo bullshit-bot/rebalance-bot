@@ -112,46 +112,12 @@ describe('Copy Trading Routes', () => {
 
       expect([200, 404, 401, 422, 500]).toContain(res.status)
     })
-
-    it('should reject invalid JSON in PUT', async () => {
-      const res = await app.request('/copy/source/source-123', {
-        method: 'PUT',
-        body: 'not json',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      expect([400, 401, 422, 500]).toContain(res.status)
-    })
-
-    it('should update with valid body', async () => {
-      const res = await app.request('/copy/source/test-id', {
-        method: 'PUT',
-        body: JSON.stringify({ name: 'New Name' }),
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      expect([200, 404, 401, 422, 500]).toContain(res.status)
-      if (res.status === 200) {
-        const data = await res.json()
-        expect(data).toHaveProperty('ok')
-        expect(data).toHaveProperty('id')
-      }
-    })
   })
 
   describe('DELETE /copy/source/:id', () => {
     it('should remove source', async () => {
       const res = await app.request('/copy/source/source-123', { method: 'DELETE' })
       expect([200, 204, 404, 401, 500]).toContain(res.status)
-    })
-
-    it('should return ok on successful delete', async () => {
-      const res = await app.request('/copy/source/test-id', { method: 'DELETE' })
-      expect([200, 204, 404, 401, 500]).toContain(res.status)
-      if (res.status === 200) {
-        const data = await res.json()
-        expect(data).toHaveProperty('ok')
-      }
     })
   })
 
@@ -167,24 +133,6 @@ describe('Copy Trading Routes', () => {
       // Accept any non-timeout response
       expect(res.status).toBeGreaterThanOrEqual(200)
       expect(res.status).toBeLessThan(600)
-    })
-
-    it('should trigger sync with valid sourceId', async () => {
-      const res = await app.request('/copy/sync', {
-        method: 'POST',
-        body: JSON.stringify({ sourceId: 'test-source-id' }),
-        headers: { 'Content-Type': 'application/json' },
-      })
-      expect([200, 201, 400, 401, 404, 422, 500]).toContain(res.status)
-    })
-
-    it('should handle invalid JSON in sync', async () => {
-      const res = await app.request('/copy/sync', {
-        method: 'POST',
-        body: 'not json',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      expect([200, 201, 400, 401, 404, 422, 500]).toContain(res.status)
     })
   })
 

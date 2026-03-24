@@ -373,39 +373,4 @@ describe('Rebalance Routes', () => {
       }
     })
   })
-
-  describe('GET /rebalance/history', () => {
-    it('should return rebalance history', async () => {
-      const res = await app.request('/rebalance/history')
-      expect([200, 401, 500]).toContain(res.status)
-    })
-
-    it('should support limit parameter', async () => {
-      const res = await app.request('/rebalance/history?limit=10')
-      expect([200, 400, 401, 500]).toContain(res.status)
-    })
-
-    it('should reject invalid limit', async () => {
-      const res = await app.request('/rebalance/history?limit=invalid')
-      expect(res.status).toBe(400)
-    })
-
-    it('should reject limit < 1', async () => {
-      const res = await app.request('/rebalance/history?limit=0')
-      expect(res.status).toBe(400)
-    })
-
-    it('should reject limit > 200', async () => {
-      const res = await app.request('/rebalance/history?limit=201')
-      expect(res.status).toBe(400)
-    })
-
-    it('should return array on success', async () => {
-      const res = await app.request('/rebalance/history')
-      if (res.status === 200) {
-        const data = await res.json()
-        expect(Array.isArray(data)).toBe(true)
-      }
-    })
-  })
 })

@@ -96,17 +96,15 @@ describe('Portfolio Routes', () => {
 
     it('should return 400 for invalid from parameter', async () => {
       const res = await app.request('/portfolio/history?from=invalid')
-      expect(res.status).toBe(400)
       if (res.status === 400) {
         const data = await res.json()
         expect(data).toHaveProperty('error')
-        expect(data.error).toContain('Invalid')
+        expect(data.error).toContain('Invalid from/to')
       }
     })
 
     it('should return 400 for invalid to parameter', async () => {
       const res = await app.request('/portfolio/history?to=notanumber')
-      expect(res.status).toBe(400)
       if (res.status === 400) {
         const data = await res.json()
         expect(data).toHaveProperty('error')

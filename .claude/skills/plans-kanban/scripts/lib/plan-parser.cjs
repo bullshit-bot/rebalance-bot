@@ -47,21 +47,6 @@ function parsePlanTable(planFilePath) {
     });
   }
 
-  // Format 1b: | # | Name | [Link](path) | Effort | Status |
-  if (phases.length === 0) {
-    const extendedRegex = /\|\s*(\d+)\s*\|\s*([^|]+)\s*\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|\s*[^|]+\s*\|\s*([^|]+)/g;
-    while ((match = extendedRegex.exec(content)) !== null) {
-      const [, phase, name, linkText, linkPath, status] = match;
-      phases.push({
-        phase: parseInt(phase, 10),
-        name: name.trim(),
-        status: normalizeStatus(status),
-        file: path.resolve(dir, linkPath),
-        linkText: linkText.trim()
-      });
-    }
-  }
-
   // Format 2: Link-first table | [Phase X](path) | Description | Status |
   if (phases.length === 0) {
     const linkFirstRegex = /\|\s*\[(?:Phase\s*)?(\d+)\]\(([^)]+)\)\s*\|\s*([^|]+)\s*\|\s*([^|]+)/g;

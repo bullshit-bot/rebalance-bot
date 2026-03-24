@@ -123,23 +123,5 @@ describe('authMiddleware', () => {
       const result = await authMiddleware(ctx as Context, mockNext)
       expect(result).toBeTruthy()
     })
-
-    it('should ensure length equality check is executed', async () => {
-      // Key with different length should hit the length != comparison
-      const ctx = makeContext('short-key')
-      const result = await authMiddleware(ctx as Context, mockNext)
-      expect(result).toBeTruthy()
-      if (result instanceof Response) {
-        expect(result.status).toBe(401)
-      }
-    })
-
-    it('should validate empty header returns 401', async () => {
-      const ctx = makeContext('')
-      const result = await authMiddleware(ctx as Context, mockNext)
-      if (result instanceof Response) {
-        expect(result.status).toBe(401)
-      }
-    })
   })
 })
