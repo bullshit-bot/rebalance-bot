@@ -30,7 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
+          token: ${{ secrets.GH_PAT }}
 
       - uses: oven-sh/setup-bun@v2
         with:
