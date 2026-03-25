@@ -43,6 +43,7 @@ jobs:
 
       - name: Run tests
         run: bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts'
+        continue-on-error: false
 
       - name: Coverage
         if: always()
