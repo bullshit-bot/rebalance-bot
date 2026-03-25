@@ -1,0 +1,47 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/test-backend.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/**'
+      - 'package.json'
+
+jobs:
+  test:
+    name: Backend
+    runs-on: ubuntu-latest
+    env:
+      API_KEY: test-ci-key
+      ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
+      PAPER_TRADING: "true"
+      DATABASE_URL: "file:data/ci-test.db"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Run tests
+        run: bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts'
+
+      - name: Coverage
+        if: always()
+        run: bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts' --coverage --coverage-reporter=lcov --coverage-dir=coverage
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: coverage/lcov.info

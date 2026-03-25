@@ -1,0 +1,47 @@
+name: Frontend Tests
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/test-frontend.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  test:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: TypeScript check
+        run: bunx tsc --noEmit
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Coverage
+        if: always()
+        run: bun run test:cov
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
