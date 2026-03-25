@@ -17,7 +17,7 @@ import { initWebSocket, handleOpen, handleClose } from '@api/ws/ws-handler'
 
 // ─── Rate limiter ─────────────────────────────────────────────────────────────
 
-const RATE_LIMIT_PER_MINUTE = 100
+const RATE_LIMIT_PER_MINUTE = 600
 const RATE_LIMIT_WINDOW_MS = 60_000
 
 interface RateLimitEntry {
