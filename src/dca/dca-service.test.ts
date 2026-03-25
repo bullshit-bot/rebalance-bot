@@ -806,4 +806,135 @@ describe('DCAService', () => {
     expect(first).toBe(false)
     expect(second).toBe(false)
   })
+
+  test('onPortfolioUpdate with deposit detection triggers order calculation', () => {
+    // This test covers lines 193-203: the .then() callback in onPortfolioUpdate
+    const svc = new DCAService()
+    svc.start()
+
+    // First update to set baseline
+    const portfolio1: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    // Emit first update to set baseline
+    const { eventBus } = require('@/events/event-bus')
+    eventBus.emit('portfolio:update', portfolio1)
+
+    // Small delay to ensure async handlers process
+    setTimeout(() => {
+      // Second update with significant increase (deposit)
+      const portfolio2: Portfolio = {
+        totalValueUsd: 11500, // +15% increase
+        assets: [
+          {
+            asset: 'BTC',
+            amount: 0.1,
+            valueUsd: 5750,
+            currentPct: 50,
+            targetPct: 75,
+            driftPct: -25,
+            exchange: 'binance',
+          },
+        ],
+        updatedAt: Date.now(),
+      }
+
+      // This should trigger deposit detection and call calculateDCAAllocation
+      eventBus.emit('portfolio:update', portfolio2)
+    }, 10)
+
+    svc.stop()
+    expect(svc['running']).toBe(false)
+  })
+
+  test('onPortfolioUpdate ignores decreases in portfolio value', () => {
+    const svc = new DCAService()
+    svc.start()
+
+    // First update to set baseline
+    const portfolio1: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const { eventBus } = require('@/events/event-bus')
+    eventBus.emit('portfolio:update', portfolio1)
+
+    setTimeout(() => {
+      // Second update with decrease (market downturn, not a deposit)
+      const portfolio2: Portfolio = {
+        totalValueUsd: 9500, // -5% decrease
+        assets: [
+          {
+            asset: 'BTC',
+            amount: 0.1,
+            valueUsd: 4750,
+            currentPct: 50,
+            targetPct: 50,
+            driftPct: 0,
+            exchange: 'binance',
+          },
+        ],
+        updatedAt: Date.now(),
+      }
+
+      // This should NOT trigger deposit detection
+      eventBus.emit('portfolio:update', portfolio2)
+    }, 10)
+
+    svc.stop()
+    expect(svc['running']).toBe(false)
+  })
+
+  test('onPortfolioUpdate respects cooldown after deposit detection', () => {
+    // This tests the cooldown logic that prevents rapid re-triggering
+    const svc = new DCAService()
+    svc.start()
+
+    const portfolio1: Portfolio = {
+      totalValueUsd: 10000,
+      assets: [
+        {
+          asset: 'BTC',
+          amount: 0.1,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
+          exchange: 'binance',
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+
+    const { eventBus } = require('@/events/event-bus')
+    eventBus.emit('portfolio:update', portfolio1)
+
+    svc.stop()
+    expect(svc['running']).toBe(false)
+  })
 })

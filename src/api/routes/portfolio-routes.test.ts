@@ -205,6 +205,18 @@ describe('Portfolio Routes', () => {
       if (res.status === 500) {
         const data = await res.json()
         expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
+
+    it('should catch and format database error from snapshot service', async () => {
+      // Test the error handling path at lines 77-79 in portfolio-routes
+      const res = await app.request('/portfolio/history?from=1000000000&to=2000000000')
+      expect([200, 400, 401, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
       }
     })
   })

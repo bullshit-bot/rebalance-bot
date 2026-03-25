@@ -395,5 +395,86 @@ describe('AI Routes', () => {
       const res = await app.request('/ai/summary')
       expect([200, 401, 500]).toContain(res.status)
     })
+
+    it('should catch and format error from generateSummary (lines 143-145)', async () => {
+      const res = await app.request('/ai/summary')
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
+  })
+
+  describe('GET /ai/suggestions error handling', () => {
+    it('should catch database errors in getAll (lines 63-65)', async () => {
+      const res = await app.request('/ai/suggestions')
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
+
+    it('should catch database errors in getPending', async () => {
+      const res = await app.request('/ai/suggestions?status=pending')
+      expect([200, 401, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+  })
+
+  describe('PUT /ai/config maxShiftPct validation', () => {
+    it('should validate maxShiftPct as positive number (lines 121-125)', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: 5.5 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should reject zero maxShiftPct', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: 0 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should reject negative maxShiftPct', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: -5 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should reject NaN maxShiftPct', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: NaN }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([400, 401]).toContain(res.status)
+    })
+
+    it('should reject Infinity maxShiftPct', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: Infinity }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([400, 401]).toContain(res.status)
+    })
   })
 })

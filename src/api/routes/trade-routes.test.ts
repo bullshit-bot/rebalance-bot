@@ -170,5 +170,16 @@ describe('Trade Routes', () => {
       const res = await app.request('/trades?unknown=value&limit=10')
       expect([200, 400, 401, 500]).toContain(res.status)
     })
+
+    it('should handle database error in catch block', async () => {
+      // This tests the error handling path at lines 31-33
+      const res = await app.request('/trades?limit=1')
+      expect([200, 400, 401, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
   })
 })

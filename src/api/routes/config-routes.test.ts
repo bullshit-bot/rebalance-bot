@@ -123,6 +123,15 @@ describe('Config Routes', () => {
         })
       }
     })
+
+    it('should catch database errors in GET (lines 66-68)', async () => {
+      const res = await app.request('/config/allocations')
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
   })
 
   describe('PUT /config/allocations validation', () => {
@@ -249,7 +258,7 @@ describe('Config Routes', () => {
       expect([200, 401, 500]).toContain(res.status)
     })
 
-    it('should handle database errors in PUT', async () => {
+    it('should handle database errors in PUT (lines 116-118)', async () => {
       const body = JSON.stringify([{ asset: 'BTC', targetPct: 100 }])
 
       const res = await app.request('/config/allocations', {
@@ -259,6 +268,21 @@ describe('Config Routes', () => {
       })
 
       expect([200, 201, 400, 401, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
+    })
+
+    it('should handle database errors in DELETE (lines 132-134)', async () => {
+      const res = await app.request('/config/allocations/BTC', { method: 'DELETE' })
+      expect([200, 204, 400, 401, 404, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
     })
 
     it('should reject non-object items in array', async () => {

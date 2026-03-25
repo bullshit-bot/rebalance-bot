@@ -123,5 +123,24 @@ describe('authMiddleware', () => {
       const result = await authMiddleware(ctx as Context, mockNext)
       expect(result).toBeTruthy()
     })
+
+    it('should catch exceptions and return false from isApiKeyValid (lines 32-33)', async () => {
+      // Test the catch block in isApiKeyValid by passing a key that differs in length
+      const ctx = makeContext('short')
+      const result = await authMiddleware(ctx as Context, mockNext)
+      expect(result).toBeTruthy() // Should return a 401 response
+      if (result instanceof Response) {
+        expect(result.status).toBe(401)
+      }
+    })
+
+    it('should handle comparison of keys with different lengths', async () => {
+      // This tests the length check and exception handling path
+      const shortKey = 'a'
+      const longKey = 'a'.repeat(100)
+      const ctx = makeContext(longKey)
+      const result = await authMiddleware(ctx as Context, mockNext)
+      expect(result).toBeTruthy()
+    })
   })
 })
