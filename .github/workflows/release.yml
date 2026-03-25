@@ -33,22 +33,43 @@ jobs:
         with:
           node-version: 'lts/*'
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
-      - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
-        run: npm audit signatures
+      - name: Seed test database
+        run: mkdir -p data && bun run scripts/seed-dev-data.ts
+        env:
+          API_KEY: test-ci-key
+          ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
+          PAPER_TRADING: "true"
+          DATABASE_URL: "file:data/ci-test.db"
 
       - name: Run tests
-        run: npm test
+        run: bun run test
+        env:
+          API_KEY: test-ci-key
+          API_PORT: "3001"
+          ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
+          PAPER_TRADING: "true"
+          DATABASE_URL: "file:data/ci-test.db"
+          REBALANCE_THRESHOLD: "5"
+          REBALANCE_COOLDOWN_HOURS: "1"
+          MIN_TRADE_USD: "10"
+          MAX_TRADE_USD: "5000"
+          DAILY_LOSS_LIMIT_PCT: "10"
 
       - name: Run linting
-        run: npm run lint
+        run: bun run lint
 
       - name: Release
         env:
