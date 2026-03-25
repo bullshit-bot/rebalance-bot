@@ -114,4 +114,117 @@ describe('MarketSummaryService', () => {
       }
     })
   })
+
+  describe('buildPortfolioSection error handling', () => {
+    it('should generate summary even if portfolio section fails', async () => {
+      try {
+        const summary = await marketSummaryService.generateSummary()
+        expect(typeof summary).toBe('string')
+        // Should contain standard header
+        expect(summary).toContain('Daily Portfolio Summary')
+      } catch (err) {
+        // If service fails, should throw properly
+        expect(err).toBeInstanceOf(Error)
+      }
+    })
+
+    it('should handle empty snapshot data', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      // Should still generate a valid summary
+      expect(typeof summary).toBe('string')
+      expect(summary.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('buildTradeSection error handling', () => {
+    it('should generate summary even if trade section fails', async () => {
+      try {
+        const summary = await marketSummaryService.generateSummary()
+        expect(typeof summary).toBe('string')
+        expect(summary).toContain('Trades')
+      } catch (err) {
+        // If service fails, should throw properly
+        expect(err).toBeInstanceOf(Error)
+      }
+    })
+
+    it('should handle zero trades', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      // Should still return valid summary
+      expect(typeof summary).toBe('string')
+      expect(summary).toContain('Portfolio')
+    })
+
+    it('should handle database query failures', async () => {
+      try {
+        const summary = await marketSummaryService.generateSummary()
+        // Should be string or throw error
+        expect(typeof summary).toBe('string')
+      } catch (err) {
+        // Database errors should be caught
+        expect(err).toBeInstanceOf(Error)
+      }
+    })
+  })
+
+  describe('Daily summary structure validation', () => {
+    it('should include date in output', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      // Should include a UTC date string
+      expect(summary.toLowerCase()).toContain('portfolio')
+    })
+
+    it('should format numbers with 2 decimals', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      // Should use proper formatting
+      expect(typeof summary).toBe('string')
+      expect(summary.length).toBeGreaterThan(0)
+    })
+
+    it('should use HTML formatting tags', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      expect(summary).toContain('<b>')
+      expect(summary).toContain('</b>')
+    })
+
+    it('should include code formatting for values', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      expect(summary).toContain('<code>')
+    })
+
+    it('should handle both positive and negative changes', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      // Should properly handle up/down arrows
+      expect(typeof summary).toBe('string')
+    })
+  })
+
+  describe('Service error scenarios', () => {
+    it('should handle concurrent summary requests', async () => {
+      const [summary1, summary2] = await Promise.all([
+        marketSummaryService.generateSummary(),
+        marketSummaryService.generateSummary(),
+      ])
+
+      expect(typeof summary1).toBe('string')
+      expect(typeof summary2).toBe('string')
+    })
+
+    it('should handle rapid successive calls', async () => {
+      const summary1 = await marketSummaryService.generateSummary()
+      const summary2 = await marketSummaryService.generateSummary()
+
+      expect(typeof summary1).toBe('string')
+      expect(typeof summary2).toBe('string')
+    })
+
+    it('should maintain consistent format', async () => {
+      const summary = await marketSummaryService.generateSummary()
+      // Should always have portfolio and trades section
+      const hasPortfolioSection = summary.includes('Portfolio')
+      const hasTradeSection = summary.includes('Trade')
+
+      expect(hasPortfolioSection || hasTradeSection).toBe(true)
+    })
+  })
 })

@@ -303,7 +303,7 @@ describe('Rebalance Routes', () => {
       const res = await app.request('/rebalance/history?limit=-1')
       if (res.status === 400) {
         const data = await res.json()
-        expect(data).toHaveProperty('error')
+          expect(data).toHaveProperty('error')
       }
     })
 
@@ -338,6 +338,29 @@ describe('Rebalance Routes', () => {
           }
         }
       }
+    })
+
+    it('should reject NaN limit parameter', async () => {
+      const res = await app.request('/rebalance/history?limit=notanumber')
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('limit must be an integer between 1 and 200')
+      }
+    })
+
+    it('should explicitly reject 0 limit', async () => {
+      const res = await app.request('/rebalance/history?limit=0')
+      expect(res.status).toBe(400)
+      const data = await res.json()
+      expect(data.error).toContain('limit must be an integer between 1 and 200')
+    })
+
+    it('should explicitly reject 201 limit', async () => {
+      const res = await app.request('/rebalance/history?limit=201')
+      expect(res.status).toBe(400)
+      const data = await res.json()
+      expect(data.error).toContain('limit must be an integer between 1 and 200')
     })
   })
 

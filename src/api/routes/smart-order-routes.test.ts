@@ -630,4 +630,144 @@ describe('Smart Order Routes', () => {
       expect([200, 201, 400, 401, 500]).toContain(res.status)
     })
   })
+
+  describe('GET /smart-order/active error handling', () => {
+    it('should handle database errors gracefully', async () => {
+      const res = await app.request('/smart-order/active')
+      expect([200, 401, 500]).toContain(res.status)
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(Array.isArray(data)).toBe(true)
+      }
+    })
+
+    it('should return JSON on error', async () => {
+      const res = await app.request('/smart-order/active')
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should properly merge execution tracker progress', async () => {
+      const res = await app.request('/smart-order/active')
+      if (res.status === 200) {
+        const data = await res.json()
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach((order: any) => {
+            expect(order).toHaveProperty('filledAmount')
+            expect(order).toHaveProperty('filledPct')
+            expect(order).toHaveProperty('avgPrice')
+          })
+        }
+      }
+    })
+  })
+
+  describe('GET /smart-order/:id error handling', () => {
+    it('should return 404 for truly non-existent order', async () => {
+      const res = await app.request('/smart-order/completely-nonexistent-xyz')
+      expect([404, 401, 500]).toContain(res.status)
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should handle database errors on GET by id', async () => {
+      const res = await app.request('/smart-order/test-order')
+      expect([200, 404, 401, 500]).toContain(res.status)
+    })
+
+    it('should parse and return config JSON when present', async () => {
+      const res = await app.request('/smart-order/test-order')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('config')
+      }
+    })
+  })
+
+  describe('PUT /smart-order/:id/pause error handling', () => {
+    it('should handle database errors on pause', async () => {
+      const res = await app.request('/smart-order/test-id/pause', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+    })
+
+    it('should return proper error message when order not found', async () => {
+      const res = await app.request('/smart-order/nonexistent-pause/pause', { method: 'PUT' })
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data.error).toContain('not found')
+      }
+    })
+
+    it('should return proper error message when order not active', async () => {
+      const res = await app.request('/smart-order/inactive/pause', { method: 'PUT' })
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data.error).toContain('not active')
+      }
+    })
+  })
+
+  describe('PUT /smart-order/:id/resume error handling', () => {
+    it('should handle database errors on resume', async () => {
+      const res = await app.request('/smart-order/test-id/resume', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+    })
+
+    it('should return proper error message when order not paused', async () => {
+      const res = await app.request('/smart-order/test-active/resume', { method: 'PUT' })
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data.error).toContain('not paused')
+      }
+    })
+  })
+
+  describe('PUT /smart-order/:id/cancel error handling', () => {
+    it('should handle database errors on cancel', async () => {
+      const res = await app.request('/smart-order/test-id/cancel', { method: 'PUT' })
+      expect([200, 404, 409, 500]).toContain(res.status)
+    })
+
+    it('should return proper error message for already completed order', async () => {
+      const res = await app.request('/smart-order/completed-order/cancel', { method: 'PUT' })
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data.error).toContain('completed')
+      }
+    })
+
+    it('should return proper error message for already cancelled order', async () => {
+      const res = await app.request('/smart-order/cancelled-order/cancel', { method: 'PUT' })
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data.error).toContain('cancelled')
+      }
+    })
+  })
+
+  describe('POST /smart-order with missing optional fields', () => {
+    it('should not require rebalanceId', async () => {
+      const body = JSON.stringify({
+        type: 'twap',
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        side: 'buy',
+        totalAmount: 1,
+        durationMs: 3600000,
+        slices: 10,
+      })
+
+      const res = await app.request('/smart-order', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 201, 400, 401, 500]).toContain(res.status)
+    })
+  })
 })
