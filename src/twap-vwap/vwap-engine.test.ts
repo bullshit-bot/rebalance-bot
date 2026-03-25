@@ -75,6 +75,21 @@ describe('VwapEngine', () => {
       expect(orderId).toBeTruthy()
     })
 
+    it('should test volume weight building with mock exchange (lines 62-82)', async () => {
+      // Test with a realistic configuration that triggers buildVolumeWeights
+      const orderId = await engine.create({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        side: 'buy',
+        totalAmount: 10,
+        durationMs: 7200000, // 2 hours
+        slices: 5,
+      })
+
+      expect(orderId).toBeTruthy()
+      expect(orderId).toHaveLength(36)
+    })
+
     it('should support sell orders', async () => {
       const orderId = await engine.create({
         exchange: 'kraken',

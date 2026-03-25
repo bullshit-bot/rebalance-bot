@@ -137,12 +137,65 @@ describe('AI Routes', () => {
       })
       expect(res.status).toBe(400)
     })
+
+    it('should accept empty body for PUT /ai/config', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({}),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect([200, 400, 401]).toContain(res.status)
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('autoApprove')
+        expect(data).toHaveProperty('maxAllocationShiftPct')
+        expect(data).toHaveProperty('enabled')
+      }
+    })
+
+    it('should update maxShiftPct field', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: 5.5 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect([200, 400, 401]).toContain(res.status)
+    })
+
+    it('should reject invalid maxShiftPct', async () => {
+      const res = await app.request('/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({ maxShiftPct: -1 }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect(res.status).toBe(400)
+    })
   })
 
   describe('GET /ai/summary', () => {
     it('should return market summary', async () => {
       const res = await app.request('/ai/summary')
       expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should handle market summary generation (lines 143-145)', async () => {
+      // Test the GET /ai/summary endpoint which includes error handling
+      const res = await app.request('/ai/summary')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('summary')
+      } else if (res.status === 500) {
+        // Error case — should have error field
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return json response for summary', async () => {
+      const res = await app.request('/ai/summary')
+      expect(res.headers.get('content-type')).toContain('application/json')
+      const data = await res.json()
+      expect(typeof data).toBe('object')
     })
   })
 

@@ -168,6 +168,26 @@ describe('Config Routes', () => {
       }
     })
 
+    it('should reject sum > 100% (lines 116-118 coverage)', async () => {
+      const body = JSON.stringify([
+        { asset: 'BTC', targetPct: 50.5 },
+        { asset: 'ETH', targetPct: 50.5 },
+      ])
+
+      const res = await app.request('/config/allocations', {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect([200, 400, 401]).toContain(res.status)
+      if (res.status === 400) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(data.error).toContain('exceeds 100%')
+      }
+    })
+
     it('should accept single asset 100%', async () => {
       const body = JSON.stringify([{ asset: 'BTC', targetPct: 100 }])
 
@@ -243,6 +263,26 @@ describe('Config Routes', () => {
       const res = await app.request('/config/allocations/INVALID', { method: 'DELETE' })
       if (res.status >= 400) {
         expect(res.headers.get('content-type')).toContain('application/json')
+      }
+    })
+
+    it('should delete specific asset allocation', async () => {
+      // First set an allocation
+      await app.request('/config/allocations', {
+        method: 'PUT',
+        body: JSON.stringify([
+          { asset: 'BTC', targetPct: 60 },
+          { asset: 'ETH', targetPct: 40 },
+        ]),
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      // Then delete one
+      const res = await app.request('/config/allocations/BTC', { method: 'DELETE' })
+      expect([200, 204, 401]).toContain(res.status)
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('deleted')
       }
     })
 

@@ -142,5 +142,14 @@ describe('authMiddleware', () => {
       const result = await authMiddleware(ctx as Context, mockNext)
       expect(result).toBeTruthy()
     })
+
+    it('should reject mismatched-length API key hitting catch block (lines 32-33)', async () => {
+      // Create a key that's completely different length to ensure we hit the catch path
+      // The key validation includes a try-catch to handle any unexpected errors
+      const ctx = makeContext('\x00\x01\x02\x04\x05\x06\x07\x08\x09')
+      const result = await authMiddleware(ctx as Context, mockNext)
+      expect(result).toBeTruthy() // Should return 401 response
+      expect(mockNext).not.toHaveBeenCalled() // Should not call next
+    })
   })
 })

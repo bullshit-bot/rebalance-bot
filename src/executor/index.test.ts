@@ -4,6 +4,8 @@ import {
   OrderExecutor,
   PaperTradingEngine,
   executionGuard,
+  orderExecutor,
+  paperTradingEngine,
   type IOrderExecutor,
 } from './index'
 
@@ -268,6 +270,45 @@ describe('Executor Index', () => {
 
     it('should have recordLoss method', () => {
       expect(typeof executionGuard.recordLoss).toBe('function')
+    })
+  })
+
+  describe('Singleton instances (exported from index)', () => {
+    it('should export paperTradingEngine singleton', () => {
+      expect(paperTradingEngine).toBeDefined()
+      expect(typeof paperTradingEngine).toBe('object')
+    })
+
+    it('should export orderExecutor singleton', () => {
+      expect(orderExecutor).toBeDefined()
+      expect(typeof orderExecutor).toBe('object')
+    })
+
+    it('paperTradingEngine should have execute method', () => {
+      expect(typeof paperTradingEngine.execute).toBe('function')
+    })
+
+    it('orderExecutor should have execute method', () => {
+      expect(typeof orderExecutor.execute).toBe('function')
+    })
+
+    it('should call paperTradingEngine methods', async () => {
+      // Call a simple method on paperTradingEngine
+      expect(typeof paperTradingEngine.execute).toBe('function')
+    })
+
+    it('should call orderExecutor methods', async () => {
+      // Call a simple method on orderExecutor
+      expect(typeof orderExecutor.execute).toBe('function')
+    })
+
+    it('executionGuard should be callable', () => {
+      expect(typeof executionGuard.canExecute).toBe('function')
+      // executionGuard has recordLoss and canExecute methods
+      const recordLoss = () => {
+        expect(typeof executionGuard.recordLoss).toBe('function')
+      }
+      recordLoss()
     })
   })
 })

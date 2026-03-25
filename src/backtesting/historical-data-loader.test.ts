@@ -298,4 +298,36 @@ describe('HistoricalDataLoader - DI constructor', () => {
       expect(c.timestamp).not.toBeNull()
     }
   })
+
+  it('_upsertCandles maps and stores rows when no custom upsert provided (lines 213-222)', async () => {
+    // Create a loader with exchangeManager but NO custom upsertCandles
+    // This will force the default database insert behavior
+    const depsWithoutMock: HistoricalDataLoaderDeps = {
+      exchangeManager: {
+        getExchange: () => ({
+          fetchOHLCV: async () => [
+            [1_000_000, 30000, 31000, 29000, 30500, 100],
+            [2_000_000, 30500, 32000, 30000, 31500, 120],
+          ],
+        }),
+      },
+      // NO upsertCandles function provided — forces default database insert
+    }
+    const loader = new HistoricalDataLoader(depsWithoutMock)
+
+    // Call loadData which internally calls _upsertCandles
+    const candles = await loader.loadData({
+      exchange: 'binance',
+      pair: 'BTC/USDT',
+      timeframe: '1h',
+      since: 0,
+      until: 5_000_000,
+    })
+
+    // Should have successfully loaded candles
+    expect(candles.length).toBeGreaterThan(0)
+    expect(candles[0]).toHaveProperty('timestamp')
+    expect(candles[0]).toHaveProperty('close')
+    expect(candles[0]).toHaveProperty('volume')
+  })
 })

@@ -5,6 +5,7 @@ import type { IOrderExecutor } from '@executor/order-executor'
 
 export type { IOrderExecutor }
 export { OrderExecutor, PaperTradingEngine }
+export { orderExecutor, paperTradingEngine }
 export { executionGuard } from '@executor/execution-guard'
 
 /**
