@@ -79,7 +79,7 @@ jobs:
         run: npx semantic-release || echo "semantic-release not configured, skipping"
 
       - name: Send release notification to Discord
-        if: success()
+        if: success() && env.DISCORD_WEBHOOK_URL != ''
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: node scripts/send-discord-release.cjs production
