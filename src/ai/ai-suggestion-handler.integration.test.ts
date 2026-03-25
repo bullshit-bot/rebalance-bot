@@ -96,11 +96,10 @@ describe('ai-suggestion-handler (integration)', () => {
     })
 
     it('should validate shift constraints against current allocations', async () => {
-      // Seed allocations — use raw SQL to avoid unique constraint issues
-      await db.delete(allocations)
+      // Use unique exchange to avoid conflicting with seed data
       await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 50, exchange: 'binance' },
-        { asset: 'ETH', targetPct: 50, exchange: 'binance' },
+        { asset: 'TEST_BTC', targetPct: 50, exchange: 'test-shift' },
+        { asset: 'TEST_ETH', targetPct: 50, exchange: 'test-shift' },
       ])
 
       const input = {
