@@ -5,14 +5,13 @@ on:
     branches: [main, dev]
     paths:
       - 'src/**'
+      - 'scripts/**'
       - 'package.json'
       - 'tsconfig.json'
       - '.github/workflows/test-backend.yml'
   pull_request:
     branches: [main, dev]
-    paths:
-      - 'src/**'
-      - 'package.json'
+  workflow_dispatch:
 
 jobs:
   test:
