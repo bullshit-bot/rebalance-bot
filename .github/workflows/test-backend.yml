@@ -19,9 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       API_KEY: test-ci-key
+      API_PORT: "3001"
       ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
       PAPER_TRADING: "true"
       DATABASE_URL: "file:data/ci-test.db"
+      REBALANCE_THRESHOLD: "5"
+      REBALANCE_COOLDOWN_HOURS: "1"
+      MIN_TRADE_USD: "10"
+      MAX_TRADE_USD: "5000"
+      DAILY_LOSS_LIMIT_PCT: "10"
 
     steps:
       - uses: actions/checkout@v4
