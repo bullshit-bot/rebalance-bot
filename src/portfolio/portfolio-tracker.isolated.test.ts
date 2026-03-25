@@ -1,13 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
 
+// watchBalance must block (not resolve instantly) to prevent infinite loop
+let resolveWatch: (() => void) | null = null
 const mockExchange = {
   id: 'binance',
-  watchBalance: async () => ({
-    free: { BTC: 1, ETH: 10, USDT: 50000 },
-    used: { BTC: 0, ETH: 0, USDT: 0 },
-    total: { BTC: 1, ETH: 10, USDT: 50000 },
+  watchBalance: () => new Promise<Record<string, unknown>>((resolve) => {
+    resolveWatch = () => resolve({
+      free: { BTC: 1, ETH: 10, USDT: 50000 },
+      total: { BTC: 1, ETH: 10, USDT: 50000 },
+    })
   }),
-  loadMarkets: async () => ({}),
   close: async () => {},
 }
 
@@ -15,64 +17,49 @@ mock.module('@exchange/exchange-manager', () => ({
   exchangeManager: {
     getExchange: () => mockExchange,
     getEnabledExchanges: () => new Map([['binance', mockExchange]]),
-    initialize: async () => {},
-    shutdown: async () => {},
   },
 }))
 
 mock.module('@price/price-cache', () => ({
   priceCache: {
-    getBestPrice: (pair: string) => (pair.includes('BTC') ? 50000 : pair.includes('ETH') ? 3500 : 180),
-    get: () => ({ price: 50000, bid: 49999, ask: 50001 }),
-  },
-}))
-
-mock.module('@db/database', () => ({
-  db: {
-    query: async () => [],
-    insert: () => ({ values: async () => ({}) }),
+    getBestPrice: () => 50000,
+    get: () => ({ price: 50000 }),
+    set: () => {},
   },
 }))
 
 mock.module('@events/event-bus', () => ({
-  eventBus: {
-    emit: () => {},
-    on: () => {},
-    off: () => {},
-  },
+  eventBus: { emit: () => {}, on: () => {}, off: () => {} },
 }))
 
-import { PortfolioTracker } from '@portfolio/portfolio-tracker'
+import { portfolioTracker } from '@portfolio/portfolio-tracker'
 
-describe('PortfolioTracker', () => {
-  let tracker: PortfolioTracker
-
-  beforeEach(() => {
-    tracker = new PortfolioTracker()
+describe('PortfolioTracker (isolated)', () => {
+  afterEach(async () => {
+    await portfolioTracker.stopWatching()
   })
 
-  it('should create tracker instance', () => {
-    expect(tracker).toBeDefined()
+  it('getPortfolio returns null initially', () => {
+    expect(portfolioTracker.getPortfolio()).toBeNull()
   })
 
-  it('should start watching', async () => {
-    const exchanges = new Map([['binance', mockExchange]])
-    await tracker.startWatching(exchanges)
-    expect(true).toBe(true)
-  })
-
-  it('should get target allocations', async () => {
-    const targets = await tracker.getTargetAllocations()
-    expect(targets).toBeDefined()
+  it('getTargetAllocations reads from DB', async () => {
+    const targets = await portfolioTracker.getTargetAllocations()
     expect(Array.isArray(targets)).toBe(true)
   })
 
-  it('should stop watching', async () => {
-    await tracker.stopWatching()
+  it('stopWatching is safe when not watching', async () => {
+    await portfolioTracker.stopWatching()
     expect(true).toBe(true)
   })
 
-  afterEach(async () => {
-    await tracker.stopWatching()
-  })
+  it('startWatching then stopWatching', async () => {
+    const exchanges = new Map([['binance', mockExchange as any]])
+    // startWatching fires and forgets — doesn't await the loop
+    await portfolioTracker.startWatching(exchanges)
+    // Give it a tick
+    await new Promise(r => setTimeout(r, 50))
+    await portfolioTracker.stopWatching()
+    expect(true).toBe(true)
+  }, { timeout: 5000 })
 })
