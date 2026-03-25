@@ -6,6 +6,19 @@ import { getExecutor } from "@executor/index";
 import type { GridLevel } from "@grid/grid-calculator";
 import { gridPnLTracker } from "@grid/grid-pnl-tracker";
 import { eq } from "drizzle-orm";
+import type { IOrderExecutor } from "@executor/order-executor";
+
+// ─── Dependency injection interfaces ─────────────────────────────────────────
+
+export interface IExchangeManagerDepGE {
+  getEnabledExchanges(): Map<string, { fetchOrder(id: string): Promise<Record<string, unknown>>; cancelOrder(id: string): Promise<unknown> }>
+}
+
+export interface GridExecutorDeps {
+  exchangeManager: IExchangeManagerDepGE
+  /** Injectable executor factory — defaults to getExecutor(). */
+  getExecutor: () => IOrderExecutor
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -24,6 +37,14 @@ const POLL_INTERVAL_MS = 10_000;
 class GridExecutor {
   /** Active polling timers keyed by botId */
   private readonly monitors: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private readonly deps: GridExecutorDeps;
+
+  constructor(deps?: Partial<GridExecutorDeps>) {
+    this.deps = {
+      exchangeManager: deps?.exchangeManager ?? (exchangeManager as unknown as IExchangeManagerDepGE),
+      getExecutor: deps?.getExecutor ?? getExecutor,
+    }
+  }
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -38,7 +59,7 @@ class GridExecutor {
     exchange: ExchangeName,
     pair: string
   ): Promise<void> {
-    const executor = getExecutor();
+    const executor = this.deps.getExecutor();
 
     for (const level of levels) {
       // Place buy order at this level if there is a buy amount
@@ -238,7 +259,7 @@ class GridExecutor {
     if (botRows.length === 0) return;
     const { exchange, pair } = botRows[0];
 
-    const executor = getExecutor();
+    const executor = this.deps.getExecutor();
     const counterSide = filledOrder.side === "buy" ? "sell" : "buy";
     const targetLevel = filledOrder.side === "buy" ? filledOrder.level + 1 : filledOrder.level - 1;
 
@@ -271,7 +292,7 @@ class GridExecutor {
    * Returns true if the order is fully filled.
    */
   private async checkOrderFilled(exchangeOrderId: string, _botId: string): Promise<boolean> {
-    for (const [, exchange] of exchangeManager.getEnabledExchanges()) {
+    for (const [, exchange] of this.deps.exchangeManager.getEnabledExchanges()) {
       try {
         // We don't have pair stored per order — fetchOrder needs symbol
         // Use a best-effort approach: some exchanges allow fetchOrder without symbol
@@ -291,7 +312,7 @@ class GridExecutor {
   }
 
   private async tryCancelOnAnyExchange(exchangeOrderId: string, _botId: string): Promise<void> {
-    for (const [, exchange] of exchangeManager.getEnabledExchanges()) {
+    for (const [, exchange] of this.deps.exchangeManager.getEnabledExchanges()) {
       try {
         await exchange.cancelOrder(exchangeOrderId);
         return;

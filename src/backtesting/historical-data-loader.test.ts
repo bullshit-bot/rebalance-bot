@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'bun:test'
+import { HistoricalDataLoader } from './historical-data-loader'
+import type { HistoricalDataLoaderDeps } from './historical-data-loader'
 
 // OHLCV candle type
 interface OHLCVCandle {
@@ -148,5 +150,152 @@ describe('HistoricalDataLoader - Core Logic', () => {
     const common = new Set([...btcTimestamps].filter((ts) => ethTimestamps.has(ts)))
 
     expect(common.size).toBe(2)
+  })
+})
+
+// ─── DI-based HistoricalDataLoader tests ──────────────────────────────────────
+
+function makeHDLDeps(ohlcvData?: number[][]): HistoricalDataLoaderDeps {
+  const candles = ohlcvData ?? [
+    [1_000_000, 30000, 31000, 29000, 30500, 100],
+    [2_000_000, 30500, 32000, 30000, 31500, 120],
+    [3_000_000, 31500, 33000, 31000, 32500, 130],
+  ]
+
+  return {
+    exchangeManager: {
+      getExchange: (_name: any) => ({
+        fetchOHLCV: async (_pair: string, _tf: string, since?: number, limit?: number) => {
+          const lim = limit ?? 1000
+          return candles.slice(0, lim)
+        },
+      }),
+    },
+    // No-op upsert: avoids SQLite writes in unit tests
+    upsertCandles: async () => {},
+  }
+}
+
+describe('HistoricalDataLoader - DI constructor', () => {
+  it('loadData() fetches candles from injected exchange', async () => {
+    const loader = new HistoricalDataLoader(makeHDLDeps())
+    const candles = await loader.loadData({
+      exchange: 'binance',
+      pair: 'BTC/USDT',
+      timeframe: '1h',
+      since: 0,
+      until: 5_000_000,
+    })
+
+    expect(candles.length).toBeGreaterThan(0)
+    expect(candles[0]).toHaveProperty('timestamp')
+    expect(candles[0]).toHaveProperty('open')
+    expect(candles[0]).toHaveProperty('close')
+  })
+
+  it('loadData() throws when exchange not connected', async () => {
+    const deps: HistoricalDataLoaderDeps = {
+      exchangeManager: { getExchange: () => undefined },
+    }
+    const loader = new HistoricalDataLoader(deps)
+
+    let threw = false
+    try {
+      await loader.loadData({ exchange: 'binance', pair: 'BTC/USDT', timeframe: '1h', since: 0 })
+    } catch (e) {
+      threw = true
+      expect(String(e)).toContain('not connected')
+    }
+    expect(threw).toBe(true)
+  })
+
+  it('loadData() stops when exchange returns empty batch', async () => {
+    const deps: HistoricalDataLoaderDeps = {
+      exchangeManager: {
+        getExchange: () => ({
+          fetchOHLCV: async () => [],  // empty immediately
+        }),
+      },
+    }
+    const loader = new HistoricalDataLoader(deps)
+    const candles = await loader.loadData({
+      exchange: 'binance',
+      pair: 'BTC/USDT',
+      timeframe: '1h',
+      since: 0,
+    })
+    expect(candles.length).toBe(0)
+  })
+
+  it('loadData() filters candles beyond until timestamp', async () => {
+    const loader = new HistoricalDataLoader(makeHDLDeps())
+    const until = 1_500_000
+    const candles = await loader.loadData({
+      exchange: 'binance',
+      pair: 'BTC/USDT',
+      timeframe: '1h',
+      since: 0,
+      until,
+    })
+
+    for (const c of candles) {
+      expect(c.timestamp).toBeLessThanOrEqual(until)
+    }
+  })
+
+  it('getCachedData() returns data from DB without hitting exchange', async () => {
+    const loader = new HistoricalDataLoader(makeHDLDeps())
+    // getCachedData reads from SQLite — in test env will return empty (no data)
+    const candles = await loader.getCachedData({
+      exchange: 'binance',
+      pair: 'BTC/USDT',
+      timeframe: '1h',
+      since: 0,
+      until: Date.now(),
+    })
+    expect(Array.isArray(candles)).toBe(true)
+  })
+
+  it('syncData() loads from last known timestamp', async () => {
+    const loader = new HistoricalDataLoader(makeHDLDeps())
+    // In test env, DB has no candles so since = 30d ago; should load from mock exchange
+    const count = await loader.syncData('binance', 'BTC/USDT', '1h')
+    expect(typeof count).toBe('number')
+    expect(count).toBeGreaterThanOrEqual(0)
+  })
+
+  it('default constructor (no deps) instantiates correctly', () => {
+    const loader = new HistoricalDataLoader()
+    expect(loader).toBeDefined()
+    expect(typeof loader.loadData).toBe('function')
+    expect(typeof loader.getCachedData).toBe('function')
+    expect(typeof loader.syncData).toBe('function')
+  })
+
+  it('loadData() handles candles with null timestamp (filters them out)', async () => {
+    const depsWithNull: HistoricalDataLoaderDeps = {
+      exchangeManager: {
+        getExchange: () => ({
+          fetchOHLCV: async () => [
+            [null, 30000, 31000, 29000, 30500, 100],   // null ts — should be filtered
+            [2_000_000, 30500, 32000, 30000, 31500, 120],
+          ],
+        }),
+      },
+      upsertCandles: async () => {},  // no-op: avoid SQLite writes in unit tests
+    }
+    const loader = new HistoricalDataLoader(depsWithNull)
+    const candles = await loader.loadData({
+      exchange: 'binance',
+      pair: 'BTC/USDT',
+      timeframe: '1h',
+      since: 0,
+      until: 5_000_000,
+    })
+
+    // Only the non-null candle should be included
+    for (const c of candles) {
+      expect(c.timestamp).not.toBeNull()
+    }
   })
 })

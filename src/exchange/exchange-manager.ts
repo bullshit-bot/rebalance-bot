@@ -4,6 +4,26 @@ import { eventBus } from '@events/event-bus'
 import type { ExchangeName } from '@/types/index'
 import { createExchange } from '@exchange/exchange-factory'
 
+// ─── Dependency injection types ───────────────────────────────────────────────
+
+/** Factory function type — allows tests to inject a mock exchange factory. */
+export type ExchangeFactoryFn = (name: ExchangeName, config: { apiKey: string; secret: string; password?: string }) => ccxt.Exchange
+
+/** Credentials map type returned by the credentials provider. */
+export type ExchangeCredentialsMap = Map<ExchangeName, { apiKey: string; secret: string; password?: string }>
+
+export interface ExchangeManagerDeps {
+  /** Injectable event bus — defaults to app-wide eventBus singleton. */
+  eventBus: { emit(event: string, data?: unknown): void }
+  /** Injectable exchange factory — defaults to createExchange(). */
+  exchangeFactory: ExchangeFactoryFn
+  /**
+   * Injectable credentials provider — reads API keys from env by default.
+   * Tests can override to supply known credentials without touching process.env.
+   */
+  credentialsProvider: () => ExchangeCredentialsMap
+}
+
 // ─── ExchangeManager ──────────────────────────────────────────────────────────
 
 /**
@@ -14,9 +34,20 @@ import { createExchange } from '@exchange/exchange-factory'
  *  - Creates CCXT Pro instances via createExchange()
  *  - Emits exchange:connected / exchange:disconnected events
  *  - Provides a unified access point for all downstream services
+ *
+ * Accepts optional deps for dependency injection in tests.
  */
 class ExchangeManager {
   private readonly exchanges: Map<ExchangeName, ccxt.Exchange> = new Map()
+  private readonly deps: ExchangeManagerDeps
+
+  constructor(deps?: Partial<ExchangeManagerDeps>) {
+    this.deps = {
+      eventBus: deps?.eventBus ?? eventBus,
+      exchangeFactory: deps?.exchangeFactory ?? createExchange,
+      credentialsProvider: deps?.credentialsProvider ?? (() => this.buildExchangeConfigs()),
+    }
+  }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -26,25 +57,25 @@ class ExchangeManager {
    * silently skipped — the bot runs with however many are available.
    */
   async initialize(): Promise<void> {
-    const configs = this.buildExchangeConfigs()
+    const configs = this.deps.credentialsProvider()
 
     for (const [name, config] of configs) {
       try {
-        const exchange = createExchange(name, config)
+        const exchange = this.deps.exchangeFactory(name, config)
 
         // Verify connectivity with a lightweight ping before marking as ready
         await exchange.loadMarkets()
 
         this.exchanges.set(name, exchange)
-        eventBus.emit('exchange:connected', name)
+        this.deps.eventBus.emit('exchange:connected', name)
 
         console.log(`[ExchangeManager] ${name} connected`)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         console.error(`[ExchangeManager] Failed to connect to ${name}: ${message}`)
 
-        eventBus.emit('exchange:error', { exchange: name, error: message })
-        eventBus.emit('exchange:disconnected', name)
+        this.deps.eventBus.emit('exchange:error', { exchange: name, error: message })
+        this.deps.eventBus.emit('exchange:disconnected', name)
       }
     }
 
@@ -64,7 +95,7 @@ class ExchangeManager {
         exchange
           .close()
           .then(() => {
-            eventBus.emit('exchange:disconnected', name)
+            this.deps.eventBus.emit('exchange:disconnected', name)
             console.log(`[ExchangeManager] ${name} disconnected`)
           })
           .catch((error: unknown) => {
@@ -153,4 +184,5 @@ class ExchangeManager {
  * await exchangeManager.initialize()
  * const binance = exchangeManager.getExchange('binance')
  */
+export { ExchangeManager }
 export const exchangeManager = new ExchangeManager()

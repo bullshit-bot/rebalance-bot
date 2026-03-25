@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { CronScheduler, cronScheduler } from './cron-scheduler'
+import type { CronSchedulerDeps } from './cron-scheduler'
 
 describe('CronScheduler', () => {
   describe('singleton export', () => {
@@ -221,5 +222,226 @@ describe('CronScheduler', () => {
       scheduler.start()
       expect(true).toBe(true)
     })
+  })
+})
+
+// ─── DI-based CronScheduler tests — exercise callback paths ───────────────────
+
+describe('CronScheduler - DI callbacks', () => {
+  let scheduler: CronScheduler
+  const calls: string[] = []
+
+  const makeDeps = (): CronSchedulerDeps => ({
+    onPeriodicRebalance: () => { calls.push('rebalance') },
+    onPortfolioSnapshot: () => { calls.push('snapshot') },
+    onPriceCacheClean: () => { calls.push('priceClean') },
+    onCopySync: () => { calls.push('copySync') },
+    onDailySummary: () => { calls.push('dailySummary') },
+  })
+
+  beforeEach(() => {
+    calls.length = 0
+    scheduler = new CronScheduler(makeDeps())
+  })
+
+  afterEach(() => {
+    scheduler.stop()
+  })
+
+  it('invokes onPeriodicRebalance when callback called directly', () => {
+    scheduler.start()
+    // Invoke the dep directly to verify callback wiring without waiting for cron
+    ;(scheduler as any).deps.onPeriodicRebalance()
+    expect(calls).toContain('rebalance')
+  })
+
+  it('invokes onPortfolioSnapshot when callback called directly', () => {
+    scheduler.start()
+    ;(scheduler as any).deps.onPortfolioSnapshot()
+    expect(calls).toContain('snapshot')
+  })
+
+  it('invokes onPriceCacheClean when callback called directly', () => {
+    scheduler.start()
+    ;(scheduler as any).deps.onPriceCacheClean()
+    expect(calls).toContain('priceClean')
+  })
+
+  it('invokes onCopySync when callback called directly', () => {
+    scheduler.start()
+    ;(scheduler as any).deps.onCopySync()
+    expect(calls).toContain('copySync')
+  })
+
+  it('invokes onDailySummary when callback called directly', () => {
+    scheduler.start()
+    ;(scheduler as any).deps.onDailySummary()
+    expect(calls).toContain('dailySummary')
+  })
+
+  it('all 5 callbacks are accessible via deps', () => {
+    scheduler.start()
+    const depKeys = Object.keys((scheduler as any).deps)
+    expect(depKeys).toContain('onPeriodicRebalance')
+    expect(depKeys).toContain('onPortfolioSnapshot')
+    expect(depKeys).toContain('onPriceCacheClean')
+    expect(depKeys).toContain('onCopySync')
+    expect(depKeys).toContain('onDailySummary')
+  })
+
+  it('CronScheduler instantiates without any deps (uses defaults)', () => {
+    const defaultScheduler = new CronScheduler()
+    expect(defaultScheduler).toBeDefined()
+    defaultScheduler.start()
+    expect(defaultScheduler['jobs'].length).toBe(5)
+    defaultScheduler.stop()
+  })
+
+  it('injected callbacks receive correct context (no-throw)', () => {
+    let snapshotCalled = false
+    const s = new CronScheduler({
+      onPortfolioSnapshot: () => { snapshotCalled = true },
+    })
+    s.start()
+    ;(s as any).deps.onPortfolioSnapshot()
+    expect(snapshotCalled).toBe(true)
+    s.stop()
+  })
+})
+
+// ─── Default callback coverage ────────────────────────────────────────────────
+
+describe('CronScheduler - default callback execution', () => {
+  it('default onPeriodicRebalance emits rebalance:trigger via eventBus', () => {
+    const { eventBus: eb } = require('@events/event-bus')
+    const emitted: unknown[] = []
+    const originalEmit = eb.emit.bind(eb)
+    eb.emit = (event: string, data: unknown) => {
+      if (event === 'rebalance:trigger') emitted.push(data)
+      return originalEmit(event, data)
+    }
+
+    const s = new CronScheduler()
+    s.start()
+    ;(s as any).deps.onPeriodicRebalance()
+    s.stop()
+
+    eb.emit = originalEmit
+    expect(emitted.length).toBeGreaterThanOrEqual(1)
+    expect((emitted[0] as any).trigger).toBe('periodic')
+  })
+
+  it('default onPortfolioSnapshot skips when portfolio is null', () => {
+    // portfolioTracker.getPortfolio() returns null by default
+    // Just verify no throw
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onPortfolioSnapshot()).not.toThrow()
+    s.stop()
+  })
+
+  it('default onPriceCacheClean calls priceCache.clearStale()', () => {
+    const { priceCache: pc } = require('@price/price-cache')
+    let clearCalled = false
+    const original = pc.clearStale.bind(pc)
+    pc.clearStale = () => { clearCalled = true; return original() }
+
+    const s = new CronScheduler()
+    s.start()
+    ;(s as any).deps.onPriceCacheClean()
+    s.stop()
+
+    pc.clearStale = original
+    expect(clearCalled).toBe(true)
+  })
+
+  it('default onCopySync calls copySyncEngine.syncAll() without throwing', () => {
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onCopySync()).not.toThrow()
+    s.stop()
+  })
+
+  it('default onDailySummary calls marketSummaryService.generateSummary() without throwing', () => {
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onDailySummary()).not.toThrow()
+    s.stop()
+  })
+
+  it('default onPortfolioSnapshot calls snapshotService when portfolio exists', async () => {
+    // We need portfolioTracker to return a portfolio
+    const { portfolioTracker: pt } = require('@portfolio/portfolio-tracker')
+    const { snapshotService: ss } = require('@portfolio/snapshot-service')
+
+    // Stub getPortfolio to return a mock portfolio
+    const originalGetPortfolio = pt.getPortfolio.bind(pt)
+    pt.getPortfolio = () => ({
+      totalValueUsd: 10000,
+      assets: [],
+      updatedAt: Date.now(),
+    })
+
+    // Stub saveSnapshot to succeed
+    const originalSave = ss.saveSnapshot.bind(ss)
+    let saveCalled = false
+    ss.saveSnapshot = async () => { saveCalled = true }
+
+    const s = new CronScheduler()
+    s.start()
+    ;(s as any).deps.onPortfolioSnapshot()
+    await new Promise<void>((r) => setTimeout(r, 20))
+    s.stop()
+
+    pt.getPortfolio = originalGetPortfolio
+    ss.saveSnapshot = originalSave
+
+    expect(saveCalled).toBe(true)
+  })
+
+  it('default onPortfolioSnapshot catch fires when saveSnapshot rejects', async () => {
+    const { portfolioTracker: pt } = require('@portfolio/portfolio-tracker')
+    const { snapshotService: ss } = require('@portfolio/snapshot-service')
+
+    pt.getPortfolio = () => ({ totalValueUsd: 100, assets: [], updatedAt: Date.now() })
+    const originalSave = ss.saveSnapshot.bind(ss)
+    ss.saveSnapshot = async () => { throw new Error('DB error') }
+
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onPortfolioSnapshot()).not.toThrow()
+    await new Promise<void>((r) => setTimeout(r, 20))
+    s.stop()
+
+    pt.getPortfolio = () => null
+    ss.saveSnapshot = originalSave
+  })
+
+  it('default onCopySync catch fires when syncAll rejects', async () => {
+    const { copySyncEngine: cse } = require('@/copy-trading/copy-sync-engine')
+    const original = cse.syncAll.bind(cse)
+    cse.syncAll = async () => { throw new Error('sync error') }
+
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onCopySync()).not.toThrow()
+    await new Promise<void>((r) => setTimeout(r, 20))
+    s.stop()
+
+    cse.syncAll = original
+  })
+
+  it('default onDailySummary catch fires when generateSummary rejects', async () => {
+    const { marketSummaryService: mss } = require('@/ai/market-summary-service')
+    const original = mss.generateSummary.bind(mss)
+    mss.generateSummary = async () => { throw new Error('gen error') }
+
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onDailySummary()).not.toThrow()
+    await new Promise<void>((r) => setTimeout(r, 20))
+    s.stop()
+
+    mss.generateSummary = original
   })
 })

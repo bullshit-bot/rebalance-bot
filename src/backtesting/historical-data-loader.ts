@@ -4,6 +4,18 @@ import { ohlcvCandles } from '@db/schema'
 import { exchangeManager } from '@exchange/exchange-manager'
 import type { ExchangeName } from '@/types/index'
 
+// ─── Dependency injection ─────────────────────────────────────────────────────
+
+export interface IExchangeLookupDep {
+  getExchange(name: ExchangeName): { fetchOHLCV(pair: string, timeframe: string, since?: number, limit?: number): Promise<(number | null)[][]> } | undefined
+}
+
+export interface HistoricalDataLoaderDeps {
+  exchangeManager: IExchangeLookupDep
+  /** Optional: override candle persistence (e.g. no-op in tests). */
+  upsertCandles?: (exchange: ExchangeName, pair: string, timeframe: string, candles: OHLCVCandle[]) => Promise<void>
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface OHLCVCandle {
@@ -49,6 +61,15 @@ const REQUEST_DELAY_MS = 1_000
  *  3. syncData — incremental: find last cached ts → fetch only new candles
  */
 class HistoricalDataLoader {
+  private readonly deps: HistoricalDataLoaderDeps
+
+  constructor(deps?: Partial<HistoricalDataLoaderDeps>) {
+    this.deps = {
+      exchangeManager: deps?.exchangeManager ?? (exchangeManager as unknown as IExchangeLookupDep),
+      upsertCandles: deps?.upsertCandles,
+    }
+  }
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   /**
@@ -62,7 +83,7 @@ class HistoricalDataLoader {
     const { exchange: exchangeName, pair, timeframe, since } = params
     const until = params.until ?? Date.now()
 
-    const ccxtExchange = exchangeManager.getExchange(exchangeName)
+    const ccxtExchange = this.deps.exchangeManager.getExchange(exchangeName)
     if (!ccxtExchange) {
       throw new Error(`[HistoricalDataLoader] Exchange '${exchangeName}' is not connected`)
     }
@@ -183,6 +204,12 @@ class HistoricalDataLoader {
   ): Promise<void> {
     if (candles.length === 0) return
 
+    // Use injected upsert implementation if provided (e.g. no-op in tests)
+    if (this.deps.upsertCandles) {
+      await this.deps.upsertCandles(exchange, pair, timeframe, candles)
+      return
+    }
+
     const rows = candles.map((c) => ({
       exchange,
       pair,
@@ -214,4 +241,5 @@ function sleep(ms: number): Promise<void> {
  * import { historicalDataLoader } from '@backtesting/historical-data-loader'
  * const candles = await historicalDataLoader.loadData({ exchange: 'binance', pair: 'BTC/USDT', timeframe: '1d', since: Date.now() - 90*24*60*60*1000 })
  */
+export { HistoricalDataLoader }
 export const historicalDataLoader = new HistoricalDataLoader()

@@ -16,14 +16,39 @@ interface CcxtProExchange {
 /** Minimum drift percentage that triggers a drift:warning event */
 const REBALANCE_THRESHOLD = Number(process.env.REBALANCE_THRESHOLD ?? '5')
 
+// ─── Dependency injection interfaces ─────────────────────────────────────────
+
+export interface IPriceCacheDepPT {
+  getBestPrice(pair: string): number | undefined
+}
+
+export interface IEventBusDepPT {
+  emit(event: string, data?: unknown): void
+}
+
+export interface PortfolioTrackerDeps {
+  priceCache: IPriceCacheDepPT
+  eventBus: IEventBusDepPT
+}
+
 // ─── PortfolioTracker ─────────────────────────────────────────────────────────
 
 /**
  * Tracks real-time portfolio balances across all connected exchanges.
  * Subscribes to CCXT Pro watchBalance streams, aggregates holdings,
  * prices via PriceCache, and emits portfolio:update / drift:warning events.
+ *
+ * Accepts optional deps for dependency injection in tests.
  */
 class PortfolioTracker {
+  private readonly deps: PortfolioTrackerDeps
+
+  constructor(deps?: Partial<PortfolioTrackerDeps>) {
+    this.deps = {
+      priceCache: deps?.priceCache ?? priceCache,
+      eventBus: deps?.eventBus ?? eventBus,
+    }
+  }
   /** exchange name → (asset symbol → amount) */
   private readonly balances: Map<ExchangeName, Map<string, number>> = new Map()
 
@@ -141,7 +166,7 @@ class PortfolioTracker {
 
         // Notify raw balance listeners
         const rawBalances: Record<string, number> = Object.fromEntries(snapshot)
-        eventBus.emit('balance:update', { exchange: name, balances: rawBalances })
+        this.deps.eventBus.emit('balance:update', { exchange: name, balances: rawBalances })
 
         this.recalculate()
       } catch (err: unknown) {
@@ -190,9 +215,9 @@ class PortfolioTracker {
         valueUsd = amount
       } else {
         const price =
-          priceCache.getBestPrice(`${asset}/USDT`) ??
-          priceCache.getBestPrice(`${asset}/USD`) ??
-          priceCache.getBestPrice(`${asset}/USDC`)
+          this.deps.priceCache.getBestPrice(`${asset}/USDT`) ??
+          this.deps.priceCache.getBestPrice(`${asset}/USD`) ??
+          this.deps.priceCache.getBestPrice(`${asset}/USDC`)
 
         if (price === undefined || price === 0) continue // skip assets with no price data
         valueUsd = amount * price
@@ -241,12 +266,12 @@ class PortfolioTracker {
         }
 
         this.portfolio = portfolio
-        eventBus.emit('portfolio:update', portfolio)
+        this.deps.eventBus.emit('portfolio:update', portfolio)
 
         // Emit drift warnings for any asset exceeding threshold
         for (const asset of assets) {
           if (Math.abs(asset.driftPct) >= REBALANCE_THRESHOLD) {
-            eventBus.emit('drift:warning', {
+            this.deps.eventBus.emit('drift:warning', {
               asset: asset.asset,
               currentPct: asset.currentPct,
               targetPct: asset.targetPct,

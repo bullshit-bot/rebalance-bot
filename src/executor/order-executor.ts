@@ -21,6 +21,37 @@ export interface IOrderExecutor {
   executeBatch(orders: TradeOrder[]): Promise<TradeResult[]>
 }
 
+// ─── Dependency injection interfaces ──────────────────────────────────────────
+
+export interface IExchangeManagerDep {
+  getExchange(name: string): { createOrder: Function; cancelOrder: Function; fetchOrder: Function; fetchBalance: Function; fetchOpenOrders?: Function } | undefined
+}
+
+export interface IPriceCacheDep {
+  getBestPrice(pair: string): number | undefined
+}
+
+export interface IExecutionGuardDep {
+  canExecute(order: TradeOrder, price: number, portfolioValue: number): { allowed: boolean; reason?: string }
+  recordTrade(result: TradeResult): void
+}
+
+export interface IEventBusDep {
+  emit(event: string, data?: unknown): void
+}
+
+export interface IDbDep {
+  insert(table: unknown): { values(data: unknown): Promise<unknown> }
+}
+
+export interface OrderExecutorDeps {
+  exchangeManager: IExchangeManagerDep
+  priceCache: IPriceCacheDep
+  executionGuard: IExecutionGuardDep
+  eventBus: IEventBusDep
+  db: IDbDep
+}
+
 // ─── OrderExecutor ────────────────────────────────────────────────────────────
 
 /**
@@ -33,8 +64,22 @@ export interface IOrderExecutor {
  *  4. If unfilled → cancel and place a market order
  *  5. Retry up to 3 times with exponential back-off on transient errors
  *  6. Persist trade to DB and emit trade:executed
+ *
+ * Accepts optional deps for dependency injection in tests.
  */
 export class OrderExecutor implements IOrderExecutor {
+  private readonly deps: OrderExecutorDeps
+
+  constructor(deps?: Partial<OrderExecutorDeps>) {
+    this.deps = {
+      exchangeManager: deps?.exchangeManager ?? (exchangeManager as unknown as IExchangeManagerDep),
+      priceCache: deps?.priceCache ?? priceCache,
+      executionGuard: deps?.executionGuard ?? (executionGuard as unknown as IExecutionGuardDep),
+      eventBus: deps?.eventBus ?? (eventBus as unknown as IEventBusDep),
+      db: deps?.db ?? (db as unknown as IDbDep),
+    }
+  }
+
   async execute(order: TradeOrder): Promise<TradeResult> {
     let lastError: Error | undefined
 
@@ -76,20 +121,20 @@ export class OrderExecutor implements IOrderExecutor {
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   private async executeOnce(order: TradeOrder): Promise<TradeResult> {
-    const exchange = exchangeManager.getExchange(order.exchange)
+    const exchange = this.deps.exchangeManager.getExchange(order.exchange)
     if (!exchange) {
       throw new Error(`[OrderExecutor] Exchange ${order.exchange} not connected`)
     }
 
     // Resolve current market price
-    const currentPrice = priceCache.getBestPrice(order.pair) ?? order.price
+    const currentPrice = this.deps.priceCache.getBestPrice(order.pair) ?? order.price
     if (currentPrice === undefined) {
       throw new Error(`[OrderExecutor] No price available for ${order.pair}`)
     }
 
     // Safety check
     const portfolioValueUsd = await this.estimatePortfolioValueUsd(order.exchange, currentPrice, order.pair)
-    const guard = executionGuard.canExecute(order, currentPrice, portfolioValueUsd)
+    const guard = this.deps.executionGuard.canExecute(order, currentPrice, portfolioValueUsd)
     if (!guard.allowed) {
       throw new Error(`[OrderExecutor] Blocked by execution guard: ${guard.reason}`)
     }
@@ -271,7 +316,7 @@ export class OrderExecutor implements IOrderExecutor {
     _pair: string,
   ): Promise<number> {
     try {
-      const exchange = exchangeManager.getExchange(exchangeName as Parameters<typeof exchangeManager.getExchange>[0])
+      const exchange = this.deps.exchangeManager.getExchange(exchangeName)
       if (!exchange) return 0
 
       const balances = (await exchange.fetchBalance()) as Record<string, unknown>
@@ -302,8 +347,8 @@ export class OrderExecutor implements IOrderExecutor {
       console.error(`[OrderExecutor] Failed to persist trade to DB: ${message}`)
     }
 
-    executionGuard.recordTrade(result)
-    eventBus.emit('trade:executed', result)
+    this.deps.executionGuard.recordTrade(result)
+    this.deps.eventBus.emit('trade:executed', result)
   }
 }
 

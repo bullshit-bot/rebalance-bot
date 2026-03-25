@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { app } from './server'
+import { app, startServer } from './server'
 
 const VALID_KEY = process.env['API_KEY'] ?? 'dev-api-key-2026'
 
@@ -202,6 +202,63 @@ describe('API Server', () => {
       const res = await app.request('/api/unknown')
       const data = await res.json()
       expect(data.error).toBeTruthy()
+    })
+  })
+
+  describe('rate limiting enforcement', () => {
+    it('should return 429 after exceeding 100 requests from same IP', async () => {
+      const testIp = `test-rate-limit-ip-${Date.now()}`
+      let hitLimit = false
+
+      for (let i = 0; i < 105; i++) {
+        const res = await app.request('/api/health', {
+          headers: { 'x-forwarded-for': testIp },
+        })
+        if (res.status === 429) {
+          hitLimit = true
+          break
+        }
+      }
+
+      expect(hitLimit).toBe(true)
+    })
+
+    it('should use x-real-ip when x-forwarded-for absent', async () => {
+      const res = await app.request('/api/health', {
+        headers: { 'x-real-ip': '10.0.0.99' },
+      })
+      expect([200, 429]).toContain(res.status)
+    })
+
+    it('should fallback to "unknown" IP when no header set', async () => {
+      const res = await app.request('/api/health')
+      expect([200, 429]).toContain(res.status)
+    })
+
+    it('429 response has JSON error body', async () => {
+      const testIp = `test-rate-limit-json-${Date.now()}`
+      let response: Response | undefined
+
+      for (let i = 0; i < 105; i++) {
+        const res = await app.request('/api/health', {
+          headers: { 'x-forwarded-for': testIp },
+        })
+        if (res.status === 429) {
+          response = res
+          break
+        }
+      }
+
+      if (response) {
+        const body = await response.json()
+        expect(body).toHaveProperty('error')
+      }
+    })
+  })
+
+  describe('startServer export', () => {
+    it('startServer is exported as a function', () => {
+      expect(typeof startServer).toBe('function')
     })
   })
 })

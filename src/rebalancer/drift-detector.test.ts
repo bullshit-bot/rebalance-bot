@@ -1,5 +1,7 @@
 import { describe, test, expect, beforeEach } from 'bun:test'
 import type { Portfolio } from '@/types/index'
+import { DriftDetector } from './drift-detector'
+import type { DriftDetectorDeps } from './drift-detector'
 
 // ─── Mock DriftDetector ────────────────────────────────────────────────────
 
@@ -440,5 +442,149 @@ describe('DriftDetector', () => {
 
     const breached = portfolio.assets.find((a) => Math.abs(a.driftPct) > 5)
     expect(breached).toBeDefined()
+  })
+})
+
+// ─── DI-based DriftDetector tests ─────────────────────────────────────────────
+
+function makeDDDeps(): DriftDetectorDeps & {
+  listeners: Map<string, Set<Function>>
+  emitted: Array<{ event: string; data: unknown }>
+} {
+  const listeners = new Map<string, Set<Function>>()
+  const emitted: Array<{ event: string; data: unknown }> = []
+
+  return {
+    listeners,
+    emitted,
+    eventBus: {
+      on: (event: string, listener: (data: unknown) => void) => {
+        if (!listeners.has(event)) listeners.set(event, new Set())
+        listeners.get(event)!.add(listener)
+      },
+      off: (event: string, listener: (data: unknown) => void) => {
+        listeners.get(event)?.delete(listener)
+      },
+      emit: (event: string, data?: unknown) => {
+        emitted.push({ event, data })
+        listeners.get(event)?.forEach((l) => l(data))
+      },
+    },
+  }
+}
+
+function makePortfolio(driftPct: number): Portfolio {
+  return {
+    totalValueUsd: 10000,
+    assets: [{
+      asset: 'BTC',
+      amount: 0.2,
+      valueUsd: 10000,
+      currentPct: 50 + driftPct,
+      targetPct: 50,
+      driftPct,
+      exchange: 'binance',
+    }],
+    updatedAt: Date.now(),
+  }
+}
+
+describe('DriftDetector - DI constructor', () => {
+  let detector: DriftDetector
+  let deps: ReturnType<typeof makeDDDeps>
+
+  beforeEach(() => {
+    deps = makeDDDeps()
+    detector = new DriftDetector(deps)
+  })
+
+  test('start() registers listener on eventBus', () => {
+    detector.start()
+    expect(deps.listeners.has('portfolio:update')).toBe(true)
+    expect(deps.listeners.get('portfolio:update')!.size).toBe(1)
+    detector.stop()
+  })
+
+  test('stop() removes listener from eventBus', () => {
+    detector.start()
+    detector.stop()
+    const size = deps.listeners.get('portfolio:update')?.size ?? 0
+    expect(size).toBe(0)
+  })
+
+  test('start() is idempotent', () => {
+    detector.start()
+    detector.start()
+    const size = deps.listeners.get('portfolio:update')?.size ?? 0
+    expect(size).toBe(1)
+    detector.stop()
+  })
+
+  test('portfolio:update event with high drift emits rebalance:trigger', () => {
+    detector.start()
+
+    // Simulate high drift (> threshold of 5%)
+    deps.eventBus.emit('portfolio:update', makePortfolio(10))
+
+    const triggered = deps.emitted.find((e) => e.event === 'rebalance:trigger')
+    expect(triggered).toBeDefined()
+    expect((triggered!.data as any).trigger).toBe('threshold')
+    detector.stop()
+  })
+
+  test('portfolio:update event with low drift does NOT emit rebalance:trigger', () => {
+    detector.start()
+
+    // 2% drift — below threshold
+    deps.eventBus.emit('portfolio:update', makePortfolio(2))
+
+    const triggered = deps.emitted.find((e) => e.event === 'rebalance:trigger')
+    expect(triggered).toBeUndefined()
+    detector.stop()
+  })
+
+  test('rebalance:trigger not emitted when cooldown active', () => {
+    detector.start()
+    detector.recordRebalance()  // record now — cooldown active
+
+    deps.eventBus.emit('portfolio:update', makePortfolio(20))
+
+    const triggered = deps.emitted.filter((e) => e.event === 'rebalance:trigger')
+    expect(triggered.length).toBe(0)
+    detector.stop()
+  })
+
+  test('canRebalance() returns true when active and no prior rebalance', () => {
+    detector.start()
+    expect(detector.canRebalance()).toBe(true)
+    detector.stop()
+  })
+
+  test('canRebalance() returns false when stopped', () => {
+    // not started
+    expect(detector.canRebalance()).toBe(false)
+  })
+
+  test('recordRebalance() sets cooldown', () => {
+    detector.start()
+    detector.recordRebalance()
+    expect(detector.canRebalance()).toBe(false)
+    detector.stop()
+  })
+
+  test('negative drift above threshold also triggers rebalance', () => {
+    detector.start()
+    deps.eventBus.emit('portfolio:update', makePortfolio(-15))
+
+    const triggered = deps.emitted.find((e) => e.event === 'rebalance:trigger')
+    expect(triggered).toBeDefined()
+    detector.stop()
+  })
+
+  test('DriftDetector default constructor works', () => {
+    const d = new DriftDetector()
+    expect(d).toBeDefined()
+    expect(typeof d.start).toBe('function')
+    expect(typeof d.stop).toBe('function')
   })
 })

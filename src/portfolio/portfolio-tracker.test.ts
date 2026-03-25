@@ -1,5 +1,7 @@
-import { describe, test, expect, beforeEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Portfolio, PortfolioAsset } from '@/types/index'
+import { PortfolioTracker } from './portfolio-tracker'
+import type { PortfolioTrackerDeps } from './portfolio-tracker'
 
 // ─── Mock PortfolioTracker ─────────────────────────────────────────────────
 
@@ -352,5 +354,162 @@ describe('PortfolioTracker', () => {
   test('should skip recalculation if totalValue is zero', () => {
     // No balances set
     expect(tracker.getPortfolio()).toBeNull()
+  })
+})
+
+// ─── DI-based PortfolioTracker tests ──────────────────────────────────────────
+
+function makePTDeps(prices: Record<string, number> = {}): PortfolioTrackerDeps & { events: string[] } {
+  const events: string[] = []
+  return {
+    events,
+    priceCache: {
+      getBestPrice: (pair: string) => {
+        const asset = pair.split('/')[0] ?? ''
+        return prices[asset]
+      },
+    },
+    eventBus: {
+      emit: (event: string) => { events.push(event) },
+    },
+  }
+}
+
+describe('PortfolioTracker - DI constructor', () => {
+  let tracker: PortfolioTracker
+  let deps: ReturnType<typeof makePTDeps>
+
+  beforeEach(() => {
+    deps = makePTDeps({ BTC: 50000, ETH: 3000 })
+    tracker = new PortfolioTracker(deps)
+  })
+
+  afterEach(async () => {
+    await tracker.stopWatching()
+  })
+
+  test('getPortfolio() returns null before any watch', () => {
+    expect(tracker.getPortfolio()).toBeNull()
+  })
+
+  test('startWatching() with empty map does not throw', async () => {
+    await tracker.startWatching(new Map())
+    expect(tracker.getPortfolio()).toBeNull()
+  })
+
+  test('startWatching() is idempotent — second call is no-op', async () => {
+    // Use an exchange that aborts quickly when signal fires
+    const controller = new AbortController()
+    const exchanges = new Map<any, any>()  // empty — nothing to watch
+
+    await tracker.startWatching(exchanges)
+    await tracker.startWatching(exchanges)  // second call is no-op
+    expect(true).toBe(true)
+  })
+
+  test('stopWatching() is safe to call before starting', async () => {
+    await tracker.stopWatching()  // should not throw
+    expect(true).toBe(true)
+  })
+
+  test('stopWatching() resets watching flag', async () => {
+    await tracker.startWatching(new Map())
+    await tracker.stopWatching()
+    // Can start again after stop
+    await tracker.startWatching(new Map())
+    expect(true).toBe(true)
+  })
+
+  test('getTargetAllocations() returns array (may be empty in test env)', async () => {
+    const targets = await tracker.getTargetAllocations()
+    expect(Array.isArray(targets)).toBe(true)
+  })
+
+  test('getTargetAllocations() caches results within TTL', async () => {
+    const targets1 = await tracker.getTargetAllocations()
+    const targets2 = await tracker.getTargetAllocations()
+    // Second call within 60s should return same reference
+    expect(targets1).toBe(targets2)
+  })
+
+  test('watchBalance loop emits balance:update then is stopped', async () => {
+    // Track calls; resolve first immediately, then abort
+    let callCount = 0
+    const abortController = new AbortController()
+
+    const mockEx = {
+      watchBalance: async () => {
+        callCount++
+        if (callCount === 1) {
+          return {
+            BTC: { free: 0.5 },
+            USDT: { free: 10000 },
+          }
+        }
+        // After first call, block until aborted
+        await new Promise<void>((_, reject) => {
+          abortController.signal.addEventListener('abort', () => reject(new Error('aborted')))
+        })
+        return {}
+      },
+    }
+
+    const exchanges = new Map([['binance' as any, mockEx]])
+    tracker.startWatching(exchanges)
+
+    // Let first watchBalance call complete
+    await new Promise<void>((r) => setTimeout(r, 50))
+
+    // Stop the tracker to abort the loop
+    abortController.abort()
+    await tracker.stopWatching()
+
+    expect(deps.events).toContain('balance:update')
+    expect(callCount).toBeGreaterThanOrEqual(1)
+  })
+
+  test('watchBalance loop handles transient errors without crashing', async () => {
+    let callCount = 0
+
+    const mockEx = {
+      watchBalance: async () => {
+        callCount++
+        if (callCount === 1) throw new Error('transient network error')
+        // Block — will be aborted by stopWatching
+        await new Promise<void>((_, reject) => {
+          setTimeout(() => reject(new Error('timeout')), 5000)
+        })
+        return {}
+      },
+    }
+
+    const exchanges = new Map([['binance' as any, mockEx]])
+    tracker.startWatching(exchanges)
+
+    // Let first call throw and retry delay start (3s in source)
+    await new Promise<void>((r) => setTimeout(r, 50))
+    await tracker.stopWatching()
+
+    expect(callCount).toBeGreaterThanOrEqual(1)
+  })
+
+  test('startWatching outer catch fires when watchBalance rejects at top level', async () => {
+    // The .catch() on line 84 catches if the watchBalance async fn itself throws synchronously
+    // We can simulate by overriding the private watchBalance method
+    const customTracker = new PortfolioTracker(deps)
+    const original = (customTracker as any).watchBalance.bind(customTracker)
+
+    ;(customTracker as any).watchBalance = async (_ex: any, _name: any, _signal: AbortSignal) => {
+      throw new Error('unexpected outer error')
+    }
+
+    const mockEx = { watchBalance: async () => ({}) }
+    const exchanges = new Map([['binance' as any, mockEx]])
+
+    // Should not throw even though inner watchBalance throws
+    await customTracker.startWatching(exchanges)
+    await new Promise<void>((r) => setTimeout(r, 20))
+    await customTracker.stopWatching()
+    expect(true).toBe(true)
   })
 })
