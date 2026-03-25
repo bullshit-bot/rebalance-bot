@@ -33,6 +33,9 @@ jobs:
 
       - run: bun install
 
+      - name: Seed test database
+        run: bun run scripts/seed-dev-data.ts
+
       - name: Run tests
         run: bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts'
 
