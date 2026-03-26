@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@/db/database";
-import { aiSuggestions, allocations } from "@/db/schema";
-import type { AISuggestion } from "@/db/schema";
+import { AISuggestionModel, AllocationModel } from "@db/database";
+import type { IAISuggestion } from "@db/database";
 import { eventBus } from "@/events/event-bus";
-import { desc, eq } from "drizzle-orm";
 import { aiConfig } from "./ai-config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -36,14 +34,14 @@ class AISuggestionHandler {
     const id = randomUUID();
     const status = aiConfig.autoApprove ? "auto-applied" : "pending";
 
-    await db.insert(aiSuggestions).values({
-      id,
+    await AISuggestionModel.create({
+      _id: id,
       source: "openclaw",
-      suggestedAllocations: JSON.stringify(data.allocations),
+      suggestedAllocations: data.allocations as unknown as Record<string, unknown>,
       reasoning: data.reasoning,
-      sentimentData: data.sentimentData ? JSON.stringify(data.sentimentData) : null,
+      sentimentData: (data.sentimentData ?? null) as Record<string, unknown> | null,
       status,
-      approvedAt: aiConfig.autoApprove ? Math.floor(Date.now() / 1000) : null,
+      approvedAt: aiConfig.autoApprove ? new Date() : null,
     });
 
     if (aiConfig.autoApprove) {
@@ -74,16 +72,14 @@ class AISuggestionHandler {
       throw new Error(`Suggestion ${suggestionId} is not pending (status: ${suggestion.status})`);
     }
 
-    const parsed = JSON.parse(suggestion.suggestedAllocations) as {
-      asset: string;
-      targetPct: number;
-    }[];
+    // suggestedAllocations is already an object (Mongoose Mixed field)
+    const parsed = suggestion.suggestedAllocations as unknown as { asset: string; targetPct: number }[];
     await this.applyAllocations(parsed);
 
-    await db
-      .update(aiSuggestions)
-      .set({ status: "approved", approvedAt: Math.floor(Date.now() / 1000) })
-      .where(eq(aiSuggestions.id, suggestionId));
+    await AISuggestionModel.updateOne(
+      { _id: suggestionId },
+      { status: "approved", approvedAt: new Date() }
+    );
 
     console.info(`[AISuggestionHandler] Approved and applied suggestion ${suggestionId}`);
   }
@@ -98,33 +94,30 @@ class AISuggestionHandler {
       throw new Error(`Suggestion ${suggestionId} is not pending (status: ${suggestion.status})`);
     }
 
-    await db
-      .update(aiSuggestions)
-      .set({ status: "rejected" })
-      .where(eq(aiSuggestions.id, suggestionId));
+    await AISuggestionModel.updateOne({ _id: suggestionId }, { status: "rejected" });
 
     console.info(`[AISuggestionHandler] Rejected suggestion ${suggestionId}`);
   }
 
   /** Return all suggestions with status 'pending'. */
-  async getPending(): Promise<AISuggestion[]> {
-    return db
-      .select()
-      .from(aiSuggestions)
-      .where(eq(aiSuggestions.status, "pending"))
-      .orderBy(desc(aiSuggestions.createdAt));
+  async getPending(): Promise<IAISuggestion[]> {
+    return AISuggestionModel.find({ status: "pending" })
+      .sort({ createdAt: -1 })
+      .lean();
   }
 
   /** Return suggestions ordered newest-first with optional limit (default 50). */
-  async getAll(limit = 50): Promise<AISuggestion[]> {
-    return db.select().from(aiSuggestions).orderBy(desc(aiSuggestions.createdAt)).limit(limit);
+  async getAll(limit = 50): Promise<IAISuggestion[]> {
+    return AISuggestionModel.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
 
-  private async getById(id: string): Promise<AISuggestion | undefined> {
-    const rows = await db.select().from(aiSuggestions).where(eq(aiSuggestions.id, id)).limit(1);
-    return rows[0];
+  private async getById(id: string): Promise<IAISuggestion | null> {
+    return AISuggestionModel.findById(id).lean();
   }
 
   /**
@@ -144,7 +137,7 @@ class AISuggestionHandler {
   private async validateShiftConstraints(
     proposed: { asset: string; targetPct: number }[]
   ): Promise<void> {
-    const current = await db.select().from(allocations);
+    const current = await AllocationModel.find().lean();
     const currentMap = new Map(current.map((a) => [a.asset.toUpperCase(), a.targetPct]));
 
     for (const { asset, targetPct } of proposed) {
@@ -159,13 +152,13 @@ class AISuggestionHandler {
   }
 
   /**
-   * Replaces the allocations table with the suggested values and triggers rebalance.
+   * Replaces the allocations collection with the suggested values and triggers rebalance.
    */
   private async applyAllocations(proposed: { asset: string; targetPct: number }[]): Promise<void> {
-    await db.delete(allocations);
+    await AllocationModel.deleteMany({});
 
     if (proposed.length > 0) {
-      await db.insert(allocations).values(
+      await AllocationModel.insertMany(
         proposed.map((a) => ({
           asset: a.asset.toUpperCase(),
           targetPct: a.targetPct,

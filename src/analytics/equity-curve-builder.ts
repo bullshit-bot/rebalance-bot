@@ -1,6 +1,4 @@
-import { and, gte, lte } from 'drizzle-orm'
-import { db } from '@db/database'
-import { snapshots } from '@db/schema'
+import { SnapshotModel } from '@db/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,17 +26,18 @@ class EquityCurveBuilder {
    * @param to   - End timestamp, Unix epoch seconds (inclusive)
    */
   async build(from: number, to: number): Promise<EquityPoint[]> {
-    const rows = await db
-      .select({
-        createdAt: snapshots.createdAt,
-        totalValueUsd: snapshots.totalValueUsd,
-      })
-      .from(snapshots)
-      .where(and(gte(snapshots.createdAt, from), lte(snapshots.createdAt, to)))
-      .orderBy(snapshots.createdAt)
+    const rows = await SnapshotModel.find({
+      createdAt: {
+        $gte: new Date(from * 1000),
+        $lte: new Date(to * 1000),
+      },
+    })
+      .select('createdAt totalValueUsd')
+      .sort({ createdAt: 1 })
+      .lean()
 
     return rows.map((row) => ({
-      timestamp: row.createdAt ?? 0,
+      timestamp: Math.floor(new Date(row.createdAt).getTime() / 1000),
       valueUsd: row.totalValueUsd,
     }))
   }

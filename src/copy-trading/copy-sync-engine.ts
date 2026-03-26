@@ -4,9 +4,7 @@
  * when drift exceeds threshold, logs each sync, and emits rebalance:trigger.
  */
 
-import { eq } from 'drizzle-orm'
-import { db } from '@db/database'
-import { allocations, copySources, copySyncLog } from '@db/schema'
+import { AllocationModel, CopySourceModel, CopySyncLogModel } from '@db/database'
 import { eventBus } from '@events/event-bus'
 import { portfolioSourceFetcher, type SourceAllocation } from './portfolio-source-fetcher'
 
@@ -55,13 +53,11 @@ class CopySyncEngine {
   /**
    * Syncs allocations from a single source by ID.
    * For URL sources: fetches live data.
-   * For manual sources: uses stored allocations JSON.
+   * For manual sources: uses stored allocations array directly.
    * Only applies changes when any asset drifts > DRIFT_THRESHOLD_PCT.
    */
   async syncSource(sourceId: string): Promise<SyncResult> {
-    const source = await db.query.copySources.findFirst({
-      where: eq(copySources.id, sourceId),
-    })
+    const source = await CopySourceModel.findById(sourceId).lean()
     if (!source) throw new Error(`Copy source not found: ${sourceId}`)
     if (!source.enabled) return { changed: false, appliedChanges: 0 }
 
@@ -70,15 +66,12 @@ class CopySyncEngine {
     if (source.sourceType === 'url' && source.sourceUrl) {
       sourceAllocs = await portfolioSourceFetcher.fetch(source.sourceUrl)
     } else {
-      try {
-        sourceAllocs = JSON.parse(source.allocations) as SourceAllocation[]
-      } catch {
-        throw new Error(`Invalid allocations JSON for source ${sourceId}`)
-      }
+      // allocations is already an array of objects in Mongoose Mixed field
+      sourceAllocs = source.allocations as unknown as SourceAllocation[]
     }
 
     // Load current DB allocations
-    const currentRows = await db.select().from(allocations)
+    const currentRows = await AllocationModel.find().lean()
     const currentMap = new Map(currentRows.map((r) => [r.asset, r.targetPct]))
     const beforeSnapshot = currentRows.map((r) => ({ asset: r.asset, targetPct: r.targetPct }))
 
@@ -93,34 +86,27 @@ class CopySyncEngine {
     }
 
     // Apply all source allocations (not just drifted ones — keep them consistent)
-    const now = Math.floor(Date.now() / 1000)
     for (const { asset, targetPct } of sourceAllocs) {
       const existing = currentRows.find((r) => r.asset === asset)
       if (existing) {
-        await db
-          .update(allocations)
-          .set({ targetPct, updatedAt: now })
-          .where(eq(allocations.asset, asset))
+        await AllocationModel.updateOne({ asset }, { targetPct, updatedAt: new Date() })
       } else {
-        await db.insert(allocations).values({ asset, targetPct, updatedAt: now })
+        await AllocationModel.create({ asset, targetPct })
       }
     }
 
     const afterSnapshot = sourceAllocs.map((a) => ({ asset: a.asset, targetPct: a.targetPct }))
 
     // Log the sync
-    await db.insert(copySyncLog).values({
+    await CopySyncLogModel.create({
       sourceId,
-      beforeAllocations: JSON.stringify(beforeSnapshot),
-      afterAllocations: JSON.stringify(afterSnapshot),
+      beforeAllocations: beforeSnapshot,
+      afterAllocations: afterSnapshot,
       changesApplied: drifted.length,
     })
 
     // Update lastSyncedAt on the source
-    await db
-      .update(copySources)
-      .set({ lastSyncedAt: now })
-      .where(eq(copySources.id, sourceId))
+    await CopySourceModel.updateOne({ _id: sourceId }, { lastSyncedAt: new Date() })
 
     // Trigger rebalance
     eventBus.emit('rebalance:trigger', { trigger: 'manual' })
@@ -133,11 +119,11 @@ class CopySyncEngine {
    * When multiple sources are enabled, performs a weighted merge before applying.
    */
   async syncAll(): Promise<void> {
-    const sources = await db.select().from(copySources).where(eq(copySources.enabled, 1))
+    const sources = await CopySourceModel.find({ enabled: true }).lean()
     if (sources.length === 0) return
 
     if (sources.length === 1) {
-      await this.syncSource(sources[0]!.id)
+      await this.syncSource(sources[0]!._id)
       return
     }
 
@@ -149,12 +135,12 @@ class CopySyncEngine {
         if (source.sourceType === 'url' && source.sourceUrl) {
           allocs = await portfolioSourceFetcher.fetch(source.sourceUrl)
         } else {
-          allocs = JSON.parse(source.allocations) as SourceAllocation[]
+          allocs = source.allocations as unknown as SourceAllocation[]
         }
         resolved.push({ allocations: allocs, weight: source.weight ?? 1 })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[CopySyncEngine] Skipping source "${source.id}": ${msg}`)
+        console.error(`[CopySyncEngine] Skipping source "${source._id}": ${msg}`)
       }
     }
 
@@ -163,7 +149,7 @@ class CopySyncEngine {
     const merged = this.mergeAllocations(resolved)
 
     // Check drift against current DB state
-    const currentRows = await db.select().from(allocations)
+    const currentRows = await AllocationModel.find().lean()
     const currentMap = new Map(currentRows.map((r) => [r.asset, r.targetPct]))
     const beforeSnapshot = currentRows.map((r) => ({ asset: r.asset, targetPct: r.targetPct }))
 
@@ -174,36 +160,28 @@ class CopySyncEngine {
 
     if (drifted.length === 0) return
 
-    const now = Math.floor(Date.now() / 1000)
     for (const { asset, targetPct } of merged) {
       const existing = currentRows.find((r) => r.asset === asset)
       if (existing) {
-        await db
-          .update(allocations)
-          .set({ targetPct, updatedAt: now })
-          .where(eq(allocations.asset, asset))
+        await AllocationModel.updateOne({ asset }, { targetPct, updatedAt: new Date() })
       } else {
-        await db.insert(allocations).values({ asset, targetPct, updatedAt: now })
+        await AllocationModel.create({ asset, targetPct })
       }
     }
 
     const afterSnapshot = merged.map((a) => ({ asset: a.asset, targetPct: a.targetPct }))
 
     // Log under a synthetic "all-sources" entry (use first source id as reference)
-    await db.insert(copySyncLog).values({
-      sourceId: sources[0]!.id,
-      beforeAllocations: JSON.stringify(beforeSnapshot),
-      afterAllocations: JSON.stringify(afterSnapshot),
+    await CopySyncLogModel.create({
+      sourceId: sources[0]!._id,
+      beforeAllocations: beforeSnapshot,
+      afterAllocations: afterSnapshot,
       changesApplied: drifted.length,
     })
 
     // Update lastSyncedAt for all synced sources
-    for (const source of sources) {
-      await db
-        .update(copySources)
-        .set({ lastSyncedAt: now })
-        .where(eq(copySources.id, source.id))
-    }
+    const sourceIds = sources.map((s) => s._id)
+    await CopySourceModel.updateMany({ _id: { $in: sourceIds } }, { lastSyncedAt: new Date() })
 
     eventBus.emit('rebalance:trigger', { trigger: 'manual' })
   }

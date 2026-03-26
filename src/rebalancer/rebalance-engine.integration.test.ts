@@ -1,17 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { randomUUID } from 'node:crypto'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { RebalanceModel } from '@db/database'
 import { rebalanceEngine } from './rebalance-engine'
-import { db } from '@/db/database'
-import { rebalances } from '@/db/schema'
-import { eq } from 'drizzle-orm'
 
 describe('rebalance-engine (integration)', () => {
   beforeEach(async () => {
-    await db.delete(rebalances)
+    await setupTestDB()
   })
 
   afterEach(async () => {
-    await db.delete(rebalances)
+    await teardownTestDB()
   })
 
   describe('RebalanceEngine singleton export', () => {
@@ -132,73 +131,60 @@ describe('rebalance-engine (integration)', () => {
   describe('Database integration', () => {
     it('should be able to insert rebalance record', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({
+      const beforeState = {
         totalValueUsd: 10000,
         assets: [],
         updatedAt: Date.now(),
-      })
+      }
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'threshold',
         status: 'pending',
         beforeState,
       })
 
-      const rows = await db.select().from(rebalances).where(eq(rebalances.id, id))
+      const doc = await RebalanceModel.findById(id).lean()
 
-      expect(rows.length).toBe(1)
-      expect(rows[0].status).toBe('pending')
-      expect(rows[0].triggerType).toBe('threshold')
+      expect(doc).toBeDefined()
+      expect(doc!.status).toBe('pending')
+      expect(doc!.triggerType).toBe('threshold')
     })
 
     it('should be able to update rebalance record', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({})
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'manual',
         status: 'executing',
-        beforeState,
+        beforeState: {},
       })
 
-      await db
-        .update(rebalances)
-        .set({ status: 'completed', totalTrades: 5 })
-        .where(eq(rebalances.id, id))
+      await RebalanceModel.updateOne({ _id: id }, { status: 'completed', totalTrades: 5 })
 
-      const rows = await db.select().from(rebalances).where(eq(rebalances.id, id))
+      const doc = await RebalanceModel.findById(id).lean()
 
-      expect(rows[0].status).toBe('completed')
-      expect(rows[0].totalTrades).toBe(5)
+      expect(doc!.status).toBe('completed')
+      expect(doc!.totalTrades).toBe(5)
     })
 
     it('should handle rebalance record deletion', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({})
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'periodic',
         status: 'completed',
-        beforeState,
+        beforeState: {},
       })
 
-      const countBefore = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
+      const countBefore = await RebalanceModel.countDocuments({ _id: id })
+      await RebalanceModel.deleteOne({ _id: id })
+      const countAfter = await RebalanceModel.countDocuments({ _id: id })
 
-      await db.delete(rebalances).where(eq(rebalances.id, id))
-
-      const countAfter = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
-
-      expect(countBefore.length).toBe(1)
-      expect(countAfter.length).toBe(0)
+      expect(countBefore).toBe(1)
+      expect(countAfter).toBe(0)
     })
   })
 
@@ -230,87 +216,78 @@ describe('rebalance-engine (integration)', () => {
   describe('Trigger types', () => {
     it('should accept threshold trigger', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({})
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'threshold',
         status: 'pending',
-        beforeState,
+        beforeState: {},
       })
 
-      const rows = await db.select().from(rebalances).where(eq(rebalances.id, id))
-      expect(rows[0].triggerType).toBe('threshold')
+      const doc = await RebalanceModel.findById(id).lean()
+      expect(doc!.triggerType).toBe('threshold')
     })
 
     it('should accept periodic trigger', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({})
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'periodic',
         status: 'pending',
-        beforeState,
+        beforeState: {},
       })
 
-      const rows = await db.select().from(rebalances).where(eq(rebalances.id, id))
-      expect(rows[0].triggerType).toBe('periodic')
+      const doc = await RebalanceModel.findById(id).lean()
+      expect(doc!.triggerType).toBe('periodic')
     })
 
     it('should accept manual trigger', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({})
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'manual',
         status: 'pending',
-        beforeState,
+        beforeState: {},
       })
 
-      const rows = await db.select().from(rebalances).where(eq(rebalances.id, id))
-      expect(rows[0].triggerType).toBe('manual')
+      const doc = await RebalanceModel.findById(id).lean()
+      expect(doc!.triggerType).toBe('manual')
     })
   })
 
   describe('Rebalance record structure', () => {
-    it('should store beforeState as JSON string', async () => {
+    it('should store beforeState as object', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({
+      const beforeState = {
         totalValueUsd: 10000,
         assets: [
           { asset: 'BTC', valueUsd: 5000, driftPct: 5 },
           { asset: 'ETH', valueUsd: 5000, driftPct: -5 },
         ],
-      })
+      }
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'threshold',
         status: 'pending',
         beforeState,
       })
 
-      const rows = await db
-        .select()
-        .from(rebalances)
-        .where(eq(rebalances.id, id))
-
-      const parsed = JSON.parse(rows[0].beforeState)
-      expect(parsed.totalValueUsd).toBe(10000)
-      expect(parsed.assets.length).toBe(2)
+      const doc = await RebalanceModel.findById(id).lean()
+      expect(doc!.beforeState.totalValueUsd).toBe(10000)
+      expect(doc!.beforeState.assets.length).toBe(2)
     })
 
     it('should have primary key as id text field', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({})
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'threshold',
         status: 'pending',
-        beforeState,
+        beforeState: {},
       })
 
       expect(id).toBeString()
@@ -321,13 +298,12 @@ describe('rebalance-engine (integration)', () => {
   describe('Rebalance status transitions', () => {
     it('should allow pending -> executing transition', async () => {
       const id = randomUUID()
-      const beforeState = JSON.stringify({})
 
-      await db.insert(rebalances).values({
-        id,
+      await RebalanceModel.create({
+        _id: id,
         triggerType: 'threshold',
         status: 'pending',
-        beforeState,
+        beforeState: {},
       })
 
       expect('pending').not.toBe('executing')

@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm'
-import { db } from '@db/database'
-import { smartOrders } from '@db/schema'
+import { SmartOrderModel } from '@db/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,16 +98,16 @@ class ExecutionTracker {
     const updated: SmartOrderProgress = { ...progress, status: 'completed' }
     this.store.set(orderId, updated)
 
-    db.update(smartOrders)
-      .set({
+    SmartOrderModel.updateOne(
+      { _id: orderId },
+      {
         status: 'completed',
         filledAmount: updated.filledAmount,
         avgPrice: updated.avgPrice,
         slicesCompleted: updated.slicesCompleted,
-        completedAt: Math.floor(Date.now() / 1000),
-      })
-      .where(eq(smartOrders.id, orderId))
-      .catch((err) => console.error(`[ExecutionTracker] complete persist failed for ${orderId}:`, err))
+        completedAt: new Date(),
+      }
+    ).catch((err) => console.error(`[ExecutionTracker] complete persist failed for ${orderId}:`, err))
   }
 
   /** Mark order as cancelled and persist state. */
@@ -120,24 +118,24 @@ class ExecutionTracker {
     const updated: SmartOrderProgress = { ...progress, status: 'cancelled' }
     this.store.set(orderId, updated)
 
-    db.update(smartOrders)
-      .set({ status: 'cancelled', filledAmount: updated.filledAmount, avgPrice: updated.avgPrice })
-      .where(eq(smartOrders.id, orderId))
-      .catch((err) => console.error(`[ExecutionTracker] cancel persist failed for ${orderId}:`, err))
+    SmartOrderModel.updateOne(
+      { _id: orderId },
+      { status: 'cancelled', filledAmount: updated.filledAmount, avgPrice: updated.avgPrice }
+    ).catch((err) => console.error(`[ExecutionTracker] cancel persist failed for ${orderId}:`, err))
   }
 
   // ─── Private ────────────────────────────────────────────────────────────────
 
   private async _persistProgress(orderId: string, progress: SmartOrderProgress): Promise<void> {
-    await db
-      .update(smartOrders)
-      .set({
+    await SmartOrderModel.updateOne(
+      { _id: orderId },
+      {
         filledAmount: progress.filledAmount,
         avgPrice: progress.avgPrice,
         slicesCompleted: progress.slicesCompleted,
         status: progress.status,
-      })
-      .where(eq(smartOrders.id, orderId))
+      }
+    )
   }
 }
 

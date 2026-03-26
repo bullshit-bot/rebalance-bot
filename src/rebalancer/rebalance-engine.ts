@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { eq } from 'drizzle-orm'
-import { db } from '@db/database'
-import { rebalances } from '@db/schema'
+import { RebalanceModel } from '@db/database'
 import { env } from '@config/app-config'
 import { eventBus } from '@events/event-bus'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
@@ -106,11 +104,11 @@ class RebalanceEngine {
     const orders = calculateTrades(beforeState, targets)
 
     // ── Step 4: persist initial record ───────────────────────────────────────
-    await db.insert(rebalances).values({
-      id,
+    await RebalanceModel.create({
+      _id: id,
       triggerType: trigger,
       status: 'executing',
-      beforeState: JSON.stringify(beforeState),
+      beforeState: beforeState as unknown as Record<string, unknown>,
       totalTrades: orders.length,
       totalFeesUsd: 0,
     })
@@ -132,16 +130,16 @@ class RebalanceEngine {
       const totalFeesUsd = results.reduce((sum, r) => sum + r.fee, 0)
       const completedAt = new Date()
 
-      await db
-        .update(rebalances)
-        .set({
+      await RebalanceModel.updateOne(
+        { _id: id },
+        {
           status: 'completed',
-          afterState: JSON.stringify(afterState),
+          afterState: afterState as unknown as Record<string, unknown>,
           totalTrades: results.length,
           totalFeesUsd,
-          completedAt: Math.floor(completedAt.getTime() / 1_000),
-        })
-        .where(eq(rebalances.id, id))
+          completedAt,
+        },
+      )
 
       // Tell the drift detector the rebalance finished so cooldown resets correctly
       driftDetector.recordRebalance()
@@ -165,14 +163,14 @@ class RebalanceEngine {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error('[RebalanceEngine] Failed id=%s error=%s', id, errorMessage)
 
-      await db
-        .update(rebalances)
-        .set({
+      await RebalanceModel.updateOne(
+        { _id: id },
+        {
           status: 'failed',
           errorMessage,
-          completedAt: Math.floor(Date.now() / 1_000),
-        })
-        .where(eq(rebalances.id, id))
+          completedAt: new Date(),
+        },
+      )
 
       eventBus.emit('rebalance:failed', { id, error: errorMessage })
 

@@ -1,7 +1,5 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
-import { db } from '@db/database'
-import { allocations } from '@db/schema'
+import { AllocationModel } from '@db/database'
 import type { ExchangeName } from '@/types/index'
 
 // ─── Validation helpers ───────────────────────────────────────────────────────
@@ -61,7 +59,7 @@ const configRoutes = new Hono()
  */
 configRoutes.get('/allocations', async (c) => {
   try {
-    const rows = await db.select().from(allocations)
+    const rows = await AllocationModel.find().lean()
     return c.json(rows)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -72,7 +70,7 @@ configRoutes.get('/allocations', async (c) => {
 /**
  * PUT /api/config/allocations
  * Replaces allocation config. Body: array of { asset, targetPct, exchange?, minTradeUsd? }.
- * Upserts each item by asset+exchange key; removes rows not present in the new set.
+ * Deletes all existing rows then re-inserts for a clean replace.
  */
 configRoutes.put('/allocations', async (c) => {
   let body: unknown
@@ -98,10 +96,10 @@ configRoutes.put('/allocations', async (c) => {
 
   try {
     // Delete all existing rows then re-insert for a clean replace
-    await db.delete(allocations)
+    await AllocationModel.deleteMany({})
 
     if (inputs.length > 0) {
-      await db.insert(allocations).values(
+      await AllocationModel.create(
         inputs.map((a) => ({
           asset: a.asset.toUpperCase(),
           targetPct: a.targetPct,
@@ -111,7 +109,7 @@ configRoutes.put('/allocations', async (c) => {
       )
     }
 
-    const updated = await db.select().from(allocations)
+    const updated = await AllocationModel.find().lean()
     return c.json(updated)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -127,7 +125,7 @@ configRoutes.delete('/allocations/:asset', async (c) => {
   const asset = c.req.param('asset').toUpperCase()
 
   try {
-    await db.delete(allocations).where(eq(allocations.asset, asset))
+    await AllocationModel.deleteMany({ asset })
     return c.json({ deleted: asset })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

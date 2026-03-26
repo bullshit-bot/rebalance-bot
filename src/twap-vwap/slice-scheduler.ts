@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm'
-import { db } from '@db/database'
-import { smartOrders } from '@db/schema'
+import { SmartOrderModel } from '@db/database'
 import { getExecutor } from '@executor/index'
 import { executionTracker } from '@/twap-vwap/execution-tracker'
 import type { ExchangeName, OrderSide } from '@/types/index'
@@ -82,10 +80,7 @@ class SliceScheduler {
           console.error(`[SliceScheduler] Slice ${i + 1}/${slices.length} failed for ${orderId}: ${msg}`)
 
           // Persist error status but keep order active (partial fill)
-          db.update(smartOrders)
-            .set({ status: 'active' })
-            .where(eq(smartOrders.id, orderId))
-            .catch(() => {})
+          SmartOrderModel.updateOne({ _id: orderId }, { status: 'active' }).catch(() => {})
         }
       }, cumulativeDelay)
 
@@ -103,10 +98,7 @@ class SliceScheduler {
     for (const t of order.timers) clearTimeout(t)
     order.timers = []
 
-    db.update(smartOrders)
-      .set({ status: 'paused' })
-      .where(eq(smartOrders.id, orderId))
-      .catch(() => {})
+    SmartOrderModel.updateOne({ _id: orderId }, { status: 'paused' }).catch(() => {})
 
     console.log(`[SliceScheduler] Paused order ${orderId}`)
   }
@@ -132,10 +124,8 @@ class SliceScheduler {
         if (!current || current.cancelled || current.paused) return
 
         try {
-          // We need exchange/pair/side — store them on the ScheduledOrder
-          // They were captured via closure when scheduleSlices was called — retrieve
-          // from DB to keep this method self-contained on resume
-          const [row] = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
+          // Fetch exchange/pair/side from DB on resume to keep self-contained
+          const row = await SmartOrderModel.findById(orderId).lean()
           if (!row) return
 
           const executor = getExecutor()
@@ -160,10 +150,7 @@ class SliceScheduler {
       order.timers.push(timer)
     }
 
-    db.update(smartOrders)
-      .set({ status: 'active' })
-      .where(eq(smartOrders.id, orderId))
-      .catch(() => {})
+    SmartOrderModel.updateOne({ _id: orderId }, { status: 'active' }).catch(() => {})
 
     console.log(`[SliceScheduler] Resumed order ${orderId}`)
   }

@@ -1,42 +1,21 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
 import { Hono } from 'hono'
-import { db } from '@db/database'
-import { rebalances } from '@db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { rebalanceRoutes } from './rebalance-routes'
-import { eq, gte } from 'drizzle-orm'
 
 describe('rebalance-routes integration', () => {
   let app: Hono
 
   beforeAll(async () => {
+    await setupTestDB()
+
     // Set up app with routes
     app = new Hono()
     app.route('/rebalance', rebalanceRoutes)
-
-    // Clean up old test rebalances
-    const oneHourAgo = Math.floor((Date.now() - 3600000) / 1000)
-    const oldRebalances = await db
-      .select()
-      .from(rebalances)
-      .where(gte(rebalances.startedAt, oneHourAgo))
-
-    for (const rb of oldRebalances) {
-      await db.delete(rebalances).where(eq(rebalances.id, rb.id)).catch(() => {})
-    }
   })
 
   afterAll(async () => {
-    // Clean up test data
-    const oneHourAgo = Math.floor((Date.now() - 3600000) / 1000)
-    const testRebalances = await db
-      .select()
-      .from(rebalances)
-      .where(gte(rebalances.startedAt, oneHourAgo))
-      .catch(() => [])
-
-    for (const rb of testRebalances) {
-      await db.delete(rebalances).where(eq(rebalances.id, rb.id)).catch(() => {})
-    }
+    await teardownTestDB()
   })
 
   describe('POST /rebalance error path coverage', () => {

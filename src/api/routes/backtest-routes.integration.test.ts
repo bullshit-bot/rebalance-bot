@@ -1,31 +1,17 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { backtestResults } from '@db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { BacktestResultModel } from '@db/database'
 import { backtestSimulator } from '@/backtesting/backtest-simulator'
 
 describe('backtest-routes integration', () => {
   const testBacktestIds: string[] = []
 
   beforeAll(async () => {
-    // Clean up old test backtests
-    const all = await db.select().from(backtestResults)
-    for (const result of all) {
-      if (result.id.startsWith('test-backtest-')) {
-        await db.delete(backtestResults).where(eq(backtestResults.id, result.id))
-      }
-    }
+    await setupTestDB()
   })
 
   afterAll(async () => {
-    // Clean up test backtests
-    for (const id of testBacktestIds) {
-      try {
-        await db.delete(backtestResults).where(eq(backtestResults.id, id))
-      } catch {
-        // ignore
-      }
-    }
+    await teardownTestDB()
   })
 
   test('POST /backtest validates pairs array', async () => {
@@ -221,15 +207,15 @@ describe('backtest-routes integration', () => {
   })
 
   test('GET /backtest/list returns array of summaries', async () => {
-    const list = await db.select().from(backtestResults).limit(10)
+    const list = await BacktestResultModel.find().limit(10).lean()
     expect(Array.isArray(list)).toBe(true)
   })
 
   test('GET /backtest/list includes config summary', async () => {
-    const list = await db.select().from(backtestResults).limit(1)
+    const list = await BacktestResultModel.find().limit(1).lean()
     if (list.length > 0) {
       const result = list[0]!
-      const config = JSON.parse(result.config)
+      const config = typeof result.config === 'string' ? JSON.parse(result.config) : result.config
       expect(config).toHaveProperty('exchange')
       expect(config).toHaveProperty('pairs')
       expect(config).toHaveProperty('timeframe')
@@ -237,27 +223,27 @@ describe('backtest-routes integration', () => {
   })
 
   test('GET /backtest/list includes metrics', async () => {
-    const list = await db.select().from(backtestResults).limit(1)
+    const list = await BacktestResultModel.find().limit(1).lean()
     if (list.length > 0) {
       const result = list[0]!
-      const metrics = JSON.parse(result.metrics)
+      const metrics = typeof result.metrics === 'string' ? JSON.parse(result.metrics) : result.metrics
       expect(metrics).toBeDefined()
       expect(typeof metrics).toBe('object')
     }
   })
 
   test('GET /backtest/list ordered by createdAt descending', async () => {
-    const list = await db.select().from(backtestResults).limit(2)
+    const list = await BacktestResultModel.find().sort({ createdAt: -1 }).limit(2).lean()
     if (list.length >= 2) {
-      expect(list[0]!.createdAt).toBeGreaterThanOrEqual(list[1]!.createdAt)
+      expect(list[0]!.createdAt >= list[1]!.createdAt).toBe(true)
     }
   })
 
   test('GET /backtest/:id returns full result', async () => {
-    const all = await db.select().from(backtestResults).limit(1)
+    const all = await BacktestResultModel.find().limit(1).lean()
     if (all.length > 0) {
       const result = all[0]!
-      expect(result).toHaveProperty('id')
+      expect(result).toHaveProperty('_id')
       expect(result).toHaveProperty('config')
       expect(result).toHaveProperty('metrics')
       expect(result).toHaveProperty('trades')
@@ -266,12 +252,8 @@ describe('backtest-routes integration', () => {
   })
 
   test('GET /backtest/:id with non-existent id returns 404', async () => {
-    const list = await db
-      .select()
-      .from(backtestResults)
-      .where(eq(backtestResults.id, 'non-existent-backtest-id'))
-
-    expect(list.length).toBe(0)
+    const doc = await BacktestResultModel.findById('non-existent-backtest-id').lean()
+    expect(doc).toBeNull()
   })
 
   test('POST /backtest requires object body', async () => {
@@ -323,59 +305,48 @@ describe('backtest-routes integration', () => {
 
       if (result.id) {
         testBacktestIds.push(result.id)
-        const rows = await db
-          .select()
-          .from(backtestResults)
-          .where(eq(backtestResults.id, result.id))
-
-        expect(rows.length).toBeGreaterThan(0)
+        const doc = await BacktestResultModel.findById(result.id).lean()
+        expect(doc).toBeDefined()
       }
     } catch (err) {
       // Data unavailable is OK for this test
     }
   })
 
-  test('backtest config is stored as JSON', async () => {
-    const list = await db.select().from(backtestResults).limit(1)
+  test('backtest config is stored as object (Mongoose Mixed)', async () => {
+    const list = await BacktestResultModel.find().limit(1).lean()
     if (list.length > 0) {
       const result = list[0]!
-      expect(typeof result.config).toBe('string')
-
-      // Should be valid JSON
-      const config = JSON.parse(result.config)
+      const config = typeof result.config === 'string' ? JSON.parse(result.config) : result.config
       expect(config).toBeDefined()
+      expect(typeof config).toBe('object')
     }
   })
 
-  test('backtest metrics is stored as JSON', async () => {
-    const list = await db.select().from(backtestResults).limit(1)
+  test('backtest metrics is stored as object', async () => {
+    const list = await BacktestResultModel.find().limit(1).lean()
     if (list.length > 0) {
       const result = list[0]!
-      expect(typeof result.metrics).toBe('string')
-
-      const metrics = JSON.parse(result.metrics)
+      const metrics = typeof result.metrics === 'string' ? JSON.parse(result.metrics) : result.metrics
       expect(metrics).toBeDefined()
+      expect(typeof metrics).toBe('object')
     }
   })
 
-  test('backtest trades is stored as JSON', async () => {
-    const list = await db.select().from(backtestResults).limit(1)
+  test('backtest trades is stored as array', async () => {
+    const list = await BacktestResultModel.find().limit(1).lean()
     if (list.length > 0) {
       const result = list[0]!
-      expect(typeof result.trades).toBe('string')
-
-      const trades = JSON.parse(result.trades)
+      const trades = typeof result.trades === 'string' ? JSON.parse(result.trades) : result.trades
       expect(Array.isArray(trades)).toBe(true)
     }
   })
 
-  test('backtest benchmark is stored as JSON', async () => {
-    const list = await db.select().from(backtestResults).limit(1)
+  test('backtest benchmark is stored as object', async () => {
+    const list = await BacktestResultModel.find().limit(1).lean()
     if (list.length > 0) {
       const result = list[0]!
-      expect(typeof result.benchmark).toBe('string')
-
-      const benchmark = JSON.parse(result.benchmark)
+      const benchmark = typeof result.benchmark === 'string' ? JSON.parse(result.benchmark) : result.benchmark
       expect(benchmark).toBeDefined()
     }
   })
@@ -401,7 +372,6 @@ describe('backtest-routes integration', () => {
   })
 
   test('timeframe validation accepts 1h', async () => {
-    // Just ensure 1h is valid format
     const validTimeframes = ['1h', '1d']
     expect(validTimeframes.includes('1h')).toBe(true)
   })

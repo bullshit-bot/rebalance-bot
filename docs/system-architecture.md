@@ -1,6 +1,6 @@
 # System Architecture
 
-**Last Updated**: 2026-03-22
+**Last Updated**: 2026-03-26
 **Version**: 1.0.0
 **Project**: Crypto Rebalance Bot
 **Status**: Complete (4 phases + advanced strategies)
@@ -12,19 +12,50 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 ## High-Level Architecture Diagram
 
 ```
-Exchange WS ────────→ Price Service ─→ EventBus ─→ Rebalancer
-(CCXT Pro)           (Market data)      (Events)     (Strategies)
-     ↓                      ↓                              ↓
-  Binance                                            Executor Service
-  OKX          Portfolio    ↓                         (Trade execution)
-  Bybit        Service   WebSocket API                      ↓
-              (Holdings)    (Real-time                   Database
-                           Updates)      ↓             (Trades,
-               REST API                Telegram        Holdings,
-               (CRUD)                  Notifier        Snapshots)
-                                         ↓
-                     React Frontend
-                   (Dashboard, Charts)
+┌─────────────────────────────────────────────────────────────────┐
+│                      Docker Compose Stack                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Frontend (nginx)      Backend (Bun)      MongoDB 7              │
+│  ┌──────────────┐     ┌──────────────┐   ┌──────────────┐       │
+│  │ React        │     │ Hono API     │   │ Collections  │       │
+│  │ Dashboard    │────→│ + WebSocket  │←→ │ • trades     │       │
+│  │ Port: 80     │     │ Port: 3001   │   │ • snapshots  │       │
+│  └──────────────┘     └──────────────┘   │ • allocations│       │
+│         ↑                    ↑             │ + indexes    │       │
+│         └────────────┬───────┘             └──────────────┘       │
+│                      │                            ↑               │
+│                      ↓                            │               │
+│  ┌──────────────────────────────────────────────┘               │
+│  │              Services Layer                                   │
+│  ├─────────────────────────────────────────────────────────────┤
+│  │ Exchange Service │ Price Service │ Portfolio │ Rebalancer    │
+│  │ (CCXT Pro)       │ (WebSocket)    │ (State)   │ (Strategy)    │
+│  │                  │                │           │               │
+│  │ Executor │ Analytics │ Notifier │ Scheduler │ Copy Trading   │
+│  └─────────────────────────────────────────────────────────────┘
+│         ↑
+│         │ (Profiles: full)
+│  ┌──────────────────────────────────────────────────────────────┐
+│  │       Optional: OpenClaw AI + ChromaDB                        │
+│  │  ┌────────────┐    ┌──────────────┐   ┌──────────────┐       │
+│  │  │ OpenClaw   │    │ MCP Server   │   │ ChromaDB     │       │
+│  │  │ AI Agent   │←──→│ (REST wrap)  │   │ (Knowledge)  │       │
+│  │  └────────────┘    └──────────────┘   └──────────────┘       │
+│  └─────────────────────────────────────────────────────────────┘
+│
+│  Exchange WS Feed (Binance/OKX/Bybit)
+│         ↓
+│  Price Service processes OHLCV
+│         ↓
+│  EventBus broadcasts price:update
+│         ↓
+│  Rebalancer analyzes + triggers executor
+│         ↓
+│  Trades persisted to MongoDB
+│         ↓
+│  WebSocket notifies frontend / Telegram alerts
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Tech Stack
@@ -32,12 +63,14 @@ Exchange WS ────────→ Price Service ─→ EventBus ─→ Reb
 - **Runtime**: Bun 1.2+ (JavaScript runtime)
 - **Language**: TypeScript 5.7+ (strict mode)
 - **API**: Hono v4 (lightweight, type-safe HTTP)
-- **Database**: Drizzle ORM + libSQL (SQLite, encrypted credentials)
+- **Database**: Mongoose ODM + MongoDB 7 (NoSQL, encrypted credentials)
 - **Exchange**: CCXT Pro 4.4.0 (100+ exchange support)
 - **Telegram**: grammy 1.35+ (Bot API wrapper)
 - **Scheduler**: croner 9.0+ (Cron jobs)
 - **Validation**: Zod 3.24+ (Type-safe schemas)
 - **Linter**: Biome 1.9+ (Fast linting)
+- **MCP Server**: REST wrapper for Claude/Agent integration
+- **AI Framework**: OpenClaw with ChromaDB knowledge base
 
 ## Service Modules
 
@@ -159,10 +192,12 @@ Exchange WS ────────→ Price Service ─→ EventBus ─→ Reb
 
 ## Database Schema
 
-**Location**: `src/db/schema.ts`
+**Location**: `src/db/models/` (Mongoose ODM + MongoDB 7)
+**Connection**: `src/db/connection.ts` (managed via Docker Compose)
+**Env Var**: `MONGODB_URI=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/rebalance?authSource=admin`
 
-| Table | Purpose |
-|-------|---------|
+| Collection | Purpose |
+|-----------|---------|
 | `allocations` | Target portfolio allocations per asset |
 | `snapshots` | Point-in-time portfolio states (before/after rebalance) |
 | `trades` | Individual trade records with fees and prices |
@@ -176,6 +211,11 @@ Exchange WS ────────→ Price Service ─→ EventBus ─→ Reb
 | `ai_suggestions` | ML model recommendations |
 | `copy_sources` | Source portfolios for copy trading |
 | `copy_sync_log` | Copy trading synchronization history |
+
+**Key Files**:
+- `src/db/connection.ts` - MongoDB connection with Mongoose
+- `src/db/models/` - 14 Mongoose schema definitions
+- `src/db/test-helpers.ts` - setupTestDB/teardownTestDB utilities
 
 ## API Endpoints
 
@@ -240,18 +280,19 @@ Exchange WS ────────→ Price Service ─→ EventBus ─→ Reb
 
 **Location**: `src/config/`
 **Environment Variables**:
-- `EXCHANGE_APIS` - Exchange credentials (encrypted in DB)
+- `MONGODB_URI` - MongoDB connection (set by Docker Compose)
+- `MONGO_PASSWORD` - MongoDB root password
 - `TELEGRAM_BOT_TOKEN` - Grammy bot token
 - `REBALANCE_THRESHOLD` - Drift threshold (e.g., 0.05 = 5%)
 - `MIN_TRADE_USD` - Minimum trade value for execution
 - `PAPER_TRADING` - Boolean flag for simulation mode
-- `DATABASE_URL` - libSQL database connection string
+- `VITE_API_URL` - Frontend API URL (set to /api in Docker)
 
 ## Security Model
 
 **Credential Storage**:
 - All exchange API keys encrypted at rest
-- Encrypted values stored in `exchange_configs.api_key_enc`
+- Encrypted values stored in MongoDB `exchange_configs` collection
 - Decryption only on order execution
 - Never logged or exposed in API responses
 
@@ -261,23 +302,37 @@ Exchange WS ────────→ Price Service ─→ EventBus ─→ Reb
 - Sanitized outputs for JSON responses
 
 **Database**:
-- SQLite with libSQL for type safety
-- Drizzle ORM prevents SQL injection
-- Transaction support for consistency
+- MongoDB 7 with Mongoose ODM for type safety
+- No SQL injection (uses query builders, not concatenation)
+- Transaction support via MongoDB sessions
+- Indexes on frequently queried fields
 
 ## Deployment
 
-**Target Environment**: Docker on VPS (8GB RAM)
-**Technology Stack**:
-- Bun runtime in container
-- SQLite persistent storage
-- Environment-based configuration
-- PM2 or systemd for process management
+**Target Environment**: Docker Compose on VPS (8GB RAM)
 
-**Memory Footprint**:
-- Base: ~200MB (Bun runtime + app)
-- CCXT WebSockets: ~50MB per exchange
-- Total: ~300-400MB for 3 exchanges
+**6-Service Stack**:
+1. **frontend** (nginx) - React dashboard, port 80
+2. **backend** (Bun) - Hono API, port 3001
+3. **mongodb** - Data persistence, port 27017
+4. **mcp-server** - MCP wrapper for Claude integration (internal)
+5. **openclaw** - OpenClaw AI agent (profile: full)
+6. **chromadb** - Vector knowledge base (profile: full)
+
+**Startup**: `docker compose up -d` (basic) or `docker compose --profile full up -d` (with AI)
+
+**Memory Allocation**:
+- frontend: 128M
+- backend: 512M (limit), 128M (reservation)
+- mongodb: 512M (limit)
+- mcp-server: 256M
+- openclaw: 256M (with profile)
+- chromadb: 512M (with profile)
+- **Total**: ~1.7GB basic, ~2.5GB with AI
+
+**Volumes**:
+- `mongodb_data:/data/db` - MongoDB persistence
+- `chromadb_data:/chroma/chroma` - Vector DB persistence
 
 ## Performance Characteristics
 

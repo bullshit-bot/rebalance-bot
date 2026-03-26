@@ -1,6 +1,4 @@
-import { db } from "@db/database";
-import { gridBots } from "@db/schema";
-import { eq, sql } from "drizzle-orm";
+import { GridBotModel } from "@db/database";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,16 +66,11 @@ class GridPnLTracker {
    */
   async loadFromDb(botId: string): Promise<void> {
     try {
-      const rows = await db
-        .select({ totalProfit: gridBots.totalProfit, totalTrades: gridBots.totalTrades })
-        .from(gridBots)
-        .where(eq(gridBots.id, botId))
-        .limit(1);
-
-      if (rows.length > 0) {
+      const bot = await GridBotModel.findById(botId).lean();
+      if (bot) {
         this.state.set(botId, {
-          realized: rows[0].totalProfit ?? 0,
-          tradeCount: rows[0].totalTrades ?? 0,
+          realized: bot.totalProfit ?? 0,
+          tradeCount: bot.totalTrades ?? 0,
         });
       }
     } catch (err) {
@@ -94,13 +87,10 @@ class GridPnLTracker {
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   private async persistToDb(botId: string, pnl: BotPnL): Promise<void> {
-    await db
-      .update(gridBots)
-      .set({
-        totalProfit: sql`${pnl.realized}`,
-        totalTrades: sql`${pnl.tradeCount}`,
-      })
-      .where(eq(gridBots.id, botId));
+    await GridBotModel.updateOne(
+      { _id: botId },
+      { totalProfit: pnl.realized, totalTrades: pnl.tradeCount }
+    );
   }
 }
 

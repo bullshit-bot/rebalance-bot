@@ -1,6 +1,4 @@
-import { and, eq, gte, lte, max } from 'drizzle-orm'
-import { db } from '@db/database'
-import { ohlcvCandles } from '@db/schema'
+import { OhlcvCandleModel } from '@db/database'
 import { exchangeManager } from '@exchange/exchange-manager'
 import type { ExchangeName } from '@/types/index'
 
@@ -13,7 +11,7 @@ export interface IExchangeLookupDep {
 export interface HistoricalDataLoaderDeps {
   exchangeManager: IExchangeLookupDep
   /** Optional: override candle persistence (e.g. no-op in tests). */
-  upsertCandles?: (exchange: ExchangeName, pair: string, timeframe: string, candles: OHLCVCandle[]) => Promise<void>
+  upsertCandles: ((exchange: ExchangeName, pair: string, timeframe: string, candles: OHLCVCandle[]) => Promise<void>) | undefined
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -134,32 +132,28 @@ class HistoricalDataLoader {
   /**
    * Returns candles from the local DB cache for the given symbol and time range.
    * Does not hit the exchange.
+   * timestamp is stored as Number (unix ms) in the model.
    */
   async getCachedData(params: GetCachedDataParams): Promise<OHLCVCandle[]> {
     const { exchange: exchangeName, pair, timeframe, since, until } = params
 
-    const rows = await db
-      .select({
-        timestamp: ohlcvCandles.timestamp,
-        open: ohlcvCandles.open,
-        high: ohlcvCandles.high,
-        low: ohlcvCandles.low,
-        close: ohlcvCandles.close,
-        volume: ohlcvCandles.volume,
-      })
-      .from(ohlcvCandles)
-      .where(
-        and(
-          eq(ohlcvCandles.exchange, exchangeName),
-          eq(ohlcvCandles.pair, pair),
-          eq(ohlcvCandles.timeframe, timeframe),
-          gte(ohlcvCandles.timestamp, since),
-          lte(ohlcvCandles.timestamp, until),
-        ),
-      )
-      .orderBy(ohlcvCandles.timestamp)
+    const rows = await OhlcvCandleModel.find({
+      exchange: exchangeName,
+      pair,
+      timeframe,
+      timestamp: { $gte: since, $lte: until },
+    })
+      .sort({ timestamp: 1 })
+      .lean()
 
-    return rows
+    return rows.map((r) => ({
+      timestamp: r.timestamp,
+      open: r.open,
+      high: r.high,
+      low: r.low,
+      close: r.close,
+      volume: r.volume,
+    }))
   }
 
   /**
@@ -170,19 +164,13 @@ class HistoricalDataLoader {
    */
   async syncData(exchange: ExchangeName, pair: string, timeframe: '1h' | '1d'): Promise<number> {
     // Find the most recent cached timestamp for this series
-    const [result] = await db
-      .select({ lastTs: max(ohlcvCandles.timestamp) })
-      .from(ohlcvCandles)
-      .where(
-        and(
-          eq(ohlcvCandles.exchange, exchange),
-          eq(ohlcvCandles.pair, pair),
-          eq(ohlcvCandles.timeframe, timeframe),
-        ),
-      )
+    const latest = await OhlcvCandleModel.findOne({ exchange, pair, timeframe })
+      .sort({ timestamp: -1 })
+      .select('timestamp')
+      .lean()
 
     // Default: if no cached data, start 30 days back
-    const lastTs = result?.lastTs ?? Date.now() - 30 * 24 * 60 * 60 * 1_000
+    const lastTs = latest?.timestamp ?? Date.now() - 30 * 24 * 60 * 60 * 1_000
     const since = lastTs + 1 // exclusive of the last cached candle
 
     const candles = await this.loadData({ exchange, pair, timeframe, since })
@@ -193,8 +181,8 @@ class HistoricalDataLoader {
 
   /**
    * Batch-upserts candles into the DB.
-   * The unique index on (exchange, pair, timeframe, timestamp) makes ON CONFLICT
-   * handled gracefully via drizzle's onConflictDoNothing.
+   * The unique index on (exchange, pair, timeframe, timestamp) handles duplicates
+   * gracefully — conflicting docs are skipped via ordered:false bulk write.
    */
   private async _upsertCandles(
     exchange: ExchangeName,
@@ -210,19 +198,15 @@ class HistoricalDataLoader {
       return
     }
 
-    const rows = candles.map((c) => ({
-      exchange,
-      pair,
-      timeframe,
-      timestamp: c.timestamp,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-      volume: c.volume,
+    const ops = candles.map((c) => ({
+      updateOne: {
+        filter: { exchange, pair, timeframe, timestamp: c.timestamp },
+        update: { $setOnInsert: { exchange, pair, timeframe, ...c } },
+        upsert: true,
+      },
     }))
 
-    await db.insert(ohlcvCandles).values(rows).onConflictDoNothing()
+    await OhlcvCandleModel.bulkWrite(ops, { ordered: false })
   }
 }
 

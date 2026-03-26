@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { SnapshotModel } from '@db/database'
 import { drawdownAnalyzer } from './drawdown-analyzer'
-import { db } from '@db/database'
-import { snapshots } from '@db/schema'
-import { eq, and, gte, lte } from 'drizzle-orm'
 
 describe('drawdown-analyzer (integration)', () => {
   describe('DrawdownAnalyzer singleton export', () => {
@@ -45,7 +44,7 @@ describe('drawdown-analyzer (integration)', () => {
 
     it('should accept Unix epoch seconds for time range', async () => {
       const now = Math.floor(Date.now() / 1000)
-      const past = now - 604800 // 7 days ago
+      const past = now - 604800
 
       const fn = () => drawdownAnalyzer.analyze(past, now)
       expect(fn).not.toThrow()
@@ -55,7 +54,6 @@ describe('drawdown-analyzer (integration)', () => {
       const now = Math.floor(Date.now() / 1000)
       const past = now - 86400
 
-      // Call with inverted range
       const result = await drawdownAnalyzer.analyze(now, past)
       expect(result).toBeDefined()
       expect(typeof result).toBe('object')
@@ -69,7 +67,6 @@ describe('drawdown-analyzer (integration)', () => {
 
       const result = await drawdownAnalyzer.analyze(past, now)
 
-      // Fractional: -0.25 means -25%
       if (result.maxDrawdownPct !== 0) {
         expect(Math.abs(result.maxDrawdownPct)).toBeLessThanOrEqual(1)
       }
@@ -81,7 +78,6 @@ describe('drawdown-analyzer (integration)', () => {
 
       const result = await drawdownAnalyzer.analyze(past, now)
 
-      // Should be fractional
       if (result.currentDrawdownPct !== 0) {
         expect(Math.abs(result.currentDrawdownPct)).toBeLessThanOrEqual(1)
       }
@@ -146,7 +142,6 @@ describe('drawdown-analyzer (integration)', () => {
 
       const result = await drawdownAnalyzer.analyze(past, now)
 
-      // With 0 or 1 point, should return zero result
       if (result.drawdownSeries.length < 2) {
         expect(result.maxDrawdownPct).toBe(0)
       }
@@ -158,7 +153,6 @@ describe('drawdown-analyzer (integration)', () => {
 
       const result = await drawdownAnalyzer.analyze(past, now)
 
-      // When all values are same, drawdown should be 0
       if (result.drawdownSeries.length > 1) {
         const allSame = result.drawdownSeries.every(p => p.drawdownPct === 0)
         if (allSame) {
@@ -213,14 +207,12 @@ describe('drawdown-analyzer (integration)', () => {
       const now = Math.floor(Date.now() / 1000)
       const past = now - 86400
 
-      // This calls equityCurveBuilder internally
       const result = await drawdownAnalyzer.analyze(past, now)
 
       expect(result).toBeDefined()
     })
 
     it('should handle date range with no snapshots gracefully', async () => {
-      // Use a very old range where no snapshots exist
       const result = await drawdownAnalyzer.analyze(0, 100)
 
       expect(result).toBeDefined()
@@ -231,61 +223,32 @@ describe('drawdown-analyzer (integration)', () => {
   })
 
   describe('real data analysis with seeded snapshots', () => {
-    const TEST_SNAPSHOT_IDS: string[] = []
-
     beforeAll(async () => {
-      // Clean up any existing test snapshots
-      const testRange = await db
-        .select()
-        .from(snapshots)
-        .where(and(gte(snapshots.createdAt, 1700000000), lte(snapshots.createdAt, 1700010000)))
+      await setupTestDB()
 
-      for (const snap of testRange) {
-        if (snap.id) {
-          TEST_SNAPSHOT_IDS.push(snap.id)
-        }
-      }
-
-      // Seed realistic equity curve data: peak, drawdown, recovery
       const now = Math.floor(Date.now() / 1000)
       const timestamps = [
-        now - 3600,  // 1 hour ago: $10,000
-        now - 2700,  // 45 min ago: $11,000 (peak)
-        now - 1800,  // 30 min ago: $9,900 (drawdown to -10%)
-        now - 900,   // 15 min ago: $9,500 (deeper: -13.6%)
-        now,         // now: $10,500 (recovery)
+        now - 3600,
+        now - 2700,
+        now - 1800,
+        now - 900,
+        now,
       ]
 
       const values = [10000, 11000, 9900, 9500, 10500]
-      const emptyHoldings = JSON.stringify({})
-      const emptyAllocations = JSON.stringify([])
 
       for (let i = 0; i < timestamps.length; i++) {
-        const result = await db.insert(snapshots).values({
-          createdAt: timestamps[i],
-          totalValueUsd: values[i],
-          holdings: emptyHoldings,
-          allocations: emptyAllocations,
+        await SnapshotModel.create({
+          createdAt: new Date(timestamps[i]! * 1000),
+          totalValueUsd: values[i]!,
+          holdings: {},
+          allocations: {},
         })
-
-        if (result && result.lastInsertRowid) {
-          TEST_SNAPSHOT_IDS.push(String(result.lastInsertRowid))
-        }
       }
     })
 
     afterAll(async () => {
-      // Clean up seeded test data
-      const testRange = await db
-        .select()
-        .from(snapshots)
-        .where(and(gte(snapshots.createdAt, 1700000000), lte(snapshots.createdAt, 1700010000)))
-
-      for (const snap of testRange) {
-        if (snap.id && TEST_SNAPSHOT_IDS.includes(snap.id)) {
-          await db.delete(snapshots).where(eq(snapshots.id, snap.id))
-        }
-      }
+      await teardownTestDB()
     })
 
     it('analyzes real drawdown from seeded data', async () => {
@@ -296,7 +259,6 @@ describe('drawdown-analyzer (integration)', () => {
 
       expect(result).toBeDefined()
       expect(result.drawdownSeries.length).toBeGreaterThanOrEqual(0)
-      // If data exists, should have computed some metrics
       if (result.drawdownSeries.length > 0) {
         expect(result.maxDrawdownPct).toBeLessThanOrEqual(0)
       }
@@ -308,11 +270,9 @@ describe('drawdown-analyzer (integration)', () => {
 
       const result = await drawdownAnalyzer.analyze(past, now)
 
-      // The curve has: 10k → 11k (peak) → 9.5k (trough)
-      // Drawdown: (9500 - 11000) / 11000 ≈ -13.6%
       if (result.drawdownSeries.length > 2) {
         expect(result.maxDrawdownPct).toBeLessThan(0)
-        expect(Math.abs(result.maxDrawdownPct)).toBeGreaterThan(0.01) // At least 1% drawdown
+        expect(Math.abs(result.maxDrawdownPct)).toBeGreaterThan(0.01)
       }
     })
 
@@ -323,7 +283,6 @@ describe('drawdown-analyzer (integration)', () => {
       const result = await drawdownAnalyzer.analyze(past, now)
 
       if (result.maxDrawdownPct < 0) {
-        // When there is a real drawdown
         expect(result.peakValue).toBeGreaterThan(result.troughValue)
         expect(result.peakDate).toBeLessThanOrEqual(result.troughDate)
       }
@@ -335,8 +294,6 @@ describe('drawdown-analyzer (integration)', () => {
 
       const result = await drawdownAnalyzer.analyze(past, now)
 
-      // Current value is 10.5k, all-time peak is 11k
-      // Current DD: (10500 - 11000) / 11000 ≈ -4.5%
       if (result.drawdownSeries.length > 3) {
         expect(result.currentDrawdownPct).toBeLessThanOrEqual(0)
       }

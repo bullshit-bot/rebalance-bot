@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { env } from '@config/app-config'
-import { db } from '@db/database'
-import { trades } from '@db/schema'
+import { TradeModel } from '@db/database'
 import { eventBus } from '@events/event-bus'
 import { exchangeManager } from '@exchange/exchange-manager'
 import { executionGuard } from '@executor/execution-guard'
@@ -40,16 +39,11 @@ export interface IEventBusDep {
   emit(event: string, data?: unknown): void
 }
 
-export interface IDbDep {
-  insert(table: unknown): { values(data: unknown): Promise<unknown> }
-}
-
 export interface OrderExecutorDeps {
   exchangeManager: IExchangeManagerDep
   priceCache: IPriceCacheDep
   executionGuard: IExecutionGuardDep
   eventBus: IEventBusDep
-  db: IDbDep
 }
 
 // ─── OrderExecutor ────────────────────────────────────────────────────────────
@@ -76,7 +70,6 @@ export class OrderExecutor implements IOrderExecutor {
       priceCache: deps?.priceCache ?? priceCache,
       executionGuard: deps?.executionGuard ?? (executionGuard as unknown as IExecutionGuardDep),
       eventBus: deps?.eventBus ?? (eventBus as unknown as IEventBusDep),
-      db: deps?.db ?? (db as unknown as IDbDep),
     }
   }
 
@@ -329,7 +322,7 @@ export class OrderExecutor implements IOrderExecutor {
 
   private async persistAndEmit(result: TradeResult): Promise<void> {
     try {
-      await db.insert(trades).values({
+      await TradeModel.create({
         exchange: result.exchange,
         pair: result.pair,
         side: result.side,
@@ -338,9 +331,9 @@ export class OrderExecutor implements IOrderExecutor {
         costUsd: result.costUsd,
         fee: result.fee,
         feeCurrency: result.feeCurrency,
-        orderId: result.orderId,
-        rebalanceId: result.rebalanceId,
-        isPaper: result.isPaper ? 1 : 0,
+        orderId: result.orderId ?? null,
+        rebalanceId: result.rebalanceId ?? null,
+        isPaper: result.isPaper,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

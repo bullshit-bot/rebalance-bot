@@ -1,11 +1,9 @@
 import type { ExchangeName } from "@/types/index";
-import { db } from "@db/database";
-import { gridOrders } from "@db/schema";
+import { GridBotModel, GridOrderModel } from "@db/database";
 import { exchangeManager } from "@exchange/exchange-manager";
 import { getExecutor } from "@executor/index";
 import type { GridLevel } from "@grid/grid-calculator";
 import { gridPnLTracker } from "@grid/grid-pnl-tracker";
-import { eq } from "drizzle-orm";
 import type { IOrderExecutor } from "@executor/order-executor";
 
 // ─── Dependency injection interfaces ─────────────────────────────────────────
@@ -119,23 +117,19 @@ class GridExecutor {
     // Stop polling first
     this.stopMonitoring(botId);
 
-    const openOrders = await db.select().from(gridOrders).where(eq(gridOrders.gridBotId, botId));
+    const openOrders = await GridOrderModel.find({ gridBotId: botId }).lean();
 
     for (const order of openOrders) {
       if (order.status !== "open" || !order.exchangeOrderId) continue;
 
       try {
-        // Resolve exchange from bot row via grid_orders — pair stored in bot; use exchangeOrderId
-        // We need the exchange instance; look it up from the order context
-        // Since we don't store exchange per order, we must have it passed or look it up via bot.
-        // For simplicity, iterate all connected exchanges and try to cancel
         await this.tryCancelOnAnyExchange(order.exchangeOrderId, botId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[GridExecutor] Failed to cancel order ${order.exchangeOrderId}: ${msg}`);
       }
 
-      await db.update(gridOrders).set({ status: "cancelled" }).where(eq(gridOrders.id, order.id));
+      await GridOrderModel.updateOne({ _id: order._id }, { status: "cancelled" });
     }
 
     console.log(`[GridExecutor] All orders cancelled for bot ${botId}`);
@@ -161,17 +155,14 @@ class GridExecutor {
     executor: ReturnType<typeof getExecutor>
   ): Promise<void> {
     // Insert DB row first (open state)
-    const [inserted] = await db
-      .insert(gridOrders)
-      .values({
-        gridBotId: botId,
-        level: level.level,
-        price: level.price,
-        amount,
-        side,
-        status: "open",
-      })
-      .returning({ id: gridOrders.id });
+    const inserted = await GridOrderModel.create({
+      gridBotId: botId,
+      level: level.level,
+      price: level.price,
+      amount,
+      side,
+      status: "open",
+    });
 
     try {
       const result = await executor.execute({
@@ -184,17 +175,11 @@ class GridExecutor {
       });
 
       // Update with exchange order id
-      await db
-        .update(gridOrders)
-        .set({ exchangeOrderId: result.orderId })
-        .where(eq(gridOrders.id, inserted.id));
+      await GridOrderModel.updateOne({ _id: inserted._id }, { exchangeOrderId: result.orderId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[GridExecutor] Failed to place ${side} at level ${level.level}: ${msg}`);
-      await db
-        .update(gridOrders)
-        .set({ status: "cancelled" })
-        .where(eq(gridOrders.id, inserted.id));
+      await GridOrderModel.updateOne({ _id: inserted._id }, { status: "cancelled" });
     }
   }
 
@@ -202,7 +187,7 @@ class GridExecutor {
    * Checks all open orders for a bot; on fill places the counter order.
    */
   private async pollFills(botId: string): Promise<void> {
-    const openOrders = await db.select().from(gridOrders).where(eq(gridOrders.gridBotId, botId));
+    const openOrders = await GridOrderModel.find({ gridBotId: botId }).lean();
 
     const allLevels = openOrders.map((o) => o.level);
     const maxLevel = allLevels.length > 0 ? Math.max(...allLevels) : 0;
@@ -213,11 +198,10 @@ class GridExecutor {
       const isFilled = await this.checkOrderFilled(order.exchangeOrderId, botId);
       if (!isFilled) continue;
 
-      const now = Math.floor(Date.now() / 1000);
-      await db
-        .update(gridOrders)
-        .set({ status: "filled", filledAt: now })
-        .where(eq(gridOrders.id, order.id));
+      await GridOrderModel.updateOne(
+        { _id: order._id },
+        { status: "filled", filledAt: new Date() }
+      );
 
       // Record PnL for completed buy→sell pair
       if (order.side === "sell") {
@@ -244,20 +228,12 @@ class GridExecutor {
     botId: string,
     maxLevel: number
   ): Promise<void> {
-    // Resolve exchange + pair from bot context — fetched via grid_orders siblings
-    const siblings = await db.select().from(gridOrders).where(eq(gridOrders.gridBotId, botId));
+    // Resolve exchange + pair from the bot document
+    const bot = await GridBotModel.findById(botId).lean();
+    if (!bot) return;
 
-    // We can't recover exchange/pair from grid_orders alone without joining gridBots.
-    // Import gridBots schema to do so.
-    const { gridBots } = await import("@db/schema");
-    const botRows = await db
-      .select({ exchange: gridBots.exchange, pair: gridBots.pair })
-      .from(gridBots)
-      .where(eq(gridBots.id, botId))
-      .limit(1);
-
-    if (botRows.length === 0) return;
-    const { exchange, pair } = botRows[0];
+    const { exchange, pair } = bot;
+    const siblings = await GridOrderModel.find({ gridBotId: botId }).lean();
 
     const executor = this.deps.getExecutor();
     const counterSide = filledOrder.side === "buy" ? "sell" : "buy";
@@ -294,8 +270,6 @@ class GridExecutor {
   private async checkOrderFilled(exchangeOrderId: string, _botId: string): Promise<boolean> {
     for (const [, exchange] of this.deps.exchangeManager.getEnabledExchanges()) {
       try {
-        // We don't have pair stored per order — fetchOrder needs symbol
-        // Use a best-effort approach: some exchanges allow fetchOrder without symbol
         const order = (await (
           exchange as unknown as {
             fetchOrder: (id: string) => Promise<Record<string, unknown>>;

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { ohlcvCandles } from '@db/schema'
-import { eq, and } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { OhlcvCandleModel } from '@db/database'
 import { backtestSimulator } from './backtest-simulator'
 import type { BacktestConfig } from './metrics-calculator'
 
@@ -11,10 +10,7 @@ describe('backtest-simulator', () => {
   const pair2 = 'ETH/USDT'
 
   beforeAll(async () => {
-    // Clear and seed test data
-    await db
-      .delete(ohlcvCandles)
-      .where(and(eq(ohlcvCandles.exchange, testExchange)))
+    await setupTestDB()
 
     // Create candles for BTC
     let btcPrice = 40000
@@ -44,13 +40,11 @@ describe('backtest-simulator', () => {
       volume: 5000,
     }))
 
-    await db.insert(ohlcvCandles).values([...btcCandles, ...ethCandles])
+    await OhlcvCandleModel.insertMany([...btcCandles, ...ethCandles])
   })
 
   afterAll(async () => {
-    await db
-      .delete(ohlcvCandles)
-      .where(and(eq(ohlcvCandles.exchange, testExchange)))
+    await teardownTestDB()
   })
 
   describe('run', () => {

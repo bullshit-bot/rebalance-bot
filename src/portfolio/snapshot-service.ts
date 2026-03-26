@@ -1,7 +1,5 @@
-import { and, desc, gte, lte } from 'drizzle-orm'
-import { db } from '@db/database'
-import { snapshots } from '@db/schema'
-import type { Snapshot } from '@db/schema'
+import { SnapshotModel } from '@db/database'
+import type { ISnapshot } from '@db/database'
 import type { Portfolio } from '@/types/index'
 
 // ─── SnapshotService ──────────────────────────────────────────────────────────
@@ -34,39 +32,36 @@ class SnapshotService {
       }
     }
 
-    await db.insert(snapshots).values({
+    await SnapshotModel.create({
       totalValueUsd: portfolio.totalValueUsd,
-      holdings: JSON.stringify(holdingsMap),
-      allocations: JSON.stringify(allocationsMap),
+      holdings: holdingsMap,
+      allocations: allocationsMap,
     })
   }
 
   /**
    * Returns all snapshots whose createdAt falls within [from, to].
-   * Timestamps are Unix epoch seconds (matching the DB default `unixepoch()`).
+   * from/to are Unix epoch seconds.
    *
    * @param from - Start of range, Unix epoch seconds (inclusive)
    * @param to   - End of range, Unix epoch seconds (inclusive)
    */
-  async getSnapshots(from: number, to: number): Promise<Snapshot[]> {
-    return db
-      .select()
-      .from(snapshots)
-      .where(and(gte(snapshots.createdAt, from), lte(snapshots.createdAt, to)))
-      .orderBy(snapshots.createdAt)
+  async getSnapshots(from: number, to: number): Promise<ISnapshot[]> {
+    return SnapshotModel.find({
+      createdAt: {
+        $gte: new Date(from * 1_000),
+        $lte: new Date(to * 1_000),
+      },
+    })
+      .sort({ createdAt: 1 })
+      .lean()
   }
 
   /**
    * Fetches the most recently inserted snapshot row, or null if none exist.
    */
-  async getLatest(): Promise<Snapshot | null> {
-    const rows = await db
-      .select()
-      .from(snapshots)
-      .orderBy(desc(snapshots.createdAt))
-      .limit(1)
-
-    return rows[0] ?? null
+  async getLatest(): Promise<ISnapshot | null> {
+    return SnapshotModel.findOne().sort({ createdAt: -1 }).lean()
   }
 }
 

@@ -1,7 +1,4 @@
-import { and, between, eq } from 'drizzle-orm'
-import { db } from '../db/database'
-import { trades } from '../db/schema'
-import type { Trade } from '../db/schema'
+import { TradeModel } from '@db/database'
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -67,11 +64,29 @@ function formatDate(epochSeconds: number): string {
   return new Date(epochSeconds * 1000).toISOString()
 }
 
-/** Year boundaries as unix epoch seconds (inclusive start, exclusive end). */
-function yearBounds(year: number): { start: number; end: number } {
-  const start = Math.floor(new Date(year, 0, 1).getTime() / 1000)
-  const end = Math.floor(new Date(year + 1, 0, 1).getTime() / 1000)
-  return { start, end }
+/** Year boundaries as unix epoch milliseconds. */
+function yearBoundsMs(year: number): { startMs: number; endMs: number } {
+  const startMs = new Date(year, 0, 1).getTime()
+  const endMs = new Date(year + 1, 0, 1).getTime()
+  return { startMs, endMs }
+}
+
+/** Convert a Date (from Mongoose) to unix epoch seconds. */
+function toEpochSec(d: Date): number {
+  return Math.floor(new Date(d).getTime() / 1000)
+}
+
+// ─── Lean trade shape used internally ────────────────────────────────────────
+
+interface TradeLean {
+  pair: string
+  side: string
+  amount: number
+  price: number
+  costUsd: number
+  fee: number | null
+  isPaper: boolean
+  executedAt: Date
 }
 
 // ─── TaxReporter ──────────────────────────────────────────────────────────────
@@ -87,34 +102,25 @@ class TaxReporter {
    *  4. Match each sell against the oldest available lots.
    */
   async generateReport(year: number): Promise<TaxReport> {
-    const { end } = yearBounds(year)
+    const { startMs, endMs } = yearBoundsMs(year)
 
     // Fetch all real buys up to end of year — needed for complete FIFO history
-    const allBuys = await db
-      .select()
-      .from(trades)
-      .where(
-        and(
-          eq(trades.side, 'buy'),
-          eq(trades.isPaper, 0),
-          between(trades.executedAt!, 0, end - 1),
-        ),
-      )
-      .orderBy(trades.executedAt)
+    const allBuys = await TradeModel.find({
+      side: 'buy',
+      isPaper: false,
+      executedAt: { $gte: new Date(0), $lt: new Date(endMs) },
+    })
+      .sort({ executedAt: 1 })
+      .lean() as unknown as TradeLean[]
 
     // Fetch real sells within the target year only
-    const { start } = yearBounds(year)
-    const yearSells = await db
-      .select()
-      .from(trades)
-      .where(
-        and(
-          eq(trades.side, 'sell'),
-          eq(trades.isPaper, 0),
-          between(trades.executedAt!, start, end - 1),
-        ),
-      )
-      .orderBy(trades.executedAt)
+    const yearSells = await TradeModel.find({
+      side: 'sell',
+      isPaper: false,
+      executedAt: { $gte: new Date(startMs), $lt: new Date(endMs) },
+    })
+      .sort({ executedAt: 1 })
+      .lean() as unknown as TradeLean[]
 
     // Build per-asset lot maps from buy history
     const lotsByAsset = this.buildCostBasisLots(allBuys)
@@ -193,7 +199,7 @@ class TaxReporter {
    * Returns a Map keyed by asset symbol.
    * Each queue is ordered oldest-first so FIFO consumption is a simple shift().
    */
-  private buildCostBasisLots(buys: Trade[]): Map<string, TaxLot[]> {
+  private buildCostBasisLots(buys: TradeLean[]): Map<string, TaxLot[]> {
     const lotMap = new Map<string, TaxLot[]>()
 
     for (const trade of buys) {
@@ -202,11 +208,12 @@ class TaxReporter {
         lotMap.set(asset, [])
       }
 
+      const acquiredAt = toEpochSec(trade.executedAt)
       const costPerUnit = trade.amount > 0 ? trade.costUsd / trade.amount : 0
 
       lotMap.get(asset)!.push({
         asset,
-        acquiredAt: trade.executedAt ?? 0,
+        acquiredAt,
         amount: trade.amount,
         remaining: trade.amount,
         costBasisUsd: trade.costUsd,
@@ -226,7 +233,7 @@ class TaxReporter {
    * next sell.
    */
   private matchSellsToLots(
-    sells: Trade[],
+    sells: TradeLean[],
     lotsByAsset: Map<string, TaxLot[]>,
   ): TaxableEvent[] {
     const events: TaxableEvent[] = []
@@ -234,6 +241,7 @@ class TaxReporter {
     for (const sell of sells) {
       const asset = extractAsset(sell.pair)
       const lots = lotsByAsset.get(asset) ?? []
+      const sellEpoch = toEpochSec(sell.executedAt)
 
       // Price per unit received for this sell
       const sellPricePerUnit = sell.amount > 0 ? sell.costUsd / sell.amount : 0
@@ -242,7 +250,7 @@ class TaxReporter {
       let lotIndex = 0
 
       while (remainingToMatch > 1e-10 && lotIndex < lots.length) {
-        const lot = lots[lotIndex]
+        const lot = lots[lotIndex]!
 
         // Skip fully consumed lots
         if (lot.remaining <= 1e-10) {
@@ -256,12 +264,10 @@ class TaxReporter {
         const costBasis = consumed * lot.costPerUnit
         const gainLoss = proceeds - costBasis
 
-        const holdingDays = Math.floor(
-          (sell.executedAt! - lot.acquiredAt) / SECONDS_PER_DAY,
-        )
+        const holdingDays = Math.floor((sellEpoch - lot.acquiredAt) / SECONDS_PER_DAY)
 
         events.push({
-          date: sell.executedAt ?? 0,
+          date: sellEpoch,
           asset,
           action: 'sell',
           amount: consumed,
@@ -286,7 +292,7 @@ class TaxReporter {
       if (remainingToMatch > 1e-10) {
         const proceeds = remainingToMatch * sellPricePerUnit
         events.push({
-          date: sell.executedAt ?? 0,
+          date: sellEpoch,
           asset,
           action: 'sell',
           amount: remainingToMatch,

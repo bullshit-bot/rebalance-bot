@@ -1,6 +1,5 @@
-import { and, gte, lte } from 'drizzle-orm'
-import { db } from '@db/database'
-import { trades } from '@db/schema'
+import { TradeModel } from '@db/database'
+import type { ITrade } from '@db/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,18 +29,11 @@ function baseAsset(pair: string): string {
   return pair.split('/')[0] ?? pair
 }
 
-type FeeRow = {
-  exchange: string
-  pair: string
-  fee: number | null
-  feeCurrency: string | null
-  price: number
-  executedAt: number | null
-}
+type FeeRow = Pick<ITrade, 'exchange' | 'pair' | 'fee' | 'feeCurrency' | 'price'> & { executedAt: Date }
 
 /**
  * Aggregate fee rows into total, byExchange, and byAsset maps.
- * Fees stored in the trades table are already in USD (costUsd basis).
+ * Fees stored in the trades collection are already in USD (costUsd basis).
  * When feeCurrency is a crypto asset, the fee column still reflects the
  * USD-equivalent cost because the executor records it that way.
  */
@@ -71,10 +63,15 @@ function aggregateFees(rows: FeeRow[]): {
   return { total, byExchange, byAsset }
 }
 
+/** Convert a Date (from Mongoose) to unix epoch seconds for period comparisons. */
+function toEpochSec(d: Date): number {
+  return Math.floor(new Date(d).getTime() / 1000)
+}
+
 // ─── FeeTracker ───────────────────────────────────────────────────────────────
 
 /**
- * Queries the trades table to aggregate fee data by exchange, asset, and period.
+ * Queries the trades collection to aggregate fee data by exchange, asset, and period.
  * All monetary values are in USD.
  */
 class FeeTracker {
@@ -86,21 +83,17 @@ class FeeTracker {
    * @param to   - End timestamp, Unix epoch seconds (inclusive, optional)
    */
   async getFees(from?: number, to?: number): Promise<FeeSummary> {
-    const conditions = []
-    if (from !== undefined) conditions.push(gte(trades.executedAt, from))
-    if (to !== undefined) conditions.push(lte(trades.executedAt, to))
+    const filter: Record<string, unknown> = {}
+    if (from !== undefined || to !== undefined) {
+      const range: Record<string, Date> = {}
+      if (from !== undefined) range['$gte'] = new Date(from * 1000)
+      if (to !== undefined) range['$lte'] = new Date(to * 1000)
+      filter['executedAt'] = range
+    }
 
-    const rows = await db
-      .select({
-        exchange: trades.exchange,
-        pair: trades.pair,
-        fee: trades.fee,
-        feeCurrency: trades.feeCurrency,
-        price: trades.price,
-        executedAt: trades.executedAt,
-      })
-      .from(trades)
-      .where(conditions.length > 0 ? and(...(conditions as [ReturnType<typeof gte>])) : undefined)
+    const rows = await TradeModel.find(filter)
+      .select('exchange pair fee feeCurrency price executedAt')
+      .lean() as FeeRow[]
 
     const { total, byExchange, byAsset } = aggregateFees(rows)
 
@@ -110,11 +103,9 @@ class FeeTracker {
     const weeklyCutoff = nowSec - 7 * 86400
     const monthlyCutoff = nowSec - 30 * 86400
 
-    const { total: daily } = aggregateFees(rows.filter((r) => (r.executedAt ?? 0) >= dailyCutoff))
-    const { total: weekly } = aggregateFees(rows.filter((r) => (r.executedAt ?? 0) >= weeklyCutoff))
-    const { total: monthly } = aggregateFees(
-      rows.filter((r) => (r.executedAt ?? 0) >= monthlyCutoff),
-    )
+    const { total: daily } = aggregateFees(rows.filter((r) => toEpochSec(r.executedAt) >= dailyCutoff))
+    const { total: weekly } = aggregateFees(rows.filter((r) => toEpochSec(r.executedAt) >= weeklyCutoff))
+    const { total: monthly } = aggregateFees(rows.filter((r) => toEpochSec(r.executedAt) >= monthlyCutoff))
 
     return {
       totalFeesUsd: total,

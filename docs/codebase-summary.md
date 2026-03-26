@@ -1,7 +1,7 @@
 # Codebase Summary
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-26
+**Last Updated**: 2026-03-26 (Docker + MongoDB migration)
 **Version**: 1.0.0
 **Repository**: https://github.com/dungngo97/rebalance-bot
 **License**: MIT
@@ -10,34 +10,34 @@
 
 Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Multi-exchange support (Binance, OKX, Bybit) with advanced trading strategies, real-time monitoring, backtesting, and comprehensive analytics.
 
-**Total Codebase**: ~24,000 LOC (10,554 backend + 13,500 frontend)
+**Total Codebase**: ~24,500 LOC (10,800 backend + 13,500 frontend + 200 mcp-server)
 **Core Files**: 65 backend + 96 frontend = 161 files
 
-## Backend Architecture (~10,554 LOC)
+## Backend Architecture (~10,800 LOC)
 
 ### Core Service Modules (19 modules)
 
 | Module | LOC | Responsibility |
 |--------|-----|-----------------|
-| api/ | 1,795 | REST API (11 routes) + WebSocket server |
-| backtesting/ | 978 | Historical simulation, metrics calculation |
-| rebalancer/ | 773 | Rebalance orchestration, strategy execution |
-| analytics/ | 851 | Performance metrics, reporting |
-| executor/ | 641 | Order execution (live & paper trading) |
-| grid/ | 678 | Grid trading strategy implementation |
-| twap-vwap/ | 592 | Smart order routing, slippage reduction |
-| exchange/ | 339 | Multi-exchange CCXT Pro abstraction |
-| portfolio/ | 370 | Real-time balance, allocation tracking |
-| db/ | 372 | Database schema (Drizzle ORM) |
-| price/ | 246 | Price aggregation, WebSocket feeds |
-| copy-trading/ | 485 | Trade replication from sources |
-| ai/ | 351 | ML suggestions (OpenClaw) |
-| dca/ | 220 | Dollar-cost averaging |
-| notifier/ | 196 | Telegram notifications |
-| scheduler/ | 134 | Cron job execution |
-| trailing-stop/ | 160 | Stop-loss management |
-| config/ | 101 | Environment validation (Zod) |
-| events/ | 100 | Typed event bus |
+| api/ | 1,850 | REST API (11 routes) + WebSocket server |
+| backtesting/ | 1,015 | Historical simulation, metrics calculation |
+| rebalancer/ | 800 | Rebalance orchestration, strategy execution |
+| analytics/ | 880 | Performance metrics, reporting |
+| executor/ | 670 | Order execution (live & paper trading) |
+| grid/ | 710 | Grid trading strategy implementation |
+| twap-vwap/ | 620 | Smart order routing, slippage reduction |
+| exchange/ | 350 | Multi-exchange CCXT Pro abstraction |
+| portfolio/ | 385 | Real-time balance, allocation tracking |
+| db/ | 420 | Mongoose models + MongoDB connection |
+| price/ | 260 | Price aggregation, WebSocket feeds |
+| copy-trading/ | 510 | Trade replication from sources |
+| ai/ | 380 | ML suggestions (OpenClaw) |
+| dca/ | 235 | Dollar-cost averaging |
+| notifier/ | 210 | Telegram notifications |
+| scheduler/ | 145 | Cron job execution |
+| trailing-stop/ | 175 | Stop-loss management |
+| config/ | 110 | Environment validation (Zod) |
+| events/ | 110 | Typed event bus |
 
 ### Directory Structure
 
@@ -49,8 +49,24 @@ src/
 │   ├── ws.ts               # WebSocket handlers
 │   └── middleware.ts       # Auth, validation
 ├── db/
-│   ├── schema.ts           # 8 tables (Drizzle ORM)
-│   └── database.ts         # Connection initialization
+│   ├── models/             # 14 Mongoose schemas
+│   │   ├── allocation-model.ts
+│   │   ├── trade-model.ts
+│   │   ├── snapshot-model.ts
+│   │   ├── rebalance-model.ts
+│   │   ├── exchange-config-model.ts
+│   │   ├── ohlcv-candle-model.ts
+│   │   ├── backtest-result-model.ts
+│   │   ├── smart-order-model.ts
+│   │   ├── grid-bot-model.ts
+│   │   ├── grid-order-model.ts
+│   │   ├── ai-suggestion-model.ts
+│   │   ├── copy-source-model.ts
+│   │   ├── copy-sync-log-model.ts
+│   │   └── index.ts
+│   ├── connection.ts       # MongoDB connection (Mongoose)
+│   ├── database.ts         # Database initialization
+│   └── test-helpers.ts     # setupTestDB / teardownTestDB
 ├── exchange/
 │   ├── ccxt-pro.ts         # CCXT integration
 │   └── order-executor.ts   # Trade submission
@@ -93,6 +109,45 @@ src/
 └── config/
     └── env.ts              # Zod validation
 ```
+
+## MCP Server (~200 LOC)
+
+**Location**: `mcp-server/src/`
+**Purpose**: REST wrapper around backend API for Claude/Agent integration
+
+**Tools Exposed**:
+- Portfolio tools (get holdings, allocations)
+- Trading tools (view trades, execute rebalance)
+- Analytics tools (get metrics, backtest results)
+- Configuration tools (update settings)
+- Health tools (system status)
+
+**Architecture**: Simple Node.js server → HTTP client → Backend Hono API
+**Port**: Internal only (routed through Docker network)
+
+## OpenClaw AI & ChromaDB
+
+**Location**: `openclaw-skills/`
+**Profile**: `full` (optional Docker profile)
+
+**Components**:
+1. **OpenClaw Agent** - LLM-powered assistant with skills
+2. **ChromaDB** - Vector database for knowledge retrieval
+3. **Skills** (5 total):
+   - `allocation-advisor` - Allocation recommendations
+   - `auto-rebalance` - Automated rebalancing
+   - `crypto-news` - Market news analysis
+   - `market-analysis` - Price & trend analysis
+   - `portfolio-monitor` - Real-time monitoring
+
+4. **Knowledge Base** (`knowledge/`):
+   - API reference documentation
+   - Portfolio strategies & guides
+   - Risk management best practices
+
+**Environment**:
+- `BACKEND_API_URL=http://backend:3001`
+- `CHROMADB_URL=http://chromadb:8000`
 
 ## Frontend Architecture (~13,500 LOC)
 
@@ -149,10 +204,10 @@ src/
 
 ## Database Schema
 
-**SQLite with Drizzle ORM**
+**MongoDB 7 with Mongoose ODM**
 
-| Table | Purpose |
-|-------|---------|
+| Collection | Purpose |
+|----------|---------|
 | allocations | Target portfolio allocations |
 | snapshots | Point-in-time portfolio states |
 | trades | Individual trade records |
@@ -167,8 +222,11 @@ src/
 | copy_sources | Source portfolios |
 | copy_sync_log | Copy trading history |
 
+**Models Location**: `src/db/models/` (14 schema files)
+**Connection**: `src/db/connection.ts` (Mongoose connection with Docker Compose)
+**Environment**: `MONGODB_URI=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/rebalance?authSource=admin`
 **Indexes**: Exchange, timestamps, asset pairs for efficient querying
-**Encryption**: API credentials encrypted at rest
+**Encryption**: API credentials encrypted via `src/exchange/api-key-crypto.ts`
 
 ## Tech Stack Summary
 
@@ -177,7 +235,7 @@ src/
 | Runtime | Bun 1.2+ |
 | Language | TypeScript 5.7+ (strict) |
 | Backend API | Hono v4 |
-| Database | Drizzle ORM + libSQL |
+| Database | Mongoose ODM + MongoDB 7 |
 | Exchange API | CCXT Pro 4.4.0 |
 | Scheduler | Croner 9.0+ |
 | Notifications | grammy 1.35+ |
@@ -189,7 +247,9 @@ src/
 | Linting | Biome 1.9+ |
 | Testing | Bun test runner |
 | CI/CD | GitHub Actions |
-| Deployment | Docker + nginx + systemd |
+| Deployment | Docker Compose (6 services) |
+| MCP Server | REST wrapper for Claude |
+| AI Framework | OpenClaw + ChromaDB |
 
 ## Bootstrap Sequence
 
@@ -311,19 +371,24 @@ WebSocket API (update frontend)
 ## Key Files to Know
 
 **Entry Points**:
-- `src/index.ts` - Application bootstrap
+- `src/index.ts` - Backend bootstrap
 - `frontend/src/main.tsx` - React app entry
-- `docker-compose.yml` - Container orchestration
+- `mcp-server/src/index.ts` - MCP server entry
+- `openclaw-skills/` - OpenClaw knowledge base
+- `docker-compose.yml` - 6-service orchestration
 
 **Configuration**:
 - `.env.example` - Template env vars
 - `tsconfig.json` - TypeScript config
 - `biome.json` - Linting/formatting
+- `docker-compose.yml` - Service definitions
 
 **Documentation**:
-- `docs/project-overview-pdr.md` - PDR
+- `docs/project-overview-pdr.md` - PDR & requirements
 - `docs/code-standards.md` - Development standards
 - `docs/system-architecture.md` - Architecture details
+- `docs/deployment-guide.md` - Docker deployment
+- `docs/codebase-summary.md` - This file
 - `CLAUDE.md` - Development instructions
 
 ## Dependencies Overview
@@ -341,14 +406,16 @@ WebSocket API (update frontend)
 
 | Metric | Value |
 |--------|-------|
-| Total LOC | ~24,000 |
-| Backend LOC | ~10,554 |
+| Total LOC | ~24,500 |
+| Backend LOC | ~10,800 |
 | Frontend LOC | ~13,500 |
+| MCP Server LOC | 200 |
 | Modules | 19 backend |
 | Pages | 16 frontend |
 | API Routes | 11 |
-| Database Tables | 13 |
-| Test Files | 20+ |
+| Database Collections | 13 (MongoDB) |
+| Mongoose Models | 14 |
+| Test Files | 50+ |
 | Type Coverage | ~95% |
 
 ## Project Status

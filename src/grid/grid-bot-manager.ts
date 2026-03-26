@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { ExchangeName } from "@/types/index";
-import { db } from "@db/database";
-import { gridBots } from "@db/schema";
-import type { GridBot } from "@db/schema";
+import { GridBotModel } from "@db/database";
+import type { IGridBot } from "@db/database";
 import { gridCalculator } from "@grid/grid-calculator";
 import { gridExecutor } from "@grid/grid-executor";
 import { gridPnLTracker } from "@grid/grid-pnl-tracker";
 import { priceCache } from "@price/price-cache";
-import { eq } from "drizzle-orm";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,8 +58,8 @@ class GridBotManager {
     const botId = randomUUID();
 
     // Persist bot row
-    await db.insert(gridBots).values({
-      id: botId,
+    await GridBotModel.create({
+      _id: botId,
       exchange,
       pair,
       gridType,
@@ -72,7 +70,7 @@ class GridBotManager {
       status: "active",
       totalProfit: 0,
       totalTrades: 0,
-      config: JSON.stringify({ gridType, priceLower, priceUpper, gridLevels, investment }),
+      config: { gridType, priceLower, priceUpper, gridLevels, investment },
     });
 
     console.log(`[GridBotManager] Created bot ${botId} for ${pair} on ${exchange}`);
@@ -111,10 +109,7 @@ class GridBotManager {
     await gridExecutor.cancelAll(botId);
 
     // Mark stopped in DB
-    await db
-      .update(gridBots)
-      .set({ status: "stopped", stoppedAt: Math.floor(Date.now() / 1000) })
-      .where(eq(gridBots.id, botId));
+    await GridBotModel.updateOne({ _id: botId }, { status: "stopped", stoppedAt: new Date() });
 
     // Load final PnL
     await gridPnLTracker.loadFromDb(botId);
@@ -129,15 +124,13 @@ class GridBotManager {
   }
 
   /** Fetch a single bot row or null if not found. */
-  async getBot(botId: string): Promise<GridBot | null> {
-    const rows = await db.select().from(gridBots).where(eq(gridBots.id, botId)).limit(1);
-
-    return rows[0] ?? null;
+  async getBot(botId: string): Promise<IGridBot | null> {
+    return GridBotModel.findById(botId).lean();
   }
 
   /** List all grid bots (active and stopped). */
-  async listBots(): Promise<GridBot[]> {
-    return db.select().from(gridBots);
+  async listBots(): Promise<IGridBot[]> {
+    return GridBotModel.find().lean();
   }
 }
 

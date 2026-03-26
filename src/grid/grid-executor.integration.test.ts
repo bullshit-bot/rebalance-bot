@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { GridOrderModel } from '@db/database'
 import { gridExecutor } from './grid-executor'
 import type { GridLevel } from './grid-calculator'
-import { db } from '@db/database'
-import { gridOrders } from '@db/schema'
-import { eq } from 'drizzle-orm'
 
 describe('grid-executor (integration)', () => {
   const testLevels: GridLevel[] = [
@@ -13,17 +12,11 @@ describe('grid-executor (integration)', () => {
   ]
 
   beforeEach(async () => {
-    // Clean up test grid orders
-    await db.delete(gridOrders).where(eq(gridOrders.gridBotId, 'test-bot'))
-    await db.delete(gridOrders).where(eq(gridOrders.gridBotId, 'test-bot-cancel'))
-    await db.delete(gridOrders).where(eq(gridOrders.gridBotId, 'test-bot-monitoring'))
+    await setupTestDB()
   })
 
   afterEach(async () => {
-    // Clean up test grid orders
-    await db.delete(gridOrders).where(eq(gridOrders.gridBotId, 'test-bot'))
-    await db.delete(gridOrders).where(eq(gridOrders.gridBotId, 'test-bot-cancel'))
-    await db.delete(gridOrders).where(eq(gridOrders.gridBotId, 'test-bot-monitoring'))
+    await teardownTestDB()
   })
 
   describe('GridExecutor singleton export', () => {
@@ -125,7 +118,7 @@ describe('grid-executor (integration)', () => {
     it('should be idempotent when called multiple times', async () => {
       const botId = 'test-bot-idem'
       await gridExecutor.startMonitoring(botId)
-      await gridExecutor.startMonitoring(botId) // Second call should not throw
+      await gridExecutor.startMonitoring(botId)
 
       expect(true).toBe(true)
     })
@@ -168,7 +161,6 @@ describe('grid-executor (integration)', () => {
       await gridExecutor.startMonitoring(botId)
       await gridExecutor.cancelAll(botId)
 
-      // Should not throw - should have stopped monitoring
       expect(true).toBe(true)
     })
 
@@ -193,17 +185,15 @@ describe('grid-executor (integration)', () => {
   })
 
   describe('database integration', () => {
-    it('should interact with gridOrders table', async () => {
-      // cancelAll reads from gridOrders table
+    it('should interact with GridOrderModel', async () => {
       const botId = 'test-bot-db'
       await gridExecutor.cancelAll(botId)
 
-      const orders = await db.select().from(gridOrders).where(eq(gridOrders.gridBotId, botId))
+      const orders = await GridOrderModel.find({ gridBotId: botId }).lean()
       expect(Array.isArray(orders)).toBe(true)
     })
 
     it('should handle missing gridBots gracefully', async () => {
-      // If bot doesn't exist in DB, should handle gracefully
       const fn = async () => {
         await gridExecutor.cancelAll('nonexistent-bot')
       }

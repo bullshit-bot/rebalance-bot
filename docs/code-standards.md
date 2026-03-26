@@ -1,6 +1,6 @@
 # Code Standards & Development Guidelines
 
-**Last Updated**: 2026-03-22
+**Last Updated**: 2026-03-26
 **Version**: 1.0.0
 **Project**: Crypto Rebalance Bot
 **Applies To**: All TypeScript/JavaScript code
@@ -48,8 +48,10 @@ src/
 ├── index.ts              # Application entry point
 ├── config/               # Configuration management
 ├── db/
-│   ├── schema.ts         # Database schema definitions
-│   └── database.ts       # Database initialization
+│   ├── models/           # 14 Mongoose schema definitions
+│   ├── connection.ts     # MongoDB connection (Mongoose)
+│   ├── database.ts       # Database initialization
+│   └── test-helpers.ts   # setupTestDB / teardownTestDB
 ├── exchange/             # Exchange connectivity (CCXT Pro)
 ├── price/                # Market data processing
 ├── portfolio/            # Portfolio state management
@@ -331,28 +333,59 @@ app.post('/api/rebalance', async (c) => {
 
 ### Database Schema
 
-**Drizzle ORM with SQLite**:
+**Mongoose ODM with MongoDB**:
 ```typescript
-import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { Schema, model } from 'mongoose';
 
-export const trades = sqliteTable('trades', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  exchange: text('exchange').notNull(),
-  pair: text('pair').notNull(),
-  side: text('side', { enum: ['buy', 'sell'] }).notNull(),
-  amount: real('amount').notNull(),
-  price: real('price').notNull(),
-  executedAt: integer('executed_at')
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
+const tradeSchema = new Schema({
+  exchange: { type: String, required: true, index: true },
+  pair: { type: String, required: true },
+  side: { type: String, enum: ['buy', 'sell'], required: true },
+  amount: { type: Number, required: true },
+  price: { type: Number, required: true },
+  executedAt: {
+    type: Date,
+    default: Date.now,
+    index: true,
+  },
+}, { timestamps: true });
+
+// Compound index for range queries
+tradeSchema.index({ exchange: 1, executedAt: -1 });
+
+export const Trade = model('Trade', tradeSchema);
 ```
 
 **Index Strategy**:
-- Index frequently queried columns
-- Index foreign keys
-- Index time-range queries
-- Example: `trades_exchange_executed_at_idx` for date range queries
+- Index frequently queried columns (exchange, pair, timestamps)
+- Compound indexes for multi-field queries
+- Use sparse indexes for optional fields
+- Example: `{ exchange: 1, executedAt: -1 }` for date range queries per exchange
+
+**Connection Pattern** (`src/db/connection.ts`):
+```typescript
+import mongoose from 'mongoose';
+
+export async function connectToDatabase() {
+  await mongoose.connect(process.env.MONGODB_URI);
+}
+
+export async function disconnectFromDatabase() {
+  await mongoose.disconnect();
+}
+```
+
+**Test Helpers** (`src/db/test-helpers.ts`):
+```typescript
+export async function setupTestDB() {
+  await connectToDatabase();
+  // Clear collections
+}
+
+export async function teardownTestDB() {
+  await disconnectFromDatabase();
+}
+```
 
 ## Service Pattern
 
@@ -710,16 +743,23 @@ const memoizedCalculation = (() => {
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  EXCHANGE_API_KEY: z.string(),
-  REBALANCE_THRESHOLD: z.coerce.number().min(0).max(1),
-  MIN_TRADE_USD: z.coerce.number().default(10),
-  PAPER_TRADING: z.enum(['true', 'false']).default('false'),
-  DATABASE_URL: z.string(),
+  MONGODB_URI: z.string().default(
+    'mongodb://admin:password@mongodb:27017/rebalance?authSource=admin'
+  ),
+  MONGO_PASSWORD: z.string(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  REBALANCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.05),
+  MIN_TRADE_USD: z.coerce.number().default(10),
+  PAPER_TRADING: z.enum(['true', 'false']).default('true'),
+  VITE_API_URL: z.string().default('/api'),
 });
 
 export const config = EnvSchema.parse(process.env);
 ```
+
+**Docker Compose Auto-Sets**:
+- `MONGODB_URI` - Constructed from `MONGO_PASSWORD`
+- `VITE_API_URL=/api` - For frontend build
 
 ### Secrets Management
 

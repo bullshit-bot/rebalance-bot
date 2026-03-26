@@ -1,56 +1,30 @@
 ---
-name: crypto-news-aggregator
-description: Aggregates crypto news from multiple RSS sources for tracked assets and summarises top headlines
-version: 1.0.0
-inputs:
-  - name: assets
-    type: array
-    description: List of asset symbols to filter news for (e.g. ["BTC", "ETH", "SOL", "BNB"])
-    default: ["BTC", "ETH", "SOL", "BNB"]
-outputs:
-  - name: headlines
-    type: array
-    description: Top 5 filtered, summarised headlines as structured JSON
+name: crypto-news
+description: Correlates AI suggestions with portfolio context to explain market-driven allocation changes
+tools:
+  - get_ai_suggestions
+  - get_portfolio
 ---
+
+# Crypto News
 
 ## Purpose
 
-Fetch, filter, and summarise the latest crypto news relevant to tracked portfolio assets.
+Surface the reasoning behind AI allocation suggestions by combining the latest AI-generated insights with the current portfolio state, providing a plain-language explanation of what market signals are driving suggested changes.
 
-## Steps
+## Workflow
 
-1. **Fetch RSS feeds** from the following sources in parallel:
-   - CoinDesk: `https://www.coindesk.com/arc/outboundfeeds/rss/`
-   - CoinTelegraph: `https://cointelegraph.com/rss`
+1. Call `get_portfolio` to retrieve current asset holdings and weights.
+2. Call `get_ai_suggestions` to fetch the latest AI suggestions including reasoning text and sentiment data.
+3. For each asset in the portfolio, match it against the suggestions list.
+4. Extract the reasoning field from matched suggestions — this contains the market signal explanation.
+5. Rank assets by magnitude of suggested change (largest first).
+6. Format a concise summary for each asset:
+   - Current weight vs. suggested weight.
+   - Key reasoning sentence from the AI suggestion.
+7. Output a ranked list of portfolio changes with market context.
 
-2. **Parse items** — extract `title`, `link`, `pubDate`, and `description` from each item.
+## MCP Tools Used
 
-3. **Filter** — keep only items where the title or description contains at least one of the tracked asset symbols (case-insensitive). Match full symbols only (e.g. "BTC" not "BTCUSDT").
-
-4. **Deduplicate** — remove items with identical titles.
-
-5. **Sort** by `pubDate` descending.
-
-6. **Select top 5** items from the filtered, sorted list.
-
-7. **Summarise** each item: trim description to ≤ 100 characters, append "..." if truncated.
-
-8. **Output** structured JSON array:
-
-```json
-[
-  {
-    "asset": "BTC",
-    "title": "Headline text",
-    "summary": "Short description...",
-    "url": "https://...",
-    "publishedAt": "2024-01-15T08:00:00Z"
-  }
-]
-```
-
-## Error Handling
-
-- If a feed fails to fetch, log a warning and continue with available feeds.
-- If no articles match the filter, return an empty array.
-- Never throw on partial failure — always return whatever was collected.
+- `get_ai_suggestions` — returns AI-generated allocation suggestions with reasoning and sentiment data per asset
+- `get_portfolio` — fetches current holdings and weights to compare against suggestions

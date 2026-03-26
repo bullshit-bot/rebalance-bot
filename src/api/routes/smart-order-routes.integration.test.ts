@@ -1,18 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { randomUUID } from 'node:crypto'
-import { db } from '@/db/database'
-import { smartOrders } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { SmartOrderModel } from '@db/database'
 
 describe('smart-order-routes (integration)', () => {
   const testRebalanceId = randomUUID()
 
   beforeEach(async () => {
-    await db.delete(smartOrders)
+    await setupTestDB()
   })
 
   afterEach(async () => {
-    await db.delete(smartOrders)
+    await teardownTestDB()
   })
 
   describe('POST /api/smart-order', () => {
@@ -27,7 +26,6 @@ describe('smart-order-routes (integration)', () => {
         slices: 10,
       }
 
-      // Validation logic
       const isValid = body.type === 'twap' || body.type === 'vwap'
       expect(isValid).toBe(false)
     })
@@ -150,10 +148,9 @@ describe('smart-order-routes (integration)', () => {
 
   describe('GET /api/smart-order/active', () => {
     it('should list active smart orders from database', async () => {
-      // Insert test order
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -164,25 +161,21 @@ describe('smart-order-routes (integration)', () => {
         slicesCompleted: 0,
         durationMs: 60000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      // Query active orders
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.status, 'active'))
+      const rows = await SmartOrderModel.find({ status: 'active' }).lean()
 
       expect(rows.length).toBeGreaterThanOrEqual(1)
-      const found = rows.find(r => r.id === orderId)
+      const found = rows.find(r => r._id === orderId)
       expect(found).toBeDefined()
       expect(found?.type).toBe('twap')
     })
 
     it('should not list non-active orders', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -193,23 +186,19 @@ describe('smart-order-routes (integration)', () => {
         slicesCompleted: 5,
         durationMs: 60000,
         status: 'completed',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      // Query active orders
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.status, 'active'))
+      const rows = await SmartOrderModel.find({ status: 'active' }).lean()
 
-      const found = rows.find(r => r.id === orderId)
+      const found = rows.find(r => r._id === orderId)
       expect(found).toBeUndefined()
     })
 
     it('should return fields for building response', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'vwap',
         exchange: 'okx',
         pair: 'ETH/USDT',
@@ -221,17 +210,14 @@ describe('smart-order-routes (integration)', () => {
         slicesCompleted: 2,
         durationMs: 30000,
         status: 'active',
-        config: JSON.stringify({ factor: 0.5 }),
+        config: { factor: 0.5 },
         rebalanceId: testRebalanceId,
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.status, 'active'))
+      const rows = await SmartOrderModel.find({ status: 'active' }).lean()
 
       const row = rows[0]
-      expect(row).toHaveProperty('id')
+      expect(row).toHaveProperty('_id')
       expect(row).toHaveProperty('type')
       expect(row).toHaveProperty('exchange')
       expect(row).toHaveProperty('pair')
@@ -249,19 +235,14 @@ describe('smart-order-routes (integration)', () => {
 
   describe('GET /api/smart-order/:id', () => {
     it('should return 404 for non-existent order', async () => {
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, 'non-existent'))
-        .limit(1)
-
-      expect(rows.length).toBe(0)
+      const doc = await SmartOrderModel.findById('non-existent').lean()
+      expect(doc).toBeNull()
     })
 
     it('should return order details with status 200', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -272,27 +253,22 @@ describe('smart-order-routes (integration)', () => {
         slicesCompleted: 2,
         durationMs: 60000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
         completedAt: null,
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows.length).toBe(1)
-      const row = rows[0]
-      expect(row.id).toBe(orderId)
-      expect(row.filledAmount).toBe(200)
+      expect(doc).toBeDefined()
+      expect(doc!._id).toBe(orderId)
+      expect(doc!.filledAmount).toBe(200)
     })
 
-    it('should parse config JSON field', async () => {
+    it('should parse config field (object in Mongoose)', async () => {
       const orderId = randomUUID()
       const configData = { factor: 0.7, spreadBps: 5 }
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'vwap',
         exchange: 'binance',
         pair: 'ETH/USDT',
@@ -301,16 +277,11 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 20,
         durationMs: 120000,
         status: 'active',
-        config: JSON.stringify(configData),
+        config: configData,
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
-
-      const config = JSON.parse(rows[0].config)
+      const doc = await SmartOrderModel.findById(orderId).lean()
+      const config = typeof doc!.config === 'string' ? JSON.parse(doc!.config) : doc!.config
       expect(config.factor).toBe(0.7)
       expect(config.spreadBps).toBe(5)
     })
@@ -318,19 +289,14 @@ describe('smart-order-routes (integration)', () => {
 
   describe('PUT /api/smart-order/:id/pause', () => {
     it('should reject pause for non-existent order', async () => {
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, 'non-existent'))
-        .limit(1)
-
-      expect(rows.length).toBe(0)
+      const doc = await SmartOrderModel.findById('non-existent').lean()
+      expect(doc).toBeNull()
     })
 
     it('should reject pause for non-active order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -339,22 +305,18 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'completed',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status).not.toBe('active')
+      expect(doc!.status).not.toBe('active')
     })
 
     it('should allow pause for active order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -363,24 +325,20 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status).toBe('active')
+      expect(doc!.status).toBe('active')
     })
   })
 
   describe('PUT /api/smart-order/:id/resume', () => {
     it('should reject resume for non-paused order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -389,22 +347,18 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status).not.toBe('paused')
+      expect(doc!.status).not.toBe('paused')
     })
 
     it('should allow resume for paused order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -413,24 +367,20 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'paused',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status).toBe('paused')
+      expect(doc!.status).toBe('paused')
     })
   })
 
   describe('PUT /api/smart-order/:id/cancel', () => {
     it('should reject cancel for already completed order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -439,22 +389,18 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'completed',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status === 'completed' || rows[0].status === 'cancelled').toBe(true)
+      expect(doc!.status === 'completed' || doc!.status === 'cancelled').toBe(true)
     })
 
     it('should reject cancel for already cancelled order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -463,22 +409,18 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'cancelled',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status === 'completed' || rows[0].status === 'cancelled').toBe(true)
+      expect(doc!.status === 'completed' || doc!.status === 'cancelled').toBe(true)
     })
 
     it('should allow cancel for active order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -487,22 +429,18 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status === 'completed' || rows[0].status === 'cancelled').toBe(false)
+      expect(doc!.status === 'completed' || doc!.status === 'cancelled').toBe(false)
     })
 
     it('should allow cancel for paused order', async () => {
       const orderId = randomUUID()
-      await db.insert(smartOrders).values({
-        id: orderId,
+      await SmartOrderModel.create({
+        _id: orderId,
         type: 'twap',
         exchange: 'binance',
         pair: 'BTC/USDT',
@@ -511,16 +449,12 @@ describe('smart-order-routes (integration)', () => {
         slicesTotal: 10,
         durationMs: 60000,
         status: 'paused',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const rows = await db
-        .select()
-        .from(smartOrders)
-        .where(eq(smartOrders.id, orderId))
-        .limit(1)
+      const doc = await SmartOrderModel.findById(orderId).lean()
 
-      expect(rows[0].status === 'completed' || rows[0].status === 'cancelled').toBe(false)
+      expect(doc!.status === 'completed' || doc!.status === 'cancelled').toBe(false)
     })
   })
 

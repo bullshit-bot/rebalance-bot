@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { smartOrders } from '@db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { SmartOrderModel } from '@db/database'
 import { vwapEngine } from './vwap-engine'
 import { executionTracker } from './execution-tracker'
 import type { VwapCreateParams } from './vwap-engine'
@@ -10,24 +9,11 @@ describe('VwapEngine integration', () => {
   const testOrderIds: string[] = []
 
   beforeAll(async () => {
-    // Clean up any existing test orders
-    const allOrders = await db.select().from(smartOrders)
-    for (const order of allOrders) {
-      if (order.id.startsWith('test-')) {
-        await db.delete(smartOrders).where(eq(smartOrders.id, order.id))
-      }
-    }
+    await setupTestDB()
   })
 
   afterAll(async () => {
-    // Clean up test orders
-    for (const id of testOrderIds) {
-      try {
-        await db.delete(smartOrders).where(eq(smartOrders.id, id))
-      } catch {
-        // ignore
-      }
-    }
+    await teardownTestDB()
   })
 
   test('create validates slices parameter', async () => {
@@ -42,7 +28,7 @@ describe('VwapEngine integration', () => {
 
     try {
       await vwapEngine.create(params)
-      expect(true).toBe(false) // should not reach here
+      expect(true).toBe(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       expect(message).toContain('slices must be >= 1')
@@ -104,17 +90,15 @@ describe('VwapEngine integration', () => {
     expect(typeof orderId).toBe('string')
     expect(orderId.length).toBeGreaterThan(0)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    expect(rows.length).toBe(1)
-
-    const order = rows[0]!
-    expect(order.type).toBe('vwap')
-    expect(order.exchange).toBe('binance')
-    expect(order.pair).toBe('BTC/USDT')
-    expect(order.side).toBe('buy')
-    expect(order.totalAmount).toBe(10)
-    expect(order.slicesTotal).toBe(5)
-    expect(order.status).toBe('active')
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    expect(doc).toBeDefined()
+    expect(doc!.type).toBe('vwap')
+    expect(doc!.exchange).toBe('binance')
+    expect(doc!.pair).toBe('BTC/USDT')
+    expect(doc!.side).toBe('buy')
+    expect(doc!.totalAmount).toBe(10)
+    expect(doc!.slicesTotal).toBe(5)
+    expect(doc!.status).toBe('active')
   })
 
   test('create registers order with execution tracker', async () => {
@@ -152,11 +136,9 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-    const config = JSON.parse(order.config)
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    const config = typeof doc!.config === 'string' ? JSON.parse(doc!.config) : doc!.config
 
-    // intervalMs should be durationMs / slices = 3600000 / 10 = 360000
     expect(config.intervalMs).toBe(360000)
     expect(config.slices).toBe(10)
   })
@@ -175,10 +157,8 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-
-    expect(order.rebalanceId).toBe('rebalance-123')
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    expect(doc!.rebalanceId).toBe('rebalance-123')
   })
 
   test('create handles missing rebalanceId', async () => {
@@ -194,10 +174,8 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-
-    expect(order.rebalanceId).toBeNull()
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    expect(doc!.rebalanceId).toBeNull()
   })
 
   test('create initializes filledAmount to 0', async () => {
@@ -213,11 +191,9 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-
-    expect(order.filledAmount).toBe(0)
-    expect(order.slicesCompleted).toBe(0)
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    expect(doc!.filledAmount).toBe(0)
+    expect(doc!.slicesCompleted).toBe(0)
   })
 
   test('create stores config with volume weights', async () => {
@@ -233,15 +209,13 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-    const config = JSON.parse(order.config)
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    const config = typeof doc!.config === 'string' ? JSON.parse(doc!.config) : doc!.config
 
     expect(config.weights).toBeDefined()
     expect(Array.isArray(config.weights)).toBe(true)
     expect(config.weights.length).toBe(5)
 
-    // Weights should sum to ~1.0
     const sum = config.weights.reduce((a: number, b: number) => a + b, 0)
     expect(sum).toBeCloseTo(1.0, 5)
   })
@@ -286,9 +260,8 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-    const config = JSON.parse(order.config)
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    const config = typeof doc!.config === 'string' ? JSON.parse(doc!.config) : doc!.config
 
     expect(config.slices).toBe(1)
     expect(config.intervalMs).toBe(60000)
@@ -301,19 +274,18 @@ describe('VwapEngine integration', () => {
       pair: 'BTC/USDT',
       side: 'sell',
       totalAmount: 50,
-      durationMs: 86400000, // 24 hours
-      slices: 288, // one per 5 minutes
+      durationMs: 86400000,
+      slices: 288,
     }
 
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-    const config = JSON.parse(order.config)
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    const config = typeof doc!.config === 'string' ? JSON.parse(doc!.config) : doc!.config
 
     expect(config.slices).toBe(288)
-    expect(config.intervalMs).toBe(300000) // 86400000 / 288
+    expect(config.intervalMs).toBe(300000)
     expect(config.weights.length).toBe(288)
   })
 
@@ -330,7 +302,6 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    // UUID v4 pattern: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     expect(uuidPattern.test(orderId)).toBe(true)
   })
@@ -348,12 +319,9 @@ describe('VwapEngine integration', () => {
     const orderId = await vwapEngine.create(params)
     testOrderIds.push(orderId)
 
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, orderId))
-    const order = rows[0]!
-    const config = JSON.parse(order.config)
+    const doc = await SmartOrderModel.findById(orderId).lean()
+    const config = typeof doc!.config === 'string' ? JSON.parse(doc!.config) : doc!.config
 
-    // With uniform weights (when no historical data), each should be 1/10 = 0.1
-    // Or with actual volume weights, should still sum to 1.0
     const weightsSum = config.weights.reduce((a: number, b: number) => a + b, 0)
     expect(Math.abs(weightsSum - 1.0) < 0.01).toBe(true)
   })

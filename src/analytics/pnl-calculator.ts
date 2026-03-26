@@ -1,6 +1,5 @@
-import { and, gte, lte } from 'drizzle-orm'
-import { db } from '@db/database'
-import { trades } from '@db/schema'
+import { TradeModel } from '@db/database'
+import type { ITrade } from '@db/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,14 +37,14 @@ function baseAsset(pair: string): string {
   return pair.split('/')[0] ?? pair
 }
 
+type TradeRow = Pick<ITrade, 'pair' | 'side' | 'costUsd' | 'fee'> & { executedAt: Date }
+
 /**
  * Compute realized PnL for a flat list of trades using a simplified approach:
  * realized PnL = sum(sell proceeds) - sum(buy costs)
  * This is correct for assets that were fully cycled through buys and sells.
  */
-function computeRealizedByAsset(
-  rows: Array<{ pair: string; side: string; costUsd: number; fee: number | null }>,
-): Record<string, number> {
+function computeRealizedByAsset(rows: TradeRow[]): Record<string, number> {
   const byAsset: Record<string, number> = {}
 
   for (const row of rows) {
@@ -55,10 +54,8 @@ function computeRealizedByAsset(
     if (!(asset in byAsset)) byAsset[asset] = 0
 
     if (row.side === 'sell') {
-      // Sell proceeds minus fee contribute positively
       byAsset[asset] += row.costUsd - fee
     } else {
-      // Buy costs plus fee reduce PnL
       byAsset[asset] -= row.costUsd + fee
     }
   }
@@ -66,10 +63,15 @@ function computeRealizedByAsset(
   return byAsset
 }
 
+/** Convert a Date (from Mongoose) to unix epoch seconds for period comparisons. */
+function toEpochSec(d: Date): number {
+  return Math.floor(new Date(d).getTime() / 1000)
+}
+
 // ─── PnLCalculator ───────────────────────────────────────────────────────────
 
 /**
- * Calculates realized and unrealized profit/loss from the trades table.
+ * Calculates realized and unrealized profit/loss from the trades collection.
  *
  * Realized PnL = sell proceeds - buy costs (including fees) for completed round-trips.
  * Unrealized PnL uses FIFO cost basis from open buy positions vs a supplied current price map.
@@ -83,21 +85,18 @@ class PnLCalculator {
    * @param to   - End timestamp, Unix epoch seconds (inclusive, optional)
    */
   async getRealizedPnL(from?: number, to?: number): Promise<PnLSummary> {
-    // Build range filter conditions
-    const conditions = []
-    if (from !== undefined) conditions.push(gte(trades.executedAt, from))
-    if (to !== undefined) conditions.push(lte(trades.executedAt, to))
+    // Build date range filter
+    const filter: Record<string, unknown> = {}
+    if (from !== undefined || to !== undefined) {
+      const range: Record<string, Date> = {}
+      if (from !== undefined) range['$gte'] = new Date(from * 1000)
+      if (to !== undefined) range['$lte'] = new Date(to * 1000)
+      filter['executedAt'] = range
+    }
 
-    const rows = await db
-      .select({
-        pair: trades.pair,
-        side: trades.side,
-        costUsd: trades.costUsd,
-        fee: trades.fee,
-        executedAt: trades.executedAt,
-      })
-      .from(trades)
-      .where(conditions.length > 0 ? and(...(conditions as [ReturnType<typeof gte>])) : undefined)
+    const rows = await TradeModel.find(filter)
+      .select('pair side costUsd fee executedAt')
+      .lean() as TradeRow[]
 
     const byAsset = computeRealizedByAsset(rows)
     const totalPnl = Object.values(byAsset).reduce((sum, v) => sum + v, 0)
@@ -108,11 +107,11 @@ class PnLCalculator {
     const weeklyCutoff = nowSec - 7 * 86400
     const monthlyCutoff = nowSec - 30 * 86400
 
-    const dailyRows = rows.filter((r) => (r.executedAt ?? 0) >= dailyCutoff)
-    const weeklyRows = rows.filter((r) => (r.executedAt ?? 0) >= weeklyCutoff)
-    const monthlyRows = rows.filter((r) => (r.executedAt ?? 0) >= monthlyCutoff)
+    const dailyRows = rows.filter((r) => toEpochSec(r.executedAt) >= dailyCutoff)
+    const weeklyRows = rows.filter((r) => toEpochSec(r.executedAt) >= weeklyCutoff)
+    const monthlyRows = rows.filter((r) => toEpochSec(r.executedAt) >= monthlyCutoff)
 
-    const sumPnl = (r: typeof rows) =>
+    const sumPnl = (r: TradeRow[]) =>
       Object.values(computeRealizedByAsset(r)).reduce((s, v) => s + v, 0)
 
     return {
@@ -136,18 +135,10 @@ class PnLCalculator {
     currentPrices: Record<string, number>,
   ): Promise<Record<string, UnrealizedAssetPnL>> {
     // Fetch all trades ordered chronologically for FIFO processing
-    const rows = await db
-      .select({
-        pair: trades.pair,
-        side: trades.side,
-        amount: trades.amount,
-        price: trades.price,
-        costUsd: trades.costUsd,
-        fee: trades.fee,
-        executedAt: trades.executedAt,
-      })
-      .from(trades)
-      .orderBy(trades.executedAt)
+    const rows = await TradeModel.find()
+      .select('pair side amount price costUsd fee executedAt')
+      .sort({ executedAt: 1 })
+      .lean() as Array<Pick<ITrade, 'pair' | 'side' | 'amount' | 'price' | 'costUsd' | 'fee'> & { executedAt: Date }>
 
     // FIFO queue per asset: each entry tracks remaining amount and cost per unit
     const fifoQueues: Record<string, Array<{ amount: number; costPerUnit: number }>> = {}

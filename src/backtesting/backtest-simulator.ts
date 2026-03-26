@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { db } from '@db/database'
-import { backtestResults } from '@db/schema'
+import { BacktestResultModel } from '@db/database'
 import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from '@/types/index'
 import { calculateTrades } from '@rebalancer/trade-calculator'
 import { historicalDataLoader } from './historical-data-loader'
@@ -319,12 +318,12 @@ class BacktestSimulator {
   /** Serialises and persists a completed backtest result to the DB. */
   private async _persist(result: BacktestResult): Promise<void> {
     try {
-      await db.insert(backtestResults).values({
-        id: result.id,
-        config: JSON.stringify(result.config),
-        metrics: JSON.stringify(result.metrics),
-        trades: JSON.stringify(result.trades),
-        benchmark: JSON.stringify(result.benchmark),
+      await BacktestResultModel.create({
+        _id: result.id,
+        config: result.config as unknown as Record<string, unknown>,
+        metrics: result.metrics as unknown as Record<string, unknown>,
+        trades: result.trades as unknown as Record<string, unknown>[],
+        benchmark: result.benchmark as unknown as Record<string, unknown>,
       })
     } catch (err) {
       // Non-fatal: log but don't crash the simulation

@@ -1,107 +1,102 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { trades } from '@db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { TradeModel } from '@db/database'
 import { feeTracker } from './fee-tracker'
-import { eq } from 'drizzle-orm'
 
-// Unique tag for test cleanup
 const TEST_REBALANCE_ID = '__fee_tracker_integration__'
 const now = Math.floor(Date.now() / 1000)
 
 beforeAll(async () => {
-  // Clean up previous test data
-  await db.delete(trades).where(eq(trades.rebalanceId, TEST_REBALANCE_ID))
+  await setupTestDB()
 
-  // Insert test trades with various fees
-  await db.insert(trades).values([
+  await TradeModel.create([
     // Binance trades
     {
       exchange: 'binance',
       pair: 'BTC/USDT',
-      side: 'buy' as const,
+      side: 'buy',
       amount: 1,
       price: 50000,
       costUsd: 50000,
-      fee: 100, // $100 fee
+      fee: 100,
       feeCurrency: 'USDT',
-      isPaper: 0,
+      isPaper: false,
       rebalanceId: TEST_REBALANCE_ID,
-      executedAt: now - 86400 * 2, // 2 days ago
+      executedAt: new Date((now - 86400 * 2) * 1000),
     },
     {
       exchange: 'binance',
       pair: 'ETH/USDT',
-      side: 'buy' as const,
+      side: 'buy',
       amount: 10,
       price: 3000,
       costUsd: 30000,
-      fee: 50, // $50 fee
+      fee: 50,
       feeCurrency: 'USDT',
-      isPaper: 0,
+      isPaper: false,
       rebalanceId: TEST_REBALANCE_ID,
-      executedAt: now - 3600, // 1 hour ago
+      executedAt: new Date((now - 3600) * 1000),
     },
     // OKX trades
     {
       exchange: 'okx',
       pair: 'SOL/USDT',
-      side: 'sell' as const,
+      side: 'sell',
       amount: 50,
       price: 180,
       costUsd: 9000,
-      fee: 20, // $20 fee
+      fee: 20,
       feeCurrency: 'USDT',
-      isPaper: 0,
+      isPaper: false,
       rebalanceId: TEST_REBALANCE_ID,
-      executedAt: now - 86400 * 7, // 7 days ago
+      executedAt: new Date((now - 86400 * 7) * 1000),
     },
     // Bybit trades
     {
       exchange: 'bybit',
       pair: 'XRP/USDT',
-      side: 'buy' as const,
+      side: 'buy',
       amount: 1000,
       price: 2.5,
       costUsd: 2500,
-      fee: 5, // $5 fee
+      fee: 5,
       feeCurrency: 'USDT',
-      isPaper: 0,
+      isPaper: false,
       rebalanceId: TEST_REBALANCE_ID,
-      executedAt: now - 86400 * 30, // 30 days ago
+      executedAt: new Date((now - 86400 * 30) * 1000),
     },
     // Trade with null fee
     {
       exchange: 'binance',
       pair: 'ADA/USDT',
-      side: 'buy' as const,
+      side: 'buy',
       amount: 500,
       price: 1.2,
       costUsd: 600,
       fee: null,
       feeCurrency: 'USDT',
-      isPaper: 0,
+      isPaper: false,
       rebalanceId: TEST_REBALANCE_ID,
-      executedAt: now - 86400 * 5, // 5 days ago
+      executedAt: new Date((now - 86400 * 5) * 1000),
     },
   ])
 })
 
 afterAll(async () => {
-  // Clean up test data
-  await db.delete(trades).where(eq(trades.rebalanceId, TEST_REBALANCE_ID))
+  await teardownTestDB()
 })
 
 describe('FeeTracker integration', () => {
   test('getFees returns correct total fees', async () => {
     const result = await feeTracker.getFees()
     expect(result).toBeDefined()
-    expect(result.totalFeesUsd).toBeGreaterThanOrEqual(175) // At least 100 + 50 + 20 + 5 (null fee ignored)
+    expect(result.totalFeesUsd).toBeGreaterThanOrEqual(175)
   })
 
   test('getFees groups fees by exchange', async () => {
     const result = await feeTracker.getFees()
     expect(result.byExchange).toBeDefined()
-    expect(result.byExchange['binance']).toBeGreaterThanOrEqual(150) // At least 100 + 50
+    expect(result.byExchange['binance']).toBeGreaterThanOrEqual(150)
     expect(result.byExchange['okx']).toBeGreaterThanOrEqual(20)
     expect(result.byExchange['bybit']).toBeGreaterThanOrEqual(5)
   })
@@ -116,22 +111,20 @@ describe('FeeTracker integration', () => {
   })
 
   test('getFees with date range filters correctly', async () => {
-    const from = now - 86400 * 10 // 10 days ago
+    const from = now - 86400 * 10
     const to = now
     const result = await feeTracker.getFees(from, to)
 
-    // Should include: BTC (2 days), ETH (1 hour), SOL (7 days), XRP (30 days filtered out), ADA (5 days, no fee)
-    expect(result.totalFeesUsd).toBeGreaterThanOrEqual(170) // At least 100 + 50 + 20
+    expect(result.totalFeesUsd).toBeGreaterThanOrEqual(170)
     expect(result.byAsset['BTC']).toBeGreaterThanOrEqual(100)
     expect(result.byAsset['ETH']).toBeGreaterThanOrEqual(50)
   })
 
   test('getFees with narrow date range', async () => {
-    const from = now - 7200 // 2 hours ago
+    const from = now - 7200
     const to = now
     const result = await feeTracker.getFees(from, to)
 
-    // ETH trade from 1 hour ago should be included
     expect(result.byAsset['ETH']).toBeGreaterThanOrEqual(50)
   })
 
@@ -147,32 +140,28 @@ describe('FeeTracker integration', () => {
 
   test('getFees computes rolling period totals (daily)', async () => {
     const result = await feeTracker.getFees()
-    // ETH trade is 1 hour ago — should be in daily total
     expect(result.byPeriod.daily).toBeGreaterThan(0)
   })
 
   test('getFees computes rolling period totals (weekly)', async () => {
     const result = await feeTracker.getFees()
-    // SOL trade is 7 days ago — should be in weekly total
     expect(result.byPeriod.weekly).toBeGreaterThan(0)
   })
 
   test('getFees computes rolling period totals (monthly)', async () => {
     const result = await feeTracker.getFees()
-    // All trades within 30 days should be in monthly total
     expect(result.byPeriod.monthly).toBeGreaterThanOrEqual(175)
   })
 
   test('getFees with only from parameter', async () => {
-    const from = now - 86400 * 3 // 3 days ago
+    const from = now - 86400 * 3
     const result = await feeTracker.getFees(from)
 
-    // Should include: BTC (2 days), ETH (1 hour), ADA (5 days filtered), SOL (7 days filtered)
-    expect(result.totalFeesUsd).toBeGreaterThanOrEqual(150) // At least 100 + 50
+    expect(result.totalFeesUsd).toBeGreaterThanOrEqual(150)
   })
 
   test('getFees with only to parameter', async () => {
-    const to = now + 86400 // future — includes all trades
+    const to = now + 86400
     const result = await feeTracker.getFees(undefined, to)
 
     expect(result).toBeDefined()

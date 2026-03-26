@@ -62,9 +62,9 @@ gridRoutes.get('/grid/list', async (c) => {
 
     // Merge in-memory PnL (more up-to-date for active bots) with DB row
     const result = bots.map((bot) => {
-      const pnl = gridPnLTracker.getPnL(bot.id)
+      const pnl = gridPnLTracker.getPnL(bot._id)
       return {
-        id: bot.id,
+        id: bot._id,
         exchange: bot.exchange,
         pair: bot.pair,
         gridType: bot.gridType,
@@ -145,7 +145,7 @@ gridRoutes.get('/grid/:id', async (c) => {
     const pnl = gridPnLTracker.getPnL(id)
 
     return c.json({
-      id: bot.id,
+      id: bot._id,
       exchange: bot.exchange,
       pair: bot.pair,
       gridType: bot.gridType,
@@ -162,7 +162,7 @@ gridRoutes.get('/grid/:id', async (c) => {
       },
       createdAt: bot.createdAt,
       stoppedAt: bot.stoppedAt,
-      config: bot.config ? JSON.parse(bot.config) : null,
+      config: bot.config ?? null,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

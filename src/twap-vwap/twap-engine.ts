@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { db } from '@db/database'
-import { smartOrders } from '@db/schema'
+import { SmartOrderModel } from '@db/database'
 import { executionTracker } from '@/twap-vwap/execution-tracker'
 import { sliceScheduler } from '@/twap-vwap/slice-scheduler'
 import type { ExchangeName, OrderSide } from '@/types/index'
@@ -53,11 +52,11 @@ class TwapEngine {
       delayMs: i === 0 ? 0 : intervalMs,
     }))
 
-    const config = JSON.stringify({ slices, intervalMs, sliceAmount })
+    const config = { slices, intervalMs, sliceAmount }
 
     // Persist to DB before scheduling
-    await db.insert(smartOrders).values({
-      id: orderId,
+    await SmartOrderModel.create({
+      _id: orderId,
       type: 'twap',
       exchange,
       pair,

@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { db } from '@db/database'
-import { trades } from '@db/schema'
+import { TradeModel } from '@db/database'
 import { eventBus } from '@events/event-bus'
 import { priceCache } from '@price/price-cache'
 import type { IOrderExecutor } from '@executor/order-executor'
@@ -89,7 +88,7 @@ export class PaperTradingEngine implements IOrderExecutor {
 
   private async persistAndEmit(result: TradeResult): Promise<void> {
     try {
-      await db.insert(trades).values({
+      await TradeModel.create({
         exchange: result.exchange,
         pair: result.pair,
         side: result.side,
@@ -98,9 +97,9 @@ export class PaperTradingEngine implements IOrderExecutor {
         costUsd: result.costUsd,
         fee: result.fee,
         feeCurrency: result.feeCurrency,
-        orderId: result.orderId,
-        rebalanceId: result.rebalanceId,
-        isPaper: 1,
+        orderId: result.orderId ?? null,
+        rebalanceId: result.rebalanceId ?? null,
+        isPaper: true,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

@@ -1,30 +1,23 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { allocations } from '@db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { AllocationModel } from '@db/database'
 
 describe('config-routes integration', () => {
   beforeAll(async () => {
-    // Clean up test allocations
-    await db.delete(allocations).where(eq(allocations.asset, 'TEST_BTC'))
-    await db.delete(allocations).where(eq(allocations.asset, 'TEST_ETH'))
-    await db.delete(allocations).where(eq(allocations.asset, 'TEST_USDT'))
+    await setupTestDB()
   })
 
   afterAll(async () => {
-    // Clean up test allocations
-    await db.delete(allocations).where(eq(allocations.asset, 'TEST_BTC'))
-    await db.delete(allocations).where(eq(allocations.asset, 'TEST_ETH'))
-    await db.delete(allocations).where(eq(allocations.asset, 'TEST_USDT'))
+    await teardownTestDB()
   })
 
   test('GET /api/config/allocations returns array', async () => {
-    const rows = await db.select().from(allocations)
+    const rows = await AllocationModel.find().lean()
     expect(Array.isArray(rows)).toBe(true)
   })
 
   test('GET /api/config/allocations returns allocation objects', async () => {
-    const rows = await db.select().from(allocations)
+    const rows = await AllocationModel.find().lean()
     for (const row of rows) {
       expect(row).toHaveProperty('asset')
       expect(row).toHaveProperty('targetPct')
@@ -126,14 +119,14 @@ describe('config-routes integration', () => {
 
   test('PUT /api/config/allocations allows total < 100%', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 40 },
         { asset: 'TEST_ETH', targetPct: 30 }, // total = 70
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       const total = rows.reduce((sum, a) => sum + a.targetPct, 0)
       expect(total).toBeLessThanOrEqual(100)
     } catch (err) {
@@ -143,14 +136,14 @@ describe('config-routes integration', () => {
 
   test('PUT /api/config/allocations allows 100% total', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 50 },
         { asset: 'TEST_ETH', targetPct: 50 }, // total = 100
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       const total = rows.reduce((sum, a) => sum + a.targetPct, 0)
       expect(total).toBe(100)
     } catch (err) {
@@ -160,13 +153,13 @@ describe('config-routes integration', () => {
 
   test('PUT /api/config/allocations uppercases asset symbols', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'btc', targetPct: 100 }, // lowercase
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       const btc = rows.find((a) => a.asset === 'btc')
       // Should be uppercased to BTC
     } catch (err) {
@@ -177,23 +170,23 @@ describe('config-routes integration', () => {
   test('PUT /api/config/allocations replaces existing config', async () => {
     try {
       // First PUT
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'OLD_ASSET', targetPct: 100 },
       ])
 
-      let rows = await db.select().from(allocations)
+      let rows = await AllocationModel.find().lean()
       expect(rows.some((a) => a.asset === 'OLD_ASSET')).toBe(true)
 
       // Second PUT should replace
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'NEW_ASSET', targetPct: 100 },
       ])
 
-      rows = await db.select().from(allocations)
+      rows = await AllocationModel.find().lean()
       expect(rows.some((a) => a.asset === 'NEW_ASSET')).toBe(true)
     } catch (err) {
       // ignore
@@ -202,17 +195,17 @@ describe('config-routes integration', () => {
 
   test('DELETE /api/config/allocations/:asset removes allocation', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 50 },
         { asset: 'TEST_ETH', targetPct: 50 },
       ])
 
       // Delete BTC
-      await db.delete(allocations).where(eq(allocations.asset, 'TEST_BTC'))
+      await AllocationModel.deleteOne({ asset: 'TEST_BTC' })
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows.some((a) => a.asset === 'TEST_BTC')).toBe(false)
       expect(rows.some((a) => a.asset === 'TEST_ETH')).toBe(true)
     } catch (err) {
@@ -222,14 +215,14 @@ describe('config-routes integration', () => {
 
   test('DELETE /api/config/allocations/:asset uppercases asset', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_USDT', targetPct: 100 },
       ])
 
       // Delete with lowercase
-      await db.delete(allocations).where(eq(allocations.asset, 'test_usdt'))
+      await AllocationModel.deleteOne({ asset: 'test_usdt' })
       // Should match after uppercasing
     } catch (err) {
       // ignore
@@ -239,7 +232,7 @@ describe('config-routes integration', () => {
   test('DELETE /api/config/allocations/:asset with non-existent asset', async () => {
     try {
       // Delete non-existent asset should not throw
-      await db.delete(allocations).where(eq(allocations.asset, 'NONEXISTENT'))
+      await AllocationModel.deleteOne({ asset: 'NONEXISTENT' })
       expect(true).toBe(true) // no error
     } catch (err) {
       // May throw or may be silent, both OK
@@ -260,13 +253,13 @@ describe('config-routes integration', () => {
 
   test('PUT /api/config/allocations returns updated allocations', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 100 },
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows.length).toBeGreaterThan(0)
       expect(rows[0]!.asset).toBe('TEST_BTC')
     } catch (err) {
@@ -276,10 +269,10 @@ describe('config-routes integration', () => {
 
   test('PUT /api/config/allocations handles empty array', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
       // Empty array means delete all
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows.length).toBe(0)
     } catch (err) {
       // ignore
@@ -288,14 +281,14 @@ describe('config-routes integration', () => {
 
   test('allocation can have optional exchange', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 50, exchange: 'binance' },
         { asset: 'TEST_ETH', targetPct: 50, exchange: null },
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       const btc = rows.find((a) => a.asset === 'TEST_BTC')
       const eth = rows.find((a) => a.asset === 'TEST_ETH')
 
@@ -308,16 +301,15 @@ describe('config-routes integration', () => {
 
   test('allocation can have optional minTradeUsd', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 50, minTradeUsd: 100 },
-        { asset: 'TEST_ETH', targetPct: 50, minTradeUsd: null },
+        { asset: 'TEST_ETH', targetPct: 50 },
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       const btc = rows.find((a) => a.asset === 'TEST_BTC')
-      const eth = rows.find((a) => a.asset === 'TEST_ETH')
 
       expect(btc?.minTradeUsd).toBe(100)
       // eth may have default or null
@@ -348,13 +340,13 @@ describe('config-routes integration', () => {
 
   test('GET /api/config/allocations includes exchange field', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 100, exchange: 'binance' },
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows[0]).toHaveProperty('exchange')
     } catch (err) {
       // ignore
@@ -363,13 +355,13 @@ describe('config-routes integration', () => {
 
   test('GET /api/config/allocations includes minTradeUsd field', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([
+      await AllocationModel.create([
         { asset: 'TEST_BTC', targetPct: 100, minTradeUsd: 50 },
       ])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows[0]).toHaveProperty('minTradeUsd')
     } catch (err) {
       // ignore
@@ -383,11 +375,11 @@ describe('config-routes integration', () => {
 
   test('targetPct boundary: 0 is valid', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([{ asset: 'TEST_BTC', targetPct: 0 }])
+      await AllocationModel.create([{ asset: 'TEST_BTC', targetPct: 0 }])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows.some((a) => a.targetPct === 0)).toBe(true)
     } catch (err) {
       // ignore
@@ -396,11 +388,11 @@ describe('config-routes integration', () => {
 
   test('targetPct boundary: 100 is valid', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([{ asset: 'TEST_BTC', targetPct: 100 }])
+      await AllocationModel.create([{ asset: 'TEST_BTC', targetPct: 100 }])
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows.some((a) => a.targetPct === 100)).toBe(true)
     } catch (err) {
       // ignore
@@ -409,13 +401,13 @@ describe('config-routes integration', () => {
 
   test('DELETE returns deleted field', async () => {
     try {
-      await db.delete(allocations)
+      await AllocationModel.deleteMany({})
 
-      await db.insert(allocations).values([{ asset: 'TEST_ASSET', targetPct: 100 }])
+      await AllocationModel.create([{ asset: 'TEST_ASSET', targetPct: 100 }])
 
-      await db.delete(allocations).where(eq(allocations.asset, 'TEST_ASSET'))
+      await AllocationModel.deleteOne({ asset: 'TEST_ASSET' })
 
-      const rows = await db.select().from(allocations)
+      const rows = await AllocationModel.find().lean()
       expect(rows.some((a) => a.asset === 'TEST_ASSET')).toBe(false)
     } catch (err) {
       // ignore

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { ohlcvCandles } from '@db/schema'
-import { eq, and } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { OhlcvCandleModel } from '@db/database'
 import { historicalDataLoader, type OHLCVCandle } from './historical-data-loader'
 
 describe('historical-data-loader', () => {
@@ -13,10 +12,7 @@ describe('historical-data-loader', () => {
 
   // Seed test data before tests run
   beforeAll(async () => {
-    // Clean up any existing test data
-    await db
-      .delete(ohlcvCandles)
-      .where(and(eq(ohlcvCandles.exchange, testExchange), eq(ohlcvCandles.pair, testPair)))
+    await setupTestDB()
 
     // Insert sample candles
     const candles = []
@@ -37,14 +33,11 @@ describe('historical-data-loader', () => {
       price = candles[candles.length - 1]!.close
     }
 
-    await db.insert(ohlcvCandles).values(candles)
+    await OhlcvCandleModel.insertMany(candles)
   })
 
   afterAll(async () => {
-    // Clean up test data
-    await db
-      .delete(ohlcvCandles)
-      .where(and(eq(ohlcvCandles.exchange, testExchange), eq(ohlcvCandles.pair, testPair)))
+    await teardownTestDB()
   })
 
   describe('getCachedData', () => {
@@ -282,9 +275,6 @@ describe('historical-data-loader', () => {
     beforeAll(async () => {
       // Add another pair for testing
       const pair2 = 'ETH/USDT'
-      await db
-        .delete(ohlcvCandles)
-        .where(and(eq(ohlcvCandles.exchange, testExchange), eq(ohlcvCandles.pair, pair2)))
 
       const candles = []
       let price = 2500
@@ -304,14 +294,7 @@ describe('historical-data-loader', () => {
         price = candles[candles.length - 1]!.close
       }
 
-      await db.insert(ohlcvCandles).values(candles)
-    })
-
-    afterAll(async () => {
-      const pair2 = 'ETH/USDT'
-      await db
-        .delete(ohlcvCandles)
-        .where(and(eq(ohlcvCandles.exchange, testExchange), eq(ohlcvCandles.pair, pair2)))
+      await OhlcvCandleModel.insertMany(candles)
     })
 
     it('should retrieve different pairs independently', async () => {

@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import { db } from '@db/database'
-import { smartOrders } from '@db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { SmartOrderModel } from '@db/database'
 import { sliceScheduler } from './slice-scheduler'
 import { executionTracker } from './execution-tracker'
 
@@ -9,16 +8,12 @@ describe('SliceScheduler integration', () => {
   const testOrderId = 'slice-test-' + Date.now()
 
   beforeEach(async () => {
-    // Clean up any existing test order
-    await db.delete(smartOrders).where(eq(smartOrders.id, testOrderId))
+    await setupTestDB()
   })
 
   afterEach(async () => {
-    // Clean up
-    await db.delete(smartOrders).where(eq(smartOrders.id, testOrderId))
-
-    // Cancel any active scheduled order
     sliceScheduler.cancel(testOrderId)
+    await teardownTestDB()
   })
 
   test('scheduleSlices accepts valid params', async () => {
@@ -39,7 +34,6 @@ describe('SliceScheduler integration', () => {
   test('scheduleSlices stores order in active map', async () => {
     const orderId = 'scheduler-test-1-' + Date.now()
 
-    // This will fail on executor but we're testing scheduler logic
     try {
       await sliceScheduler.scheduleSlices({
         orderId,
@@ -52,7 +46,6 @@ describe('SliceScheduler integration', () => {
       // Expected to fail on executor — we're just testing scheduling
     }
 
-    // Give async operations time
     await new Promise(resolve => setTimeout(resolve, 50))
 
     sliceScheduler.cancel(orderId)
@@ -78,7 +71,6 @@ describe('SliceScheduler integration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Pause should not throw
     expect(() => {
       sliceScheduler.pause(orderId)
     }).not.toThrow()
@@ -117,7 +109,6 @@ describe('SliceScheduler integration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Try to resume without pausing first — should be safe
     expect(() => {
       sliceScheduler.resume(orderId)
     }).not.toThrow()
@@ -192,7 +183,6 @@ describe('SliceScheduler integration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Pause should clear timers
     sliceScheduler.pause(orderId)
 
     await new Promise(resolve => setTimeout(resolve, 50))
@@ -210,9 +200,9 @@ describe('SliceScheduler integration', () => {
         pair: 'BTC/USDT',
         side: 'buy',
         slices: [
-          { amount: 10, delayMs: 0 },    // fires at 0
-          { amount: 10, delayMs: 1000 }, // fires at 1000
-          { amount: 10, delayMs: 500 },  // fires at 1500
+          { amount: 10, delayMs: 0 },
+          { amount: 10, delayMs: 1000 },
+          { amount: 10, delayMs: 500 },
         ],
       })
     } catch {
@@ -255,9 +245,8 @@ describe('SliceScheduler integration', () => {
   test('pause then resume restores scheduling', async () => {
     const orderId = 'pause-resume-' + Date.now()
 
-    // Create DB row for resume to work
-    await db.insert(smartOrders).values({
-      id: orderId,
+    await SmartOrderModel.create({
+      _id: orderId,
       type: 'twap',
       exchange: 'binance',
       pair: 'BTC/USDT',
@@ -268,7 +257,7 @@ describe('SliceScheduler integration', () => {
       slicesCompleted: 0,
       durationMs: 3600000,
       status: 'active',
-      config: '{}',
+      config: {},
     })
 
     try {
@@ -289,11 +278,9 @@ describe('SliceScheduler integration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Pause the order
     sliceScheduler.pause(orderId)
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Resume the order
     expect(() => {
       sliceScheduler.resume(orderId)
     }).not.toThrow()
@@ -301,7 +288,6 @@ describe('SliceScheduler integration', () => {
     await new Promise(resolve => setTimeout(resolve, 50))
 
     sliceScheduler.cancel(orderId)
-    await db.delete(smartOrders).where(eq(smartOrders.id, orderId))
   })
 
   test('cancel removes order from active tracking', async () => {
@@ -326,7 +312,6 @@ describe('SliceScheduler integration', () => {
 
     sliceScheduler.cancel(orderId)
 
-    // Cancelling again should not throw
     expect(() => {
       sliceScheduler.cancel(orderId)
     }).not.toThrow()
@@ -361,7 +346,7 @@ describe('SliceScheduler integration', () => {
         side: 'buy',
         slices: [
           { amount: 10, delayMs: 0 },
-          { amount: 10, delayMs: 86400000 }, // 24 hours
+          { amount: 10, delayMs: 86400000 },
         ],
       })
     }).not.toThrow()
@@ -392,7 +377,6 @@ describe('SliceScheduler integration', () => {
     await new Promise(resolve => setTimeout(resolve, 50))
 
     sliceScheduler.pause(orderId)
-    // Pause again — should be safe
     sliceScheduler.pause(orderId)
 
     await new Promise(resolve => setTimeout(resolve, 50))
@@ -422,10 +406,8 @@ describe('SliceScheduler integration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50))
 
-    // Cancel should clear all timers
     sliceScheduler.cancel(orderId)
 
-    // Subsequent operations should not throw
     expect(() => {
       sliceScheduler.pause(orderId)
     }).not.toThrow()

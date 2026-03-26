@@ -1,30 +1,16 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { snapshots, allocations } from '@db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { SnapshotModel, AllocationModel } from '@db/database'
 import { portfolioRoutes } from './portfolio-routes'
 import type { Portfolio } from '@/types/index'
-import { eq, gte } from 'drizzle-orm'
 
 const now = Math.floor(Date.now() / 1000)
 
 beforeAll(async () => {
-  // Clean up previous test data
-  const testSnapshots = await db
-    .select()
-    .from(snapshots)
-    .where(gte(snapshots.createdAt, now - 86400))
-
-  for (const snap of testSnapshots) {
-    await db.delete(snapshots).where(eq(snapshots.id, snap.id))
-  }
-
-  // Clean up allocations
-  await db.delete(allocations).where(eq(allocations.asset, 'BTC'))
-  await db.delete(allocations).where(eq(allocations.asset, 'ETH'))
-  await db.delete(allocations).where(eq(allocations.asset, 'USDT'))
+  await setupTestDB()
 
   // Seed allocations for portfolio routes
-  await db.insert(allocations).values([
+  await AllocationModel.create([
     { asset: 'BTC', targetPct: 50, exchange: 'binance', minTradeUsd: 100 },
     { asset: 'ETH', targetPct: 30, exchange: 'binance', minTradeUsd: 50 },
     { asset: 'USDT', targetPct: 20, exchange: null, minTradeUsd: 10 },
@@ -65,45 +51,30 @@ beforeAll(async () => {
     updatedAt: Date.now(),
   }
 
-  await db.insert(snapshots).values({
+  await SnapshotModel.create({
     totalValueUsd: portfolio.totalValueUsd,
-    holdings: JSON.stringify(
-      Object.fromEntries(
-        portfolio.assets.map(a => [
-          a.asset,
-          { amount: a.amount, valueUsd: a.valueUsd, exchange: a.exchange },
-        ]),
-      ),
+    holdings: Object.fromEntries(
+      portfolio.assets.map(a => [
+        a.asset,
+        { amount: a.amount, valueUsd: a.valueUsd, exchange: a.exchange },
+      ]),
     ),
-    allocations: JSON.stringify(
-      Object.fromEntries(
-        portfolio.assets.map(a => [
-          a.asset,
-          {
-            currentPct: a.currentPct,
-            targetPct: a.targetPct,
-            driftPct: a.driftPct,
-          },
-        ]),
-      ),
+    allocations: Object.fromEntries(
+      portfolio.assets.map(a => [
+        a.asset,
+        {
+          currentPct: a.currentPct,
+          targetPct: a.targetPct,
+          driftPct: a.driftPct,
+        },
+      ]),
     ),
+    createdAt: now,
   })
 })
 
 afterAll(async () => {
-  // Clean up test data
-  const testSnapshots = await db
-    .select()
-    .from(snapshots)
-    .where(gte(snapshots.createdAt, now - 86400))
-
-  for (const snap of testSnapshots) {
-    await db.delete(snapshots).where(eq(snapshots.id, snap.id))
-  }
-
-  await db.delete(allocations).where(eq(allocations.asset, 'BTC'))
-  await db.delete(allocations).where(eq(allocations.asset, 'ETH'))
-  await db.delete(allocations).where(eq(allocations.asset, 'USDT'))
+  await teardownTestDB()
 })
 
 describe('PortfolioRoutes integration', () => {
@@ -155,12 +126,8 @@ describe('PortfolioRoutes integration', () => {
 
   test('GET / fallback returns 503 when no portfolio data', async () => {
     // Delete all snapshots temporarily
-    const allSnapshots = await db.select().from(snapshots)
-    const savedIds = allSnapshots.map(s => s.id)
-
-    for (const snap of allSnapshots) {
-      await db.delete(snapshots).where(eq(snapshots.id, snap.id))
-    }
+    const allSnapshots = await SnapshotModel.find().lean()
+    await SnapshotModel.deleteMany({})
 
     const res = await portfolioRoutes.request('/')
     expect(res.status).toBe(503)
@@ -169,11 +136,8 @@ describe('PortfolioRoutes integration', () => {
     expect(body.error).toBeDefined()
 
     // Restore snapshots for other tests
-    for (const id of savedIds) {
-      const snap = allSnapshots.find(s => s.id === id)
-      if (snap) {
-        await db.insert(snapshots).values(snap)
-      }
+    for (const snap of allSnapshots) {
+      await SnapshotModel.create(snap)
     }
   })
 
@@ -287,8 +251,10 @@ describe('PortfolioRoutes integration', () => {
 
     if (body.length > 0) {
       expect(body[0].holdings).toBeDefined()
-      // Should be valid JSON string
-      const holdings = JSON.parse(body[0].holdings)
+      // May be object or JSON string depending on serialization
+      const holdings = typeof body[0].holdings === 'string'
+        ? JSON.parse(body[0].holdings)
+        : body[0].holdings
       expect(typeof holdings).toBe('object')
     }
   })
@@ -304,7 +270,9 @@ describe('PortfolioRoutes integration', () => {
 
     if (body.length > 0) {
       expect(body[0].allocations).toBeDefined()
-      const allocations = JSON.parse(body[0].allocations)
+      const allocations = typeof body[0].allocations === 'string'
+        ? JSON.parse(body[0].allocations)
+        : body[0].allocations
       expect(typeof allocations).toBe('object')
     }
   })
@@ -356,7 +324,9 @@ describe('PortfolioRoutes integration', () => {
     const body = await res.json()
 
     if (body.length > 0) {
-      const allocations = JSON.parse(body[0].allocations)
+      const allocations = typeof body[0].allocations === 'string'
+        ? JSON.parse(body[0].allocations)
+        : body[0].allocations
       if (Object.keys(allocations).length > 0) {
         const firstAsset = allocations[Object.keys(allocations)[0]]
         expect(firstAsset.targetPct).toBeDefined()

@@ -1,7 +1,5 @@
 import { Hono } from 'hono'
-import { desc } from 'drizzle-orm'
-import { db } from '@db/database'
-import { rebalances } from '@db/schema'
+import { RebalanceModel } from '@db/database'
 import { rebalanceEngine } from '@rebalancer/rebalance-engine'
 
 const rebalanceRoutes = new Hono()
@@ -52,12 +50,7 @@ rebalanceRoutes.get('/history', async (c) => {
   }
 
   try {
-    const rows = await db
-      .select()
-      .from(rebalances)
-      .orderBy(desc(rebalances.startedAt))
-      .limit(limit)
-
+    const rows = await RebalanceModel.find().sort({ startedAt: -1 }).limit(limit).lean()
     return c.json(rows)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

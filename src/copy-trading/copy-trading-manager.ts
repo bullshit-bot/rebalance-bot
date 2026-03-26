@@ -1,13 +1,12 @@
 /**
  * CRUD manager for copy trading sources and sync history.
- * Provides add/remove/update/query operations for copy_sources table
- * and exposes sync history from copy_sync_log.
+ * Provides add/remove/update/query operations for CopySourceModel
+ * and exposes sync history from CopySyncLogModel.
  */
 
-import { eq, desc } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { db } from '@db/database'
-import { copySources, copySyncLog, type CopySource, type CopySyncLog } from '@db/schema'
+import { CopySourceModel, CopySyncLogModel } from '@db/database'
+import type { ICopySource, ICopySyncLog } from '@db/database'
 import { copySyncEngine } from './copy-sync-engine'
 import type { SourceAllocation } from './portfolio-source-fetcher'
 
@@ -24,7 +23,7 @@ export type UpdateSourceParams = Partial<Omit<AddSourceParams, 'sourceType'> & {
   enabled: boolean
 }>
 
-export type SyncLogEntry = CopySyncLog
+export type SyncLogEntry = ICopySyncLog & { _id: string }
 
 class CopyTradingManager {
   /** Add a new copy trading source. Returns the generated source ID. */
@@ -37,22 +36,22 @@ class CopyTradingManager {
     }
 
     const id = randomUUID()
-    await db.insert(copySources).values({
-      id,
+    await CopySourceModel.create({
+      _id: id,
       name: params.name,
       sourceType: params.sourceType,
       sourceUrl: params.sourceUrl ?? null,
-      allocations: JSON.stringify(params.allocations),
+      allocations: params.allocations as unknown as Record<string, unknown>[],
       weight: params.weight ?? 1.0,
       syncInterval: params.syncInterval ?? '4h',
-      enabled: 1,
+      enabled: true,
     })
     return id
   }
 
   /** Remove a copy source by ID. No-op if not found. */
   async removeSource(sourceId: string): Promise<void> {
-    await db.delete(copySources).where(eq(copySources.id, sourceId))
+    await CopySourceModel.deleteOne({ _id: sourceId })
   }
 
   /** Partial update of a copy source. Only provided fields are changed. */
@@ -63,27 +62,22 @@ class CopyTradingManager {
     if (updates.sourceUrl !== undefined) patch['sourceUrl'] = updates.sourceUrl
     if (updates.weight !== undefined) patch['weight'] = updates.weight
     if (updates.syncInterval !== undefined) patch['syncInterval'] = updates.syncInterval
-    if (updates.enabled !== undefined) patch['enabled'] = updates.enabled ? 1 : 0
-    if (updates.allocations !== undefined) {
-      patch['allocations'] = JSON.stringify(updates.allocations)
-    }
+    if (updates.enabled !== undefined) patch['enabled'] = updates.enabled
+    if (updates.allocations !== undefined) patch['allocations'] = updates.allocations
 
     if (Object.keys(patch).length === 0) return
 
-    await db.update(copySources).set(patch).where(eq(copySources.id, sourceId))
+    await CopySourceModel.updateOne({ _id: sourceId }, patch)
   }
 
   /** Return all copy sources. */
-  async getSources(): Promise<CopySource[]> {
-    return db.select().from(copySources)
+  async getSources(): Promise<ICopySource[]> {
+    return CopySourceModel.find().lean()
   }
 
   /** Return a single copy source or null if not found. */
-  async getSource(sourceId: string): Promise<CopySource | null> {
-    const row = await db.query.copySources.findFirst({
-      where: eq(copySources.id, sourceId),
-    })
-    return row ?? null
+  async getSource(sourceId: string): Promise<ICopySource | null> {
+    return CopySourceModel.findById(sourceId).lean()
   }
 
   /**
@@ -91,22 +85,12 @@ class CopyTradingManager {
    * Ordered by most recent first. Defaults to last 50 entries.
    */
   async getSyncHistory(sourceId?: string, limit = 50): Promise<SyncLogEntry[]> {
-    const query = db
-      .select()
-      .from(copySyncLog)
-      .orderBy(desc(copySyncLog.syncedAt))
+    const filter = sourceId ? { sourceId } : {}
+    const rows = await CopySyncLogModel.find(filter)
+      .sort({ syncedAt: -1 })
       .limit(limit)
-
-    if (sourceId) {
-      return db
-        .select()
-        .from(copySyncLog)
-        .where(eq(copySyncLog.sourceId, sourceId))
-        .orderBy(desc(copySyncLog.syncedAt))
-        .limit(limit)
-    }
-
-    return query
+      .lean()
+    return rows as unknown as SyncLogEntry[]
   }
 
   /**

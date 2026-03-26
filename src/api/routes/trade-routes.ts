@@ -1,7 +1,5 @@
 import { Hono } from 'hono'
-import { desc, eq } from 'drizzle-orm'
-import { db } from '@db/database'
-import { trades } from '@db/schema'
+import { TradeModel } from '@db/database'
 
 const tradeRoutes = new Hono()
 
@@ -21,12 +19,8 @@ tradeRoutes.get('/', async (c) => {
   }
 
   try {
-    const query = db.select().from(trades).orderBy(desc(trades.executedAt)).limit(limit)
-
-    const rows = rebalanceId
-      ? await query.where(eq(trades.rebalanceId, rebalanceId))
-      : await query
-
+    const filter = rebalanceId ? { rebalanceId } : {}
+    const rows = await TradeModel.find(filter).sort({ executedAt: -1 }).limit(limit).lean()
     return c.json(rows)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

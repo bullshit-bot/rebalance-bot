@@ -1,19 +1,13 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { allocations } from '@db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { AllocationModel } from '@db/database'
 import { portfolioTracker } from './portfolio-tracker'
-import { eq } from 'drizzle-orm'
-
-const TEST_ALLOCATION_ASSETS = ['BTC', 'ETH', 'USDT']
 
 beforeAll(async () => {
-  // Clean up previous test allocations
-  for (const asset of TEST_ALLOCATION_ASSETS) {
-    await db.delete(allocations).where(eq(allocations.asset, asset))
-  }
+  await setupTestDB()
 
   // Seed allocations table with test data
-  await db.insert(allocations).values([
+  await AllocationModel.create([
     {
       asset: 'BTC',
       targetPct: 50,
@@ -36,10 +30,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // Clean up test allocations
-  for (const asset of TEST_ALLOCATION_ASSETS) {
-    await db.delete(allocations).where(eq(allocations.asset, asset))
-  }
+  await teardownTestDB()
 })
 
 describe('PortfolioTracker integration', () => {

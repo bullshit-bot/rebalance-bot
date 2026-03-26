@@ -1,6 +1,5 @@
 import { env } from '@config/app-config'
-import { db } from '@db/database'
-import { allocations } from '@db/schema'
+import { connectDB, disconnectDB, AllocationModel } from '@db/database'
 import { exchangeManager } from '@exchange/exchange-manager'
 import { priceAggregator } from '@price/price-aggregator'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
@@ -25,7 +24,7 @@ const DEFAULT_PAIRS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT']
  */
 async function resolvePairs(): Promise<string[]> {
   try {
-    const rows = await db.select({ asset: allocations.asset }).from(allocations)
+    const rows = await AllocationModel.find({}, 'asset').lean()
     if (rows.length === 0) return DEFAULT_PAIRS
 
     const pairs = rows.map((r) => `${r.asset}/USDT`)
@@ -45,8 +44,8 @@ async function resolvePairs(): Promise<string[]> {
 async function main(): Promise<void> {
   console.log('Rebalance Bot starting...')
 
-  // Step 1: Database is initialised at import time via the db singleton.
-  // The ensureDataDir() call inside database.ts already creates data/ if needed.
+  // Step 1: Connect to MongoDB
+  await connectDB()
   console.log('[main] Database ready')
 
   // Step 2: Connect to exchanges (skips any exchange missing credentials)
@@ -151,6 +150,12 @@ async function main(): Promise<void> {
       await exchangeManager.shutdown()
     } catch (err) {
       console.error('[main] Error shutting down exchange manager:', err)
+    }
+
+    try {
+      await disconnectDB()
+    } catch (err) {
+      console.error('[main] Error disconnecting from database:', err)
     }
 
     console.log('Shutdown complete')

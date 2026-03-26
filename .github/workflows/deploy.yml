@@ -32,17 +32,10 @@ jobs:
           script: |
             set -e
 
-            # Install system deps
-            apt-get update -qq && apt-get install -y -qq unzip git curl > /dev/null 2>&1
-
-            # Install bun if not present
-            if ! command -v bun &> /dev/null; then
-              curl -fsSL https://bun.sh/install | bash
-              export BUN_INSTALL="$HOME/.bun"
-              export PATH="$BUN_INSTALL/bin:$PATH"
+            # Ensure Docker is installed
+            if ! command -v docker &> /dev/null; then
+              curl -fsSL https://get.docker.com | sh
             fi
-            export BUN_INSTALL="$HOME/.bun"
-            export PATH="$BUN_INSTALL/bin:$PATH"
 
             APP_DIR="/opt/rebalance-bot"
 
@@ -58,100 +51,13 @@ jobs:
 
             # Create .env if not exists
             if [ ! -f "$APP_DIR/.env" ]; then
-              cp "$APP_DIR/.env.example" "$APP_DIR/.env" 2>/dev/null || cat > "$APP_DIR/.env" << 'ENVFILE'
-            API_PORT=3001
-            API_KEY=change-me-to-secure-key
-            ENCRYPTION_KEY=change-me-32-char-encryption-key
-            PAPER_TRADING=true
-            DATABASE_URL=file:data/bot.db
-            REBALANCE_THRESHOLD=5
-            MIN_TRADE_USD=10
-            MAX_TRADE_USD=5000
-            DAILY_LOSS_LIMIT_PCT=10
-            ENVFILE
+              cp "$APP_DIR/.env.example" "$APP_DIR/.env"
               echo "Created default .env — EDIT /opt/rebalance-bot/.env with real values!"
             fi
 
-            # Install deps
-            bun install
-            bun add protobufjs 2>/dev/null || true
-            cd frontend && bun install && cd ..
-
-            # Build frontend with relative API URL (nginx proxies /api → backend)
-            cd frontend && VITE_API_URL=/api bun run build && cd ..
-
-            # Build backend
-            bun build src/index.ts --outdir dist --target bun
-
-            # Create data dir
-            mkdir -p data
-
-            # Setup systemd service if not exists
-            if [ ! -f /etc/systemd/system/rebalance-bot.service ]; then
-              cat > /etc/systemd/system/rebalance-bot.service << 'UNIT'
-            [Unit]
-            Description=Rebalance Bot
-            After=network.target
-
-            [Service]
-            Type=simple
-            User=root
-            WorkingDirectory=/opt/rebalance-bot
-            ExecStart=/root/.bun/bin/bun run dist/index.js
-            Restart=always
-            RestartSec=5
-            EnvironmentFile=/opt/rebalance-bot/.env
-
-            [Install]
-            WantedBy=multi-user.target
-            UNIT
-              systemctl daemon-reload
-              systemctl enable rebalance-bot
-            fi
-
-            # Setup nginx for frontend if not exists
-            if [ ! -f /etc/nginx/sites-enabled/rebalance-bot ]; then
-              apt-get update -qq && apt-get install -y -qq nginx > /dev/null 2>&1
-              cat > /etc/nginx/sites-available/rebalance-bot << 'NGINX'
-            server {
-                listen 80;
-                server_name _;
-
-                # Frontend
-                root /opt/rebalance-bot/frontend/dist;
-                index index.html;
-
-                location / {
-                    try_files $uri $uri/ /index.html;
-                }
-
-                # Backend API proxy
-                location /api/ {
-                    proxy_pass http://127.0.0.1:3001;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade $http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                }
-
-                # WebSocket proxy
-                location /ws {
-                    proxy_pass http://127.0.0.1:3001;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade $http_upgrade;
-                    proxy_set_header Connection "upgrade";
-                    proxy_set_header Host $host;
-                }
-            }
-            NGINX
-              ln -sf /etc/nginx/sites-available/rebalance-bot /etc/nginx/sites-enabled/
-              rm -f /etc/nginx/sites-enabled/default
-              nginx -t && systemctl restart nginx
-            fi
-
-            # Restart backend
-            systemctl restart rebalance-bot
+            # Build and deploy with Docker Compose
+            docker compose build
+            docker compose up -d
+            docker compose ps
 
             echo "Deploy complete!"

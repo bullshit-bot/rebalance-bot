@@ -15,6 +15,10 @@ RUN bun build src/index.ts --outdir dist --target bun
 FROM oven/bun:1-slim AS runner
 WORKDIR /app
 
+# Install curl for Docker health checks
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security
 RUN addgroup --system --gid 1001 botgroup && \
     adduser --system --uid 1001 --ingroup botgroup botuser
@@ -24,15 +28,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
-# Create data directory with correct permissions
-RUN mkdir -p /app/data && chown -R botuser:botgroup /app/data
-
 USER botuser
 
 EXPOSE 3001
-
-# Health check hitting the /health endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD bun -e "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 CMD ["bun", "run", "dist/index.js"]

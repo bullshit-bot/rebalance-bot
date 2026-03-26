@@ -1,6 +1,4 @@
-import { db } from "@/db/database";
-import { snapshots, trades } from "@/db/schema";
-import { gte, sql } from "drizzle-orm";
+import { SnapshotModel, TradeModel } from "@db/database";
 
 // ─── MarketSummaryService ─────────────────────────────────────────────────────
 
@@ -15,7 +13,7 @@ class MarketSummaryService {
    * Queries snapshots for portfolio value change and trades for activity volume.
    */
   async generateSummary(): Promise<string> {
-    const since = Math.floor(Date.now() / 1000) - 24 * 60 * 60; // unix epoch, 24h ago
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h ago
 
     const [portfolioSection, tradeSection] = await Promise.all([
       this.buildPortfolioSection(since),
@@ -39,22 +37,18 @@ class MarketSummaryService {
    * Builds the portfolio value change section from snapshots.
    * Compares the oldest and newest snapshot within the last 24h.
    */
-  private async buildPortfolioSection(since: number): Promise<string> {
-    const rows = await db
-      .select({
-        totalValueUsd: snapshots.totalValueUsd,
-        createdAt: snapshots.createdAt,
-      })
-      .from(snapshots)
-      .where(gte(snapshots.createdAt, since))
-      .orderBy(snapshots.createdAt);
+  private async buildPortfolioSection(since: Date): Promise<string> {
+    const rows = await SnapshotModel.find({ createdAt: { $gte: since } })
+      .select("totalValueUsd createdAt")
+      .sort({ createdAt: 1 })
+      .lean();
 
     if (rows.length === 0) {
       return "<b>Portfolio:</b> No snapshot data in the last 24h";
     }
 
-    const oldest = rows[0];
-    const newest = rows[rows.length - 1];
+    const oldest = rows[0]!;
+    const newest = rows[rows.length - 1]!;
     const startValue = oldest.totalValueUsd;
     const endValue = newest.totalValueUsd;
     const changeUsd = endValue - startValue;
@@ -73,22 +67,21 @@ class MarketSummaryService {
 
   /**
    * Builds the trade activity section from trades within the last 24h.
+   * Uses MongoDB aggregation for count and total volume instead of raw sql.
    */
-  private async buildTradeSection(since: number): Promise<string> {
-    const rows = await db
-      .select({
-        side: trades.side,
-        costUsd: trades.costUsd,
-        isPaper: trades.isPaper,
-        // Aggregate counts via raw sql to avoid N+1
-        count: sql<number>`count(*)`.as("count"),
-        totalCost: sql<number>`sum(cost_usd)`.as("total_cost"),
-      })
-      .from(trades)
-      .where(gte(trades.executedAt, since))
-      .groupBy(trades.side, trades.isPaper);
+  private async buildTradeSection(since: Date): Promise<string> {
+    const aggResult = await TradeModel.aggregate([
+      { $match: { executedAt: { $gte: since } } },
+      {
+        $group: {
+          _id: { side: "$side", isPaper: "$isPaper" },
+          count: { $sum: 1 },
+          totalCost: { $sum: "$costUsd" },
+        },
+      },
+    ]);
 
-    if (rows.length === 0) {
+    if (aggResult.length === 0) {
       return "<b>Trades (24h):</b> No trades executed";
     }
 
@@ -97,13 +90,13 @@ class MarketSummaryService {
     let liveCount = 0;
     let paperCount = 0;
 
-    for (const row of rows) {
-      totalTrades += Number(row.count);
-      totalVolumeUsd += Number(row.totalCost);
-      if (row.isPaper === 1) {
-        paperCount += Number(row.count);
+    for (const row of aggResult) {
+      totalTrades += row.count as number;
+      totalVolumeUsd += row.totalCost as number;
+      if (row._id.isPaper === true) {
+        paperCount += row.count as number;
       } else {
-        liveCount += Number(row.count);
+        liveCount += row.count as number;
       }
     }
 

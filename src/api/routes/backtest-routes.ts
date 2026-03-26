@@ -1,7 +1,5 @@
 import { Hono } from 'hono'
-import { desc, eq } from 'drizzle-orm'
-import { db } from '@db/database'
-import { backtestResults } from '@db/schema'
+import { BacktestResultModel } from '@db/database'
 import { backtestSimulator } from '@/backtesting/backtest-simulator'
 import type { BacktestConfig } from '@/backtesting/backtest-simulator'
 
@@ -88,23 +86,20 @@ backtestRoutes.post('/backtest', async (c) => {
  */
 backtestRoutes.get('/backtest/list', async (c) => {
   try {
-    const rows = await db
-      .select({
-        id: backtestResults.id,
-        config: backtestResults.config,
-        metrics: backtestResults.metrics,
-        createdAt: backtestResults.createdAt,
-      })
-      .from(backtestResults)
-      .orderBy(desc(backtestResults.createdAt))
+    const rows = await BacktestResultModel.find(
+      {},
+      { _id: 1, config: 1, metrics: 1, createdAt: 1 },
+    )
+      .sort({ createdAt: -1 })
+      .lean()
 
-    // Parse JSON blobs and return a lightweight summary
+    // config and metrics are already objects in Mongoose — no JSON.parse needed
     const summaries = rows.map((row) => {
-      const config = JSON.parse(row.config) as BacktestConfig
-      const metrics = JSON.parse(row.metrics) as Record<string, unknown>
+      const config = row.config as unknown as BacktestConfig
+      const metrics = row.metrics as Record<string, unknown>
 
       return {
-        id: row.id,
+        id: row._id,
         createdAt: row.createdAt,
         configSummary: {
           exchange: config.exchange,
@@ -135,24 +130,20 @@ backtestRoutes.get('/backtest/:id', async (c) => {
   const id = c.req.param('id')
 
   try {
-    const rows = await db
-      .select()
-      .from(backtestResults)
-      .where(eq(backtestResults.id, id))
-      .limit(1)
+    const row = await BacktestResultModel.findById(id).lean()
 
-    if (rows.length === 0) {
+    if (!row) {
       return c.json({ error: `Backtest result not found: ${id}` }, 404)
     }
 
-    const row = rows[0]!
+    // Fields are already objects in Mongoose — no JSON.parse needed
     const parsed = {
-      id: row.id,
+      id: row._id,
       createdAt: row.createdAt,
-      config: JSON.parse(row.config),
-      metrics: JSON.parse(row.metrics),
-      trades: JSON.parse(row.trades),
-      benchmark: JSON.parse(row.benchmark),
+      config: row.config,
+      metrics: row.metrics,
+      trades: row.trades,
+      benchmark: row.benchmark,
     }
 
     return c.json(parsed)

@@ -1,30 +1,27 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { randomUUID } from 'node:crypto'
-import { db } from '@/db/database'
-import { gridBots, gridOrders } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { GridBotModel, GridOrderModel } from '@db/database'
 
 describe('grid-routes (integration)', () => {
   beforeEach(async () => {
-    await db.delete(gridOrders)
-    await db.delete(gridBots)
+    await setupTestDB()
   })
 
   afterEach(async () => {
-    await db.delete(gridOrders)
-    await db.delete(gridBots)
+    await teardownTestDB()
   })
 
   describe('POST /api/grid validation', () => {
     it('should require exchange field', () => {
       const body = { pair: 'BTC/USDT' }
-      const isValid = typeof body.exchange === 'string' && body.exchange.length > 0
+      const isValid = typeof (body as any).exchange === 'string' && (body as any).exchange.length > 0
       expect(isValid).toBe(false)
     })
 
     it('should require pair field', () => {
       const body = { exchange: 'binance' }
-      const isValid = typeof body.pair === 'string' && body.pair.length > 0
+      const isValid = typeof (body as any).pair === 'string' && (body as any).pair.length > 0
       expect(isValid).toBe(false)
     })
 
@@ -73,8 +70,8 @@ describe('grid-routes (integration)', () => {
   describe('GET /api/grid/list', () => {
     it('should list all grid bots', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -83,19 +80,19 @@ describe('grid-routes (integration)', () => {
         gridLevels: 10,
         investment: 1000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const bots = await db.select().from(gridBots)
+      const bots = await GridBotModel.find().lean()
       expect(bots.length).toBeGreaterThanOrEqual(1)
-      const found = bots.find(b => b.id === botId)
+      const found = bots.find(b => b._id === botId)
       expect(found).toBeDefined()
     })
 
     it('should include bot metadata in response', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'okx',
         pair: 'ETH/USDT',
         gridType: 'reverse',
@@ -106,14 +103,14 @@ describe('grid-routes (integration)', () => {
         status: 'stopped',
         totalProfit: 250,
         totalTrades: 15,
-        config: JSON.stringify({}),
-        stoppedAt: Math.floor(Date.now() / 1000),
+        config: {},
+        stoppedAt: new Date(),
       })
 
-      const bots = await db.select().from(gridBots)
+      const bots = await GridBotModel.find().lean()
       const bot = bots[0]
 
-      expect(bot).toHaveProperty('id')
+      expect(bot).toHaveProperty('_id')
       expect(bot).toHaveProperty('exchange')
       expect(bot).toHaveProperty('pair')
       expect(bot).toHaveProperty('gridType')
@@ -129,7 +126,7 @@ describe('grid-routes (integration)', () => {
     })
 
     it('should return empty list when no bots exist', async () => {
-      const bots = await db.select().from(gridBots)
+      const bots = await GridBotModel.find().lean()
       expect(bots).toBeDefined()
     })
   })
@@ -137,8 +134,8 @@ describe('grid-routes (integration)', () => {
   describe('POST /api/grid', () => {
     it('should create a new grid bot', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -147,14 +144,13 @@ describe('grid-routes (integration)', () => {
         gridLevels: 10,
         investment: 1000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
       expect(botId).toBeString()
     })
 
     it('should handle domain validation errors', () => {
-      // Price constraints validation
       const priceLower = 50000
       const priceUpper = 40000
       expect(priceLower < priceUpper).toBe(false)
@@ -164,8 +160,8 @@ describe('grid-routes (integration)', () => {
   describe('GET /api/grid/:id', () => {
     it('should return grid bot details', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -174,22 +170,22 @@ describe('grid-routes (integration)', () => {
         gridLevels: 10,
         investment: 1000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const bots = await db.select().from(gridBots).where(eq(gridBots.id, botId))
-      expect(bots.length).toBe(1)
+      const doc = await GridBotModel.findById(botId).lean()
+      expect(doc).toBeDefined()
     })
 
     it('should return 404 for non-existent bot', async () => {
-      const bots = await db.select().from(gridBots).where(eq(gridBots.id, 'non-existent'))
-      expect(bots.length).toBe(0)
+      const doc = await GridBotModel.findById('non-existent').lean()
+      expect(doc).toBeNull()
     })
 
     it('should include PnL data in response', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -200,21 +196,20 @@ describe('grid-routes (integration)', () => {
         status: 'active',
         totalProfit: 100,
         totalTrades: 5,
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const bots = await db.select().from(gridBots).where(eq(gridBots.id, botId))
-      const bot = bots[0]
-      expect(bot.totalProfit).toBeDefined()
-      expect(bot.totalTrades).toBeDefined()
+      const doc = await GridBotModel.findById(botId).lean()
+      expect(doc!.totalProfit).toBeDefined()
+      expect(doc!.totalTrades).toBeDefined()
     })
   })
 
   describe('PUT /api/grid/:id/stop', () => {
     it('should stop an active grid bot', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -223,17 +218,17 @@ describe('grid-routes (integration)', () => {
         gridLevels: 10,
         investment: 1000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const bots = await db.select().from(gridBots).where(eq(gridBots.id, botId))
-      expect(bots[0].status).toBe('active')
+      const doc = await GridBotModel.findById(botId).lean()
+      expect(doc!.status).toBe('active')
     })
 
     it('should reject stopping already stopped bot', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -242,19 +237,19 @@ describe('grid-routes (integration)', () => {
         gridLevels: 10,
         investment: 1000,
         status: 'stopped',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      const bots = await db.select().from(gridBots).where(eq(gridBots.id, botId))
-      expect(bots[0].status).not.toBe('active')
+      const doc = await GridBotModel.findById(botId).lean()
+      expect(doc!.status).not.toBe('active')
     })
   })
 
   describe('Grid orders relationship', () => {
     it('should create grid orders linked to bot', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -263,10 +258,10 @@ describe('grid-routes (integration)', () => {
         gridLevels: 10,
         investment: 1000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      await db.insert(gridOrders).values({
+      await GridOrderModel.create({
         gridBotId: botId,
         level: 1,
         price: 40000,
@@ -275,7 +270,7 @@ describe('grid-routes (integration)', () => {
         status: 'open',
       })
 
-      const orders = await db.select().from(gridOrders)
+      const orders = await GridOrderModel.find().lean()
       expect(orders.length).toBeGreaterThanOrEqual(1)
       const found = orders.find(o => o.gridBotId === botId)
       expect(found).toBeDefined()
@@ -283,8 +278,8 @@ describe('grid-routes (integration)', () => {
 
     it('should track order status changes', async () => {
       const botId = randomUUID()
-      await db.insert(gridBots).values({
-        id: botId,
+      await GridBotModel.create({
+        _id: botId,
         exchange: 'binance',
         pair: 'BTC/USDT',
         gridType: 'normal',
@@ -293,21 +288,21 @@ describe('grid-routes (integration)', () => {
         gridLevels: 10,
         investment: 1000,
         status: 'active',
-        config: JSON.stringify({}),
+        config: {},
       })
 
-      await db.insert(gridOrders).values({
+      await GridOrderModel.create({
         gridBotId: botId,
         level: 1,
         price: 40000,
         amount: 100,
         side: 'buy',
         status: 'filled',
-        filledAt: Math.floor(Date.now() / 1000),
+        filledAt: new Date(),
       })
 
-      const orders = await db.select().from(gridOrders)
-      expect(orders[0].status).toBe('filled')
+      const orders = await GridOrderModel.find().lean()
+      expect(orders[0]!.status).toBe('filled')
     })
   })
 

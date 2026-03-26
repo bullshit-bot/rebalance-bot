@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { randomUUID } from 'node:crypto'
-import { db } from '@/db/database'
-import { aiSuggestions, allocations } from '@/db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { AISuggestionModel, AllocationModel } from '@db/database'
 import { aiRoutes } from './ai-routes'
-import { eq } from 'drizzle-orm'
 
 // Mock Hono context for testing
 function createMockContext(method: string, path: string, body?: unknown) {
@@ -30,13 +29,11 @@ function createMockContext(method: string, path: string, body?: unknown) {
 
 describe('ai-routes (integration)', () => {
   beforeEach(async () => {
-    await db.delete(aiSuggestions)
-    await db.delete(allocations)
+    await setupTestDB()
   })
 
   afterEach(async () => {
-    await db.delete(aiSuggestions)
-    await db.delete(allocations)
+    await teardownTestDB()
   })
 
   describe('POST /api/ai/suggestion', () => {
@@ -60,7 +57,6 @@ describe('ai-routes (integration)', () => {
         reasoning: 'Valid reasoning',
       }
 
-      // Verify validation would fail
       expect(body.allocations.length).toBe(0)
     })
 
@@ -89,19 +85,10 @@ describe('ai-routes (integration)', () => {
 
   describe('GET /api/ai/suggestions', () => {
     it('should list all suggestions by default', async () => {
-      // Create test suggestions
-      const input = {
-        allocations: [{ asset: 'BTC', targetPct: 100 }],
-        reasoning: 'Test suggestion',
-      }
-
-      // This would be called via the handler in real usage
-      // Just verify the routes are defined
       expect(aiRoutes).toBeDefined()
     })
 
     it('should filter by status=pending when query param set', async () => {
-      // Verify query param parsing works
       const params = new URLSearchParams('status=pending&limit=20')
       expect(params.get('status')).toBe('pending')
       expect(params.get('limit')).toBe('20')
@@ -122,57 +109,37 @@ describe('ai-routes (integration)', () => {
 
   describe('PUT /api/ai/suggestion/:id/approve', () => {
     it('should approve a pending suggestion', async () => {
-      // Create test suggestion
-      const input = {
-        allocations: [
-          { asset: 'BTC', targetPct: 60 },
-          { asset: 'ETH', targetPct: 40 },
-        ],
-        reasoning: 'Approve test',
-      }
-
-      // Insert directly for testing
       const id = randomUUID()
-      await db.insert(aiSuggestions).values({
-        id,
+      await AISuggestionModel.create({
+        _id: id,
         source: 'openclaw',
-        suggestedAllocations: JSON.stringify(input.allocations),
-        reasoning: input.reasoning,
+        suggestedAllocations: [{ asset: 'BTC', targetPct: 60 }, { asset: 'ETH', targetPct: 40 }],
+        reasoning: 'Approve test',
         status: 'pending',
         sentimentData: null,
         approvedAt: null,
       })
 
-      // Verify it can be queried
-      const saved = await db
-        .select()
-        .from(aiSuggestions)
-        .where(eq(aiSuggestions.id, id))
-        .limit(1)
+      const saved = await AISuggestionModel.findById(id).lean()
 
-      expect(saved[0].status).toBe('pending')
+      expect(saved!.status).toBe('pending')
     })
 
     it('should reject approval of non-existent suggestion', async () => {
-      // Verify error handling logic
       const nonExistentId = randomUUID()
-      const rows = await db
-        .select()
-        .from(aiSuggestions)
-        .where(eq(aiSuggestions.id, nonExistentId))
-        .limit(1)
+      const doc = await AISuggestionModel.findById(nonExistentId).lean()
 
-      expect(rows.length).toBe(0)
+      expect(doc).toBeNull()
     })
   })
 
   describe('PUT /api/ai/suggestion/:id/reject', () => {
     it('should reject a pending suggestion', async () => {
       const id = randomUUID()
-      await db.insert(aiSuggestions).values({
-        id,
+      await AISuggestionModel.create({
+        _id: id,
         source: 'openclaw',
-        suggestedAllocations: JSON.stringify([{ asset: 'BTC', targetPct: 100 }]),
+        suggestedAllocations: [{ asset: 'BTC', targetPct: 100 }],
         reasoning: 'Reject test',
         status: 'pending',
         sentimentData: null,
@@ -233,27 +200,22 @@ describe('ai-routes (integration)', () => {
   describe('GET /api/ai/summary', () => {
     it('should be defined on the routes', async () => {
       expect(aiRoutes).toBeDefined()
-      // The route should exist and be callable
     })
   })
 
   describe('Error handling', () => {
     it('should handle invalid JSON body', async () => {
-      // Simulate JSON parsing error
       const jsonPromise = Promise.reject(new Error('Invalid JSON'))
       expect(jsonPromise).rejects.toThrow()
     })
 
     it('should return appropriate HTTP status codes', async () => {
-      // 400 for validation errors
       const status400 = 400
       expect(status400).toBe(400)
 
-      // 422 for domain validation errors
       const status422 = 422
       expect(status422).toBe(422)
 
-      // 500 for server errors
       const status500 = 500
       expect(status500).toBe(500)
     })

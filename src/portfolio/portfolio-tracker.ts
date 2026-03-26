@@ -1,5 +1,4 @@
-import { db } from '@db/database'
-import { allocations } from '@db/schema'
+import { AllocationModel } from '@db/database'
 import { eventBus } from '@events/event-bus'
 import { priceCache } from '@price/price-cache'
 import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from '@/types/index'
@@ -115,7 +114,7 @@ class PortfolioTracker {
       return this.cachedTargets
     }
 
-    const rows = await db.select().from(allocations)
+    const rows = await AllocationModel.find().lean()
     const result = rows.map((row): Allocation => {
       const base = {
         asset: row.asset,

@@ -1,16 +1,12 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { trades } from '@db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { TradeModel } from '@db/database'
 import { paperTradingEngine } from './paper-trading-engine'
 import { priceCache } from '@price/price-cache'
 import type { TradeOrder } from '@/types/index'
-import { eq } from 'drizzle-orm'
-
-const TEST_REBALANCE_ID = '__paper_trading_test__'
 
 beforeAll(async () => {
-  // Clean up previous test trades
-  await db.delete(trades).where(eq(trades.rebalanceId, TEST_REBALANCE_ID))
+  await setupTestDB()
 
   // Seed price cache with test prices
   priceCache.set('BTC/USDT', { pair: 'BTC/USDT', price: 50000, timestamp: Date.now() })
@@ -19,8 +15,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // Clean up test trades
-  await db.delete(trades).where(eq(trades.rebalanceId, TEST_REBALANCE_ID))
+  await teardownTestDB()
 })
 
 describe('PaperTradingEngine integration', () => {
@@ -128,20 +123,15 @@ describe('PaperTradingEngine integration', () => {
     const result = await paperTradingEngine.execute(order)
 
     // Query the database to verify the trade was saved
-    const savedTrades = await db
-      .select()
-      .from(trades)
-      .where(eq(trades.orderId, result.orderId))
+    const saved = await TradeModel.findOne({ orderId: result.orderId }).lean()
 
-    expect(savedTrades.length).toBe(1)
-    const saved = savedTrades[0]
-
-    expect(saved.exchange).toBe('binance')
-    expect(saved.pair).toBe('SOL/USDT')
-    expect(saved.side).toBe('buy')
-    expect(saved.amount).toBe(50)
-    expect(saved.isPaper).toBe(1)
-    expect(saved.fee).toBeGreaterThan(0)
+    expect(saved).toBeDefined()
+    expect(saved!.exchange).toBe('binance')
+    expect(saved!.pair).toBe('SOL/USDT')
+    expect(saved!.side).toBe('buy')
+    expect(saved!.amount).toBe(50)
+    expect(saved!.isPaper).toBe(true)
+    expect(saved!.fee).toBeGreaterThan(0)
   })
 
   test('executeBatch executes multiple trades', async () => {
@@ -225,12 +215,8 @@ describe('PaperTradingEngine integration', () => {
     expect(result.isPaper).toBe(true)
 
     // Verify in database
-    const savedTrades = await db
-      .select()
-      .from(trades)
-      .where(eq(trades.orderId, result.orderId))
-
-    expect(savedTrades[0].isPaper).toBe(1)
+    const saved = await TradeModel.findOne({ orderId: result.orderId }).lean()
+    expect(saved!.isPaper).toBe(true)
   })
 
   test('execute uses cached price when available', async () => {
@@ -277,12 +263,8 @@ describe('PaperTradingEngine integration', () => {
     const result = await paperTradingEngine.execute(order)
 
     // Verify in database - rebalanceId should be null by default
-    const savedTrades = await db
-      .select()
-      .from(trades)
-      .where(eq(trades.orderId, result.orderId))
-
-    expect(savedTrades[0].rebalanceId).toBeNull()
+    const saved = await TradeModel.findOne({ orderId: result.orderId }).lean()
+    expect(saved!.rebalanceId).toBeNull()
   })
 
   test('execute generates valid UUID for orderId', async () => {

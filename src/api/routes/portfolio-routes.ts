@@ -1,7 +1,5 @@
-import { desc } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '@db/database'
-import { snapshots, allocations as allocationsTable } from '@db/schema'
+import { SnapshotModel, AllocationModel } from '@db/database'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
 import { snapshotService } from '@portfolio/snapshot-service'
 
@@ -12,13 +10,12 @@ const portfolioRoutes = new Hono()
  * is unavailable (e.g. no exchange connections in paper mode).
  */
 async function buildPortfolioFromSnapshot() {
-  const [latest] = await db.select().from(snapshots).orderBy(desc(snapshots.createdAt)).limit(1)
+  const latest = await SnapshotModel.findOne().sort({ createdAt: -1 }).lean()
   if (!latest) return null
 
-  const holdings: Record<string, { amount: number; valueUsd: number; exchange?: string }> =
-    JSON.parse(latest.holdings)
-  const targets = await db.select().from(allocationsTable)
-  const targetMap = new Map(targets.map(t => [t.asset, t.targetPct]))
+  const holdings = latest.holdings as Record<string, { amount: number; valueUsd: number; exchange?: string }>
+  const targets = await AllocationModel.find().lean()
+  const targetMap = new Map(targets.map((t) => [t.asset, t.targetPct]))
 
   const totalValue = latest.totalValueUsd
   const assets = Object.entries(holdings).map(([asset, h]) => {
@@ -35,7 +32,8 @@ async function buildPortfolioFromSnapshot() {
     }
   })
 
-  return { totalValueUsd: totalValue, assets, updatedAt: (latest.createdAt ?? 0) * 1000 }
+  const createdAt = latest.createdAt instanceof Date ? latest.createdAt.getTime() : Date.now()
+  return { totalValueUsd: totalValue, assets, updatedAt: createdAt }
 }
 
 /**

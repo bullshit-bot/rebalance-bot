@@ -3,9 +3,7 @@ import { twapEngine } from '@/twap-vwap/twap-engine'
 import { vwapEngine } from '@/twap-vwap/vwap-engine'
 import { executionTracker } from '@/twap-vwap/execution-tracker'
 import { sliceScheduler } from '@/twap-vwap/slice-scheduler'
-import { db } from '@db/database'
-import { smartOrders } from '@db/schema'
-import { eq } from 'drizzle-orm'
+import { SmartOrderModel } from '@db/database'
 import type { ExchangeName, OrderSide } from '@/types/index'
 
 const smartOrderRoutes = new Hono()
@@ -108,16 +106,13 @@ smartOrderRoutes.post('/smart-order', async (c) => {
  */
 smartOrderRoutes.get('/smart-order/active', async (c) => {
   try {
-    const rows = await db
-      .select()
-      .from(smartOrders)
-      .where(eq(smartOrders.status, 'active'))
+    const rows = await SmartOrderModel.find({ status: 'active' }).lean()
 
     // Merge in-memory progress (more up-to-date) with DB row
     const result = rows.map((row) => {
-      const progress = executionTracker.getProgress(row.id)
+      const progress = executionTracker.getProgress(row._id)
       return {
-        id: row.id,
+        id: row._id,
         type: row.type,
         exchange: row.exchange,
         pair: row.pair,
@@ -152,17 +147,16 @@ smartOrderRoutes.get('/smart-order/:id', async (c) => {
   const id = c.req.param('id')
 
   try {
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, id)).limit(1)
+    const row = await SmartOrderModel.findById(id).lean()
 
-    if (rows.length === 0) {
+    if (!row) {
       return c.json({ error: `Smart order not found: ${id}` }, 404)
     }
 
-    const row = rows[0]!
     const progress = executionTracker.getProgress(id)
 
     return c.json({
-      id: row.id,
+      id: row._id,
       type: row.type,
       exchange: row.exchange,
       pair: row.pair,
@@ -179,7 +173,8 @@ smartOrderRoutes.get('/smart-order/:id', async (c) => {
       rebalanceId: row.rebalanceId,
       createdAt: row.createdAt,
       completedAt: row.completedAt,
-      config: row.config ? JSON.parse(row.config) : null,
+      // config is already an object in Mongoose — no JSON.parse needed
+      config: row.config ?? null,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -196,13 +191,12 @@ smartOrderRoutes.put('/smart-order/:id/pause', async (c) => {
   const id = c.req.param('id')
 
   try {
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, id)).limit(1)
+    const row = await SmartOrderModel.findById(id).lean()
 
-    if (rows.length === 0) {
+    if (!row) {
       return c.json({ error: `Smart order not found: ${id}` }, 404)
     }
 
-    const row = rows[0]!
     if (row.status !== 'active') {
       return c.json({ error: `Order is not active (current status: ${row.status})` }, 409)
     }
@@ -224,13 +218,12 @@ smartOrderRoutes.put('/smart-order/:id/resume', async (c) => {
   const id = c.req.param('id')
 
   try {
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, id)).limit(1)
+    const row = await SmartOrderModel.findById(id).lean()
 
-    if (rows.length === 0) {
+    if (!row) {
       return c.json({ error: `Smart order not found: ${id}` }, 404)
     }
 
-    const row = rows[0]!
     if (row.status !== 'paused') {
       return c.json({ error: `Order is not paused (current status: ${row.status})` }, 409)
     }
@@ -253,13 +246,12 @@ smartOrderRoutes.put('/smart-order/:id/cancel', async (c) => {
   const id = c.req.param('id')
 
   try {
-    const rows = await db.select().from(smartOrders).where(eq(smartOrders.id, id)).limit(1)
+    const row = await SmartOrderModel.findById(id).lean()
 
-    if (rows.length === 0) {
+    if (!row) {
       return c.json({ error: `Smart order not found: ${id}` }, 404)
     }
 
-    const row = rows[0]!
     if (row.status === 'cancelled' || row.status === 'completed') {
       return c.json({ error: `Order already ${row.status}` }, 409)
     }
