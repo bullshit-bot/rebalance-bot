@@ -115,39 +115,21 @@ services:
       - app-network
 
   openclaw:
-    build:
-      context: ./openclaw-skills
-      dockerfile: Dockerfile
+    image: ghcr.io/openclaw/openclaw:latest
     container_name: rebalance-openclaw
     restart: unless-stopped
+    ports:
+      - "18789:18789"
     environment:
-      BACKEND_API_URL: http://backend:3001
-      CHROMADB_URL: http://chromadb:8000
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-changeme}
+    volumes:
+      - openclaw_config:/home/node/.openclaw
+      - ./openclaw-skills:/home/node/workspace/skills
+      - ./openclaw-skills/mcporter.json:/home/node/.config/mcporter/mcporter.json
     depends_on:
       backend:
         condition: service_healthy
-      chromadb:
-        condition: service_started
-    profiles:
-      - full
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - app-network
-
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: rebalance-chromadb
-    restart: unless-stopped
-    volumes:
-      - chromadb_data:/chroma/chroma
     profiles:
       - full
     deploy:
@@ -168,4 +150,4 @@ networks:
 
 volumes:
   mongodb_data:
-  chromadb_data:
+  openclaw_config:

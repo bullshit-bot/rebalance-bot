@@ -1,30 +1,23 @@
 ---
-name: crypto-news
-description: Correlates AI suggestions with portfolio context to explain market-driven allocation changes
-tools:
-  - get_ai_suggestions
-  - get_portfolio
+name: crypto_news
+description: Correlate AI suggestions with portfolio context using mcporter to call rebalance bot MCP tools.
+metadata:
+  openclaw:
+    emoji: 📰
+    requires:
+      bins:
+        - mcporter
 ---
 
-# Crypto News
+# Crypto News & Insights
 
-## Purpose
-
-Surface the reasoning behind AI allocation suggestions by combining the latest AI-generated insights with the current portfolio state, providing a plain-language explanation of what market signals are driving suggested changes.
+Surface AI suggestion reasoning with live portfolio context.
 
 ## Workflow
 
-1. Call `get_portfolio` to retrieve current asset holdings and weights.
-2. Call `get_ai_suggestions` to fetch the latest AI suggestions including reasoning text and sentiment data.
-3. For each asset in the portfolio, match it against the suggestions list.
-4. Extract the reasoning field from matched suggestions — this contains the market signal explanation.
-5. Rank assets by magnitude of suggested change (largest first).
-6. Format a concise summary for each asset:
-   - Current weight vs. suggested weight.
-   - Key reasoning sentence from the AI suggestion.
-7. Output a ranked list of portfolio changes with market context.
-
-## MCP Tools Used
-
-- `get_ai_suggestions` — returns AI-generated allocation suggestions with reasoning and sentiment data per asset
-- `get_portfolio` — fetches current holdings and weights to compare against suggestions
+1. Run `mcporter call rebalance-bot.get_portfolio` — current holdings and weights.
+2. Run `mcporter call rebalance-bot.get_ai_suggestions` — AI suggestions with reasoning.
+3. Match suggestions to portfolio assets. Extract reasoning text.
+4. Rank by magnitude of suggested change (largest first).
+5. For each: show current weight vs suggested, key reasoning sentence.
+6. Allow approve/reject: `mcporter call rebalance-bot.approve_suggestion id=<id>`.

@@ -1,32 +1,23 @@
 ---
-name: market-analysis
-description: Analyses portfolio composition, recent trade history, and system health to surface actionable market insights
-tools:
-  - get_portfolio
-  - list_trades
-  - get_health
+name: market_analysis
+description: Analyse recent trades and portfolio performance using mcporter to call rebalance bot MCP tools.
+metadata:
+  openclaw:
+    emoji: 📈
+    requires:
+      bins:
+        - mcporter
 ---
 
 # Market Analysis
 
-## Purpose
-
-Examine the current portfolio state alongside recent trade activity and system health to identify trends, performance patterns, and risk signals.
+Examine portfolio state and recent trade activity.
 
 ## Workflow
 
-1. Call `get_health` to confirm the system is operational before proceeding.
-2. Call `get_portfolio` to retrieve current holdings, asset weights, total value, and unrealised P&L.
-3. Call `list_trades` to fetch recent executed trades — review direction (buy/sell), asset, size, and timestamp.
-4. Analyse portfolio concentration: flag assets exceeding 50% of portfolio value.
-5. Identify trading patterns from recent trades:
-   - Frequent buys of a single asset may indicate momentum or drift correction.
-   - Frequent sells may indicate stop-loss triggers or rebalancing.
-6. Cross-reference portfolio weights with recent trade direction to infer current positioning.
-7. Summarise findings: top holdings, recent activity summary, concentration risks, and health status.
-
-## MCP Tools Used
-
-- `get_portfolio` — fetches current holdings, weights, total portfolio value, and per-asset P&L
-- `list_trades` — retrieves recent executed trades with asset, side, size, price, and timestamp
-- `get_health` — checks system health status including exchange connectivity and bot state
+1. Run `mcporter call rebalance-bot.get_health` — confirm system operational.
+2. Run `mcporter call rebalance-bot.get_portfolio` — current holdings, weights, total value.
+3. Run `mcporter call rebalance-bot.list_trades limit=20` — recent executed trades.
+4. Analyse concentration: flag assets > 50% of portfolio.
+5. Identify trading patterns from recent trades (buy/sell frequency, volume).
+6. Summarise: top holdings, activity summary, concentration risks, health status.

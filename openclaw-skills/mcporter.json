@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "rebalance-bot": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["exec", "-i", "rebalance-mcp", "bun", "run", "dist/index.js"],
+      "description": "Rebalance Bot MCP Server - crypto portfolio management tools"
+    }
+  }
+}
