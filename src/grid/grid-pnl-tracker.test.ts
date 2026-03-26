@@ -1,5 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'bun:test'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { GridPnLTracker } from './grid-pnl-tracker'
+
+beforeAll(async () => { await setupTestDB() })
+afterAll(async () => { await teardownTestDB() })
 
 describe('GridPnLTracker', () => {
   let tracker: GridPnLTracker

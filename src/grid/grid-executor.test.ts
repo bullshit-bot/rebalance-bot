@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { GridExecutor } from './grid-executor'
 import type { GridExecutorDeps } from './grid-executor'
 import type { GridLevel } from './grid-calculator'
 import type { IOrderExecutor } from '@executor/order-executor'
+
+beforeAll(async () => { await setupTestDB() })
+afterAll(async () => { await teardownTestDB() })
 
 describe('GridExecutor', () => {
   let executor: GridExecutor

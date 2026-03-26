@@ -1,6 +1,10 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'bun:test'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { GridBotManager } from './grid-bot-manager'
 import { priceCache } from '@price/price-cache'
+
+beforeAll(async () => { await setupTestDB() })
+afterAll(async () => { await teardownTestDB() })
 
 // Seed price cache so grid bot creation doesn't throw "No price cached"
 function seedPrices() {
