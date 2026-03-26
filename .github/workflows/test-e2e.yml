@@ -59,6 +59,8 @@ jobs:
 
       - name: Seed database
         run: bun run scripts/seed-dev-data.ts
+        env:
+          MONGODB_URI: "mongodb://localhost:27017/rebalance-e2e-seed"
 
       - name: Run E2E tests
         working-directory: frontend
