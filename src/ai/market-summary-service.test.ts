@@ -1,5 +1,27 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { SnapshotModel, TradeModel } from '@db/database'
 import { marketSummaryService } from './market-summary-service'
+
+beforeAll(async () => {
+  await setupTestDB()
+  const now = new Date()
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000)
+
+  // Seed snapshots so portfolio section has data
+  await SnapshotModel.insertMany([
+    { totalValueUsd: 10000, holdings: {}, allocations: {}, createdAt: hoursAgo(12) },
+    { totalValueUsd: 10250, holdings: {}, allocations: {}, createdAt: hoursAgo(1) },
+  ])
+
+  // Seed trades so trade section has data
+  await TradeModel.insertMany([
+    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy', amount: 0.1, price: 60000, costUsd: 6000, isPaper: true, executedAt: hoursAgo(6) },
+    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell', amount: 1, price: 3000, costUsd: 3000, isPaper: false, executedAt: hoursAgo(3) },
+  ])
+})
+
+afterAll(async () => { await teardownTestDB() })
 
 describe('MarketSummaryService', () => {
   describe('generateSummary', () => {
