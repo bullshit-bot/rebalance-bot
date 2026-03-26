@@ -74,6 +74,7 @@ jobs:
 
             # Install deps
             bun install
+            bun add protobufjs 2>/dev/null || true
             cd frontend && bun install && cd ..
 
             # Build frontend
