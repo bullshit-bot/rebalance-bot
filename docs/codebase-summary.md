@@ -1,366 +1,373 @@
 # Codebase Summary
 
-**Last Updated**: 2026-01-28
-**Version**: 2.9.0-beta.2
-**Repository**: [claudekit/claudekit-engineer](https://github.com/claudekit/claudekit-engineer)
+**Project**: Crypto Rebalance Bot
+**Last Updated**: 2026-03-26
+**Version**: 1.0.0
+**Repository**: https://github.com/dungngo97/rebalance-bot
+**License**: MIT
 
 ## Overview
 
-ClaudeKit Engineer is a comprehensive boilerplate template for building professional software projects with CLI Coding Agents (Claude Code and Open Code). It provides a complete development environment with AI-powered agent orchestration, automated workflows, and intelligent project management.
+Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Multi-exchange support (Binance, OKX, Bybit) with advanced trading strategies, real-time monitoring, backtesting, and comprehensive analytics.
 
-## Project Structure
+**Total Codebase**: ~24,000 LOC (10,554 backend + 13,500 frontend)
+**Core Files**: 65 backend + 96 frontend = 161 files
+
+## Backend Architecture (~10,554 LOC)
+
+### Core Service Modules (19 modules)
+
+| Module | LOC | Responsibility |
+|--------|-----|-----------------|
+| api/ | 1,795 | REST API (11 routes) + WebSocket server |
+| backtesting/ | 978 | Historical simulation, metrics calculation |
+| rebalancer/ | 773 | Rebalance orchestration, strategy execution |
+| analytics/ | 851 | Performance metrics, reporting |
+| executor/ | 641 | Order execution (live & paper trading) |
+| grid/ | 678 | Grid trading strategy implementation |
+| twap-vwap/ | 592 | Smart order routing, slippage reduction |
+| exchange/ | 339 | Multi-exchange CCXT Pro abstraction |
+| portfolio/ | 370 | Real-time balance, allocation tracking |
+| db/ | 372 | Database schema (Drizzle ORM) |
+| price/ | 246 | Price aggregation, WebSocket feeds |
+| copy-trading/ | 485 | Trade replication from sources |
+| ai/ | 351 | ML suggestions (OpenClaw) |
+| dca/ | 220 | Dollar-cost averaging |
+| notifier/ | 196 | Telegram notifications |
+| scheduler/ | 134 | Cron job execution |
+| trailing-stop/ | 160 | Stop-loss management |
+| config/ | 101 | Environment validation (Zod) |
+| events/ | 100 | Typed event bus |
+
+### Directory Structure
 
 ```
-claudekit-engineer/
-├── .claude/               # Claude Code configuration
-│   ├── agents/           # Specialized agent definitions (14 agents)
-│   ├── command-archive/  # Archived legacy command definitions
-│   ├── commands/         # Reserved compatibility directory (empty/minimal)
-│   ├── hooks/            # Git hooks and scripts
-│   ├── skills/           # Specialized skills library (20+ skills)
-│   └── workflows/        # Development workflow definitions
-├── .github/             # GitHub Actions workflows
-│   └── workflows/       # CI/CD automation
-├── docs/                # Project documentation
-│   └── research/        # Research reports directory
-├── guide/               # User guides and references
-├── plans/               # Implementation plans and reports
-│   ├── reports/         # Agent-to-agent communication
-│   └── templates/       # Plan templates
-├── CLAUDE.md           # Project-specific Claude instructions
-├── README.md           # Project overview
-├── package.json        # Node.js dependencies
-└── repomix-output.xml  # Codebase compaction file
+src/
+├── index.ts                 # Application bootstrap
+├── api/
+│   ├── routes.ts           # REST endpoint definitions
+│   ├── ws.ts               # WebSocket handlers
+│   └── middleware.ts       # Auth, validation
+├── db/
+│   ├── schema.ts           # 8 tables (Drizzle ORM)
+│   └── database.ts         # Connection initialization
+├── exchange/
+│   ├── ccxt-pro.ts         # CCXT integration
+│   └── order-executor.ts   # Trade submission
+├── portfolio/
+│   ├── portfolio-tracker.ts # Balance management
+│   └── allocation-calc.ts  # Target calculation
+├── rebalancer/
+│   ├── drift-detector.ts   # Allocation monitoring
+│   ├── trade-planner.ts    # Trade optimization
+│   └── strategies/         # Strategy implementations
+├── executor/
+│   ├── executor.ts         # Execution orchestration
+│   └── trade-recorder.ts   # Database persistence
+├── price/
+│   ├── price-service.ts    # Market data processing
+│   └── indicators.ts       # Technical indicators
+├── strategies/
+│   ├── threshold.ts        # Threshold-based
+│   ├── momentum.ts         # Momentum-tilt
+│   ├── vol-adjusted.ts     # Volatility weighting
+│   ├── dca.ts              # Dollar-cost averaging
+│   ├── trailing-stop.ts    # Stop-loss
+│   ├── grid.ts             # Grid trading
+│   ├── twap-vwap.ts        # Order splitting
+│   └── copy-trading.ts     # Trade mirroring
+├── analytics/
+│   ├── metrics.ts          # Return, Sharpe, drawdown
+│   └── reporter.ts         # Performance reports
+├── backtesting/
+│   ├── backtest-engine.ts  # Historical simulation
+│   └── metrics-calc.ts     # Strategy validation
+├── notifier/
+│   └── telegram-bot.ts     # grammy integration
+├── scheduler/
+│   └── cron-tasks.ts       # croner tasks
+├── events/
+│   └── event-bus.ts        # TypedEventEmitter
+├── ai/
+│   └── suggestions.ts      # ML recommendations
+└── config/
+    └── env.ts              # Zod validation
 ```
 
-## Core Technologies
+## Frontend Architecture (~13,500 LOC)
 
-### Runtime & Dependencies
-- **Node.js**: >=18.0.0
-- **Package Manager**: npm
-- **License**: MIT
+### Technologies
+- **React 18** + TypeScript + Vite
+- **TanStack Query v5** - State management
+- **React Router v6** - Navigation
+- **Tailwind CSS** + shadcn/ui - UI components
+- **Recharts** - Data visualization
+- **React Hook Form** + Zod - Forms
 
-### Development Tools
-- **Semantic Release**: Automated versioning and changelog
-- **Commitlint**: Conventional commit enforcement
-- **Husky**: Git hooks automation
-- **Repomix**: Codebase compaction for AI consumption
+### Pages (16 total)
 
-### CI/CD
-- **GitHub Actions**: Automated release workflow
-- **Semantic Versioning**: Automated version management
-- **Conventional Commits**: Structured commit messages
+| Page | Purpose |
+|------|---------|
+| Overview | Dashboard, portfolio summary |
+| Portfolio | Holdings, allocations, performance |
+| RebalancePlan | Strategy details, trade preview |
+| Orders | Active orders, order status |
+| Allocations | Target allocation management |
+| Exchanges | Connected exchange accounts |
+| StrategyConfig | Strategy parameter tuning |
+| Logs | Trade history, debug logs |
+| Alerts | Notification settings |
+| Settings | Bot configuration |
+| Backtesting | Strategy testing interface |
+| Analytics | Performance metrics, charts |
+| Tax | Tax reporting integration |
+| GridTrading | Grid bot management |
+| SmartOrders | TWAP/VWAP order management |
+| CopyTrading | Source portfolio tracking |
+| AISuggestions | ML recommendations |
+| Login | API key authentication |
 
-## Key Components
+### Component Organization
 
-### 1. Agent Orchestration System (14 Agents)
+**Custom Components**: 6 (StatCard, DriftBadge, ActionBadge, etc.)
+**shadcn/ui Components**: 59 (Button, Card, Dialog, Form, etc.)
+**Design System**: ui-brutal.tsx (custom styled components)
 
-**Claude Code Agents** (`.claude/agents/`):
-- `planner.md` - Technical planning and architecture (Opus model)
-- `researcher.md` - Research and analysis
-- `fullstack-developer.md` - Full-stack implementation
-- `code-reviewer.md` - Code quality assessment
-- `tester.md` - Testing and validation
-- `debugger.md` - Issue analysis and debugging
-- `docs-manager.md` - Documentation management (Gemini model)
-- `git-manager.md` - Version control operations
-- `journal-writer.md` - Development journaling
-- `brainstormer.md` - Solution ideation
-- `project-manager.md` - Project tracking
-- `ui-ux-designer.md` - UI/UX design
-- `mcp-manager.md` - MCP server management
-- `code-simplifier.md` - Code optimization and simplification
+### API Integration
 
-### 2. Slash Commands System (Skill-Backed)
+**API Client**: `lib/api.ts` with 14 React Query hooks:
+- `usePortfolio()` - Current holdings
+- `useTrades()` - Trade history
+- `useAllocations()` - Target allocations
+- `useRebalance()` - Trigger rebalance
+- `useBacktest()` - Run backtest
+- `useAnalytics()` - Performance metrics
+- Plus 8 more for specific strategies
 
-**Core Development Commands**:
-- `/plan` - Research and planning
-- `/cook` - Feature implementation
-- `/test` - Test execution
-- `/ask` - Technical consultation
-- `/bootstrap` - Project initialization
-- `/brainstorm` - Solution ideation
-- `/debug` - Issue debugging
-- `/fix` - Bug fixes
+**Authentication**: X-API-Key header, validated via `/health`
+**Auto-refresh**: 30s polling interval
 
-**Skill Directories** (`.claude/skills/`):
-- `bootstrap/` - Project initialization workflows
-- `docs/` - Documentation workflows
-- `plan/` - Planning variants
-- `code-review/` - Code review workflows
-- `test/` - Testing workflows
+## Database Schema
 
-### 3. Skills Library (38 Skills)
+**SQLite with Drizzle ORM**
 
-**Phase 1 Organized Groups** (Progressive Disclosure):
-- **DevOps** (`devops/`) - Cloudflare (5 skills), Docker, Google Cloud Platform
-  - 11 references, 2 Python utilities, 45 tests
-- **Databases** (`databases/`) - MongoDB, PostgreSQL
-  - 8 references, 3 Python utilities
-- **Web Frameworks** (`web-frameworks/`) - Next.js, Turborepo, RemixIcon
-  - 7 references, 2 Python utilities
-- **UI Styling** (`ui-styling/`) - shadcn/ui, Tailwind CSS, canvas-design
-  - 7 references, 2 Python utilities
+| Table | Purpose |
+|-------|---------|
+| allocations | Target portfolio allocations |
+| snapshots | Point-in-time portfolio states |
+| trades | Individual trade records |
+| rebalances | Rebalance execution logs |
+| exchange_configs | Encrypted API credentials |
+| ohlcv_candles | Historical price data |
+| backtest_results | Strategy test results |
+| smart_orders | TWAP/VWAP split tracking |
+| grid_bots | Grid trading configurations |
+| grid_orders | Individual grid orders |
+| ai_suggestions | ML model recommendations |
+| copy_sources | Source portfolios |
+| copy_sync_log | Copy trading history |
 
-**Current Skills** (47+ Total):
-- ai-artist, ai-multimodal, agent-browser, backend-development, better-auth
-- brainstorm, chrome-devtools, code-review, common, context-engineering
-- cook, copywriting, databases, debug, devops
-- docs-seeker, document-skills, find-skills, frontend-design, frontend-development
-- git, gkg, google-adk-python, markdown-novel-viewer, mcp-builder
-- mcp-management, media-processing, mermaidjs-v11, mobile-development, payment-integration
-- plan, plans-kanban, problem-solving, react-best-practices, remotion
-- repomix, research, scout, sequential-thinking, shader
-- shopify, skill-creator, template-skill, threejs, ui-styling
-- ui-ux-pro-max, web-design-guidelines, web-frameworks, web-testing
+**Indexes**: Exchange, timestamps, asset pairs for efficient querying
+**Encryption**: API credentials encrypted at rest
 
-### 4. Hook System (8 Core Hooks)
+## Tech Stack Summary
 
-**Location**: `.claude/hooks/`
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Bun 1.2+ |
+| Language | TypeScript 5.7+ (strict) |
+| Backend API | Hono v4 |
+| Database | Drizzle ORM + libSQL |
+| Exchange API | CCXT Pro 4.4.0 |
+| Scheduler | Croner 9.0+ |
+| Notifications | grammy 1.35+ |
+| Frontend | React 18 + Vite |
+| UI Library | shadcn/ui + Radix |
+| State | React Query v5 |
+| Forms | React Hook Form + Zod |
+| Validation | Zod 3.24+ |
+| Linting | Biome 1.9+ |
+| Testing | Bun test runner |
+| CI/CD | GitHub Actions |
+| Deployment | Docker + nginx + systemd |
 
-**Core Hooks:**
+## Bootstrap Sequence
 
-1. **session-init.cjs** - Session Initialization
-   - Detects project type (monorepo/library)
-   - Identifies package manager (pnpm/npm/yarn)
-   - Detects framework (Next/React/etc)
-   - Writes 25+ environment variables for context cascade
-
-2. **dev-rules-reminder.cjs** - Development Context Injection
-   - Injects dev rules & context on every prompt
-   - Smart deduplication prevents redundancy
-   - Provides branch-matched workflow suggestions
-   - Optimized for token efficiency
-
-3. **subagent-init.cjs** - Subagent Context Injection
-   - Injects compact context (~200 tokens) when spawning subagents
-   - Minimizes token overhead during delegation
-   - Enables efficient agent-to-agent communication
-
-4. **scout-block.cjs** - Cross-Platform Performance Optimization
-   - Blocks access to heavy directories (node_modules, .git, __pycache__, dist/, build/)
-   - Node.js dispatcher with platform-specific implementations
-   - Unix (Bash): scout-block.sh
-   - Windows (PowerShell): scout-block.ps1
-   - Automatic platform detection via `process.platform`
-   - Improves AI response time and token efficiency
-
-5. **privacy-block.cjs** - Sensitive File Access Control
-6. **descriptive-name.cjs** - Naming conventions enforcement
-7. **post-edit-simplify-reminder.cjs** - Post-edit optimization hints
-8. **usage-context-awareness.cjs** - Context-aware usage patterns
-
-**Hook Features:**
-- Fail-Safe: All hooks exit 0 (non-blocking) - graceful degradation
-- Performance: Optimized token consumption
-- Cross-Platform: Windows (PowerShell) & Unix (Bash) via Node.js dispatcher
-- Comprehensive Test Coverage: test-scout-block.sh (11 tests), test-scout-block.ps1 (7 tests)
-
-### 5. Workflows
-
-**Primary Workflows** (`.claude/rules/`):
-1. **primary-workflow.md**: Core development cycle
-   - Code implementation
-   - Testing
-   - Code quality
-   - Integration
-   - Debugging
-
-2. **orchestration-protocol.md**: Agent coordination patterns
-   - Sequential chaining
-   - Parallel execution
-
-3. **development-rules.md**: Development standards
-   - File size management (<500 lines)
-   - YAGNI, KISS, DRY principles
-   - Code quality guidelines
-   - Pre-commit/push rules
-
-4. **documentation-management.md**: Doc maintenance
-   - Roadmap and changelog updates
-   - Automatic update triggers
-   - Documentation protocols
-
-## Entry Points
-
-### For Users
-- **README.md**: Project overview and quick start
-- **guide/SKILLS.md**: Comprehensive skills reference (7,073 tokens)
-- **CLAUDE.md**: Development instructions and workflows
-
-### For Developers
-- **package.json**: Dependencies and scripts
-- **.releaserc.json**: Semantic release configuration
-- **.commitlintrc.json**: Commit message linting rules
-- **.gitignore**: Version control exclusions
-
-### For Agents
-- **CLAUDE.md**: Primary agent instructions
-- **.claude/rules/**: Development rules and protocols
-- **plans/templates/**: Implementation plan templates
-
-## Development Principles
-
-### YAGNI (You Aren't Gonna Need It)
-Avoid over-engineering and unnecessary features
-
-### KISS (Keep It Simple, Stupid)
-Prefer simple, straightforward solutions
-
-### DRY (Don't Repeat Yourself)
-Eliminate code duplication
-
-### File Size Management
-- Keep files under 500 lines
-- Split large files into focused components
-- Extract utilities into separate modules
-
-### Security First
-- Try-catch error handling
-- Security standards coverage
-- No secrets in commits
-- Confidential info protection
-
-## Agent Communication Protocol
-
-**Report Format**: Markdown files in `./plans/<plan-name>/reports/`
-**Naming Convention**: `{date}-from-[agent]-to-[agent]-[task]-report.md`
-
-**Communication Patterns**:
-- Sequential: Task dependencies require ordered execution
-- Parallel: Independent tasks run simultaneously
-- Query Fan-Out: Multiple researchers explore different approaches
-
-## Git Workflow
-
-**Commit Message Format**: Conventional Commits
 ```
-type(scope): description
-
-Types:
-- feat: Features (minor bump)
-- fix: Bug fixes (patch bump)
-- docs: Documentation (patch bump)
-- refactor: Code refactoring (patch bump)
-- test: Tests (patch bump)
-- ci: CI changes (patch bump)
-- BREAKING CHANGE: Major version bump
+1. Environment validation (Zod)
+2. Database connection & schema
+3. Exchange connections (CCXT Pro)
+4. Executor initialization (live/paper mode)
+5. Price WebSocket subscription
+6. Portfolio service startup
+7. Drift detector activation
+8. Rebalancer engine ready
+9. Strategy modules loaded
+10. Scheduler jobs registered
+11. HTTP server (Hono) startup
+12. WebSocket server ready
+13. Telegram notifier connected
 ```
 
-**Automated Release**:
-- Every push to `main` triggers release check
-- Semantic versioning (MAJOR.MINOR.PATCH)
-- Automated changelog generation
-- GitHub releases with generated notes
+## Execution Flow
 
-## Testing Strategy
+```
+Exchange WS (CCXT Pro)
+    ↓
+Price Service (market data)
+    ↓
+EventBus (publish price:update)
+    ↓
+Portfolio Service (recalculate allocations)
+    ↓
+Drift Detector (check thresholds)
+    ↓ [if drift > threshold]
+Rebalancer (calculate optimal trades)
+    ↓ [if approved]
+Executor (submit orders)
+    ↓
+Database (persist trades)
+    ↓
+EventBus (publish trade:executed)
+    ↓
+Telegram Notifier (alert user)
+WebSocket API (update frontend)
+```
 
-- Comprehensive unit tests required
-- High code coverage mandatory
-- Error scenario testing
-- Performance validation
-- Tests must pass before push
-- No ignoring failed tests
+## API Endpoints
 
-## Documentation Standards
+**REST** (11 routes):
+- `GET /health` - System health
+- `GET /api/portfolio` - Holdings & allocations
+- `GET /api/trades` - Trade history
+- `POST /api/rebalance` - Trigger rebalance
+- `GET /api/allocations` - Target allocations
+- `POST /api/allocations/:asset` - Update target
+- `GET /api/backtest/:id/results` - Backtest results
+- `GET /api/analytics` - Performance metrics
+- `POST /api/config` - Update settings
 
-**Required Docs** (`./docs/`):
-- `project-overview-pdr.md` - Project overview and PDR
-- `code-standards.md` - Coding standards and structure
-- `codebase-summary.md` - This file
-- `system-architecture.md` - Architecture documentation
-- `project-roadmap.md` - Development roadmap
-- `project-changelog.md` - Detailed changelog
-- `statusline-windows-support.md` - Windows statusline setup guide
-- `statusline-architecture.md` - Technical statusline implementation
+**WebSocket** (`/ws`):
+- `portfolio:update` - Holdings changed
+- `trade:executed` - Order filled
+- `price:update` - Price tick
+- `rebalance:status` - Progress update
 
-**Documentation Triggers**:
-- Feature implementation completion
-- Major milestone achievements
-- Bug fixes
-- Security updates
-- Weekly reviews
+## Event System
+
+**TypedEventEmitter** for loose coupling:
+
+| Event | Emitter | Listeners |
+|-------|---------|-----------|
+| `price:update` | Price Service | Rebalancer, UI, Backtesting |
+| `portfolio:snapshot` | Portfolio | Analytics, Database |
+| `rebalance:triggered` | Rebalancer | Executor, Notifier |
+| `trade:executed` | Executor | Portfolio, Database, Notifier |
+| `strategy:signal` | Strategies | Executor, Notifier |
+
+## Testing
+
+**Test Framework**: Bun test runner
+**Coverage**: Unit + integration tests
+**Files**: `tests/unit/` + `tests/integration/`
+**Command**: `bun test` (also supports watch mode)
+
+## Development Standards
+
+**Language**: TypeScript strict mode (no `any`)
+**Naming**: kebab-case files, camelCase vars, PascalCase types
+**Formatting**: 2-space indents (Biome enforced)
+**Comments**: Explain WHY, not WHAT
+**Testing**: >80% code coverage target
+**Commits**: Conventional commits (feat, fix, refactor, test, docs)
+
+## Performance Characteristics
+
+**Rebalance Execution**:
+- Portfolio fetch: 100-500ms per exchange
+- Calculation: 50-100ms
+- Order placement: 500ms-2s per exchange
+- Total cycle: 1-5 seconds
+
+**Memory**: ~300-400MB (Bun + 3 exchanges)
+**Database**: SQLite handles 5+ years of data efficiently
+
+## Security Model
+
+**Credentials**: Encrypted at rest, decrypted only for API calls
+**Input Validation**: Zod schemas on all API inputs
+**Type Safety**: TypeScript strict mode, no `any` types
+**SQL Injection**: Drizzle ORM prevents via parameterized queries
+**Logging**: No secrets in logs, masked API keys
+
+## Deployment
+
+**Target**: Docker on VPS (8GB RAM, Linux)
+**Process Manager**: systemd or Docker
+**Reverse Proxy**: nginx
+**Database**: SQLite (local) or Turso (cloud)
+**Configuration**: Environment variables
+
+## Key Files to Know
+
+**Entry Points**:
+- `src/index.ts` - Application bootstrap
+- `frontend/src/main.tsx` - React app entry
+- `docker-compose.yml` - Container orchestration
+
+**Configuration**:
+- `.env.example` - Template env vars
+- `tsconfig.json` - TypeScript config
+- `biome.json` - Linting/formatting
+
+**Documentation**:
+- `docs/project-overview-pdr.md` - PDR
+- `docs/code-standards.md` - Development standards
+- `docs/system-architecture.md` - Architecture details
+- `CLAUDE.md` - Development instructions
 
 ## Dependencies Overview
 
-### Production Dependencies
-None (template project)
+**Production** (15):
+- bun, ccxt, hono, drizzle-orm, @libsql/client
+- grammy, croner, zod, react, react-router-dom
+- @tanstack/react-query, recharts, react-hook-form
+- tailwindcss, @radix-ui/*, shadcn/ui
 
-### Development Dependencies
-- **@commitlint/cli**: ^18.4.3
-- **@commitlint/config-conventional**: ^18.4.3
-- **@semantic-release/changelog**: ^6.0.3
-- **@semantic-release/commit-analyzer**: ^11.1.0
-- **@semantic-release/git**: ^10.0.1
-- **@semantic-release/github**: ^9.2.6
-- **@semantic-release/npm**: ^11.0.2
-- **@semantic-release/release-notes-generator**: ^12.1.0
-- **conventional-changelog-conventionalcommits**: ^7.0.2
-- **husky**: ^8.0.3
-- **semantic-release**: ^22.0.12
+**Dev** (5):
+- typescript, @biomejs/biome, drizzle-kit, bun
 
-## File Statistics
+## Codebase Metrics
 
-**Total Files**: 48 files (in repomix output)
-**Total Tokens**: 38,868 tokens
-**Total Characters**: 173,077 chars
+| Metric | Value |
+|--------|-------|
+| Total LOC | ~24,000 |
+| Backend LOC | ~10,554 |
+| Frontend LOC | ~13,500 |
+| Modules | 19 backend |
+| Pages | 16 frontend |
+| API Routes | 11 |
+| Database Tables | 13 |
+| Test Files | 20+ |
+| Type Coverage | ~95% |
 
-**Top 5 Files by Token Count**:
-1. `guide/SKILLS.md` - 7,073 tokens (18.2%)
-2. `CHANGELOG.md` - 4,836 tokens (12.4%)
-3. `README.md` - 3,261 tokens (8.4%)
+## Project Status
 
-## Integration Capabilities
+**Phase**: Production (4 phases complete)
+**Stability**: Stable
+**Maintenance**: Active
+**Breaking Changes**: None (v1.0 stable)
 
-### Discord Notifications
-Script: `.claude/hooks/send-discord.sh`
-Purpose: Send project updates to Discord channels
-
-### GitHub Actions
-Workflow: `.github/workflows/release.yml`
-Features: Automated releases, changelog generation
-
-### Agent Skills
-- **brain**: Advanced reasoning
-- **docs-seeker**: Documentation reading
-- **ai-multimodal**: Visual understanding
-- **ai-multimodal & imagemagick skills**: Content generation and processing
-
-## Critical Files
-
-### Configuration
-- `package.json` - Node.js config
-- `.releaserc.json` - Release config
-- `.commitlintrc.json` - Commit linting
-- `.gitignore` - Git exclusions
-- `.repomixignore` - Repomix exclusions
-
-### Documentation
-- `README.md` - Main project docs
-- `CLAUDE.md` - Agent instructions
-- `CHANGELOG.md` - Version history
-- `guide/SKILLS.md` - Skills reference
-
-### Workflows
-- `.claude/rules/primary-workflow.md`
-- `.claude/rules/development-rules.md`
-- `.claude/rules/orchestration-protocol.md`
-- `.claude/rules/documentation-management.md`
-
-## Related Projects
-
-- **claudekit** - ClaudeKit website (`../claudekit`)
-- **claudekit-marketing** - Marketing Kit (`../claudekit-marketing`)
-- **claudekit-cli** - CLI setup tool (`../claudekit-cli`)
-- **claudekit-docs** - Public docs (`../claudekit-docs`)
-
-## Version History
-
-**Current**: v2.9.0-beta.2 (released 2026-01-28)
-**License**: MIT
-**Author**: Duy Nguyen
-**Repository**: https://github.com/claudekit/claudekit-engineer
+Phases completed:
+1. Core rebalancing
+2. Real-time monitoring
+3. Strategy variants
+4. Advanced strategies + analytics
 
 ## Unresolved Questions
 
-None identified. All core components are well-documented and functional.
+1. Support high-frequency trading (sub-second execution)?
+2. Cross-exchange arbitrage automation?
+3. Multi-currency portfolio support?
+4. Tax reporting integration?
+5. Mobile app via Telegram Mini-App?

@@ -1,602 +1,298 @@
-# Claude Code Boilerplate
+# Crypto Rebalance Bot
 
-A comprehensive boilerplate template for building professional software projects with **CLI Coding Agents** (**Claude Code** and **Open Code**). This template provides a complete development environment with AI-powered agent orchestration, automated workflows, and intelligent project management.
+Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Automates multi-exchange portfolio rebalancing (Binance, OKX, Bybit) with advanced strategies: DCA, trailing stops, grid trading, copy trading, AI suggestions. Paper trading, backtesting, and comprehensive analytics.
 
-## What is Claude Code?
+**Status**: Production-ready | **Language**: TypeScript | **Runtime**: Bun | **License**: MIT
 
-**Claude Code** is Anthropic's official CLI tool that brings AI-powered development assistance directly to your terminal. It enables natural language interaction with your codebase and provides intelligent automation for common development tasks.
+## Key Features
 
-- [Claude Code](https://claude.com/product/claude-code)
-- [Docs](https://docs.claude.com/en/docs/claude-code/overview)
+### Core Rebalancing
+- **Auto Rebalance** - Drift-triggered portfolio rebalancing across 3+ exchanges
+- **Real-Time Monitoring** - WebSocket price feeds, REST API, React dashboard
+- **Paper Trading** - Full simulation mode for strategy backtesting
+- **Multi-Exchange** - Unified CCXT Pro API (Binance, OKX, Bybit)
+- **Telegram Alerts** - Real-time trade notifications and portfolio updates
 
-**Open Code CLI Coding Agents** extend Claude Code with specialized AI agents that handle specific aspects of software development - from planning and research to testing and documentation. This creates a collaborative AI development team that works alongside human developers.
+### Advanced Strategies
+- **Trailing Stops** - Automatic position selling on price decline
+- **DCA** - Dollar-cost averaging with scheduled buy orders
+- **TWAP/VWAP** - Intelligent order splitting to minimize slippage
+- **Grid Trading** - Automated buy/sell at price intervals
+- **Copy Trading** - Mirror trades from other portfolio sources
 
-- [Open Code](https://opencode.ai/)
-- [Docs](https://opencode.ai/docs)
-
-## Related Projects & Directories
-
-- `claudekit` - Website of ClaudeKit
-  - Directory: `../claudekit`
-  - Repo: https://github.com/claudekit/claudekit
-- `claudekit-marketing` - Marketing Kit repository
-  - Directory: `../claudekit-marketing`
-  - Repo: https://github.com/claudekit/claudekit-marketing
-- `claudekit-cli` - CLI tool for quick project setup
-  - Directory: `../claudekit-cli`
-  - Repo: https://github.com/mrgoonie/claudekit-cli
-- `claudekit-docs` - Public documentation repository: https://docs.claudekit.cc
-  - Directory: `../claudekit-docs`
-  - Repo: https://github.com/claudekit/claudekit-docs
-
-## Key Benefits
-
-### 🚀 Accelerated Development
-- **AI-Powered Planning**: Automated technical planning and architecture design
-- **Intelligent Code Generation**: Context-aware code creation and modification
-- **Automated Testing**: Comprehensive test generation and execution
-- **Smart Documentation**: Synchronized docs that evolve with your code
-
-### 🎯 Enhanced Quality
-- **Multi-Agent Code Review**: Specialized agents for security, performance, and standards
-- **Automated Quality Assurance**: Continuous testing and validation
-- **Best Practices Enforcement**: Built-in adherence to coding standards
-- **Security-First Development**: Proactive security analysis and recommendations
-
-### 🏗️ Structured Workflow
-- **Agent Orchestration**: Coordinated AI agents working in parallel and sequential workflows
-- **Task Management**: Automated project tracking and progress monitoring
-- **Documentation Sync**: Always up-to-date technical documentation
-- **Clean Git Workflow**: Professional commit messages and branch management
+### Analytics & Intelligence
+- **Backtesting** - Historical performance validation (Sharpe ratio, drawdown)
+- **Performance Metrics** - Return, volatility, win rate analytics
+- **AI Suggestions** - ML-based allocation recommendations
+- **Trade History** - Complete trade audit trail with fees
 
 ## Documentation
 
-### 📚 Core Documentation
-- **[Project Overview & PDR](./docs/project-overview-pdr.md)** - Comprehensive project overview, goals, features, and product development requirements
-- **[Codebase Summary](./docs/codebase-summary.md)** - High-level overview of project structure, technologies, and components
-- **[Code Standards](./docs/code-standards.md)** - Coding standards, naming conventions, and best practices
-- **[System Architecture](./docs/system-architecture.md)** - Detailed architecture documentation, component interactions, and data flow
-- **[Skills Reference](./guide/SKILLS.md)** - Complete guide to all available skills
-
-### 📖 Additional Resources
-- **[CLAUDE.md](./CLAUDE.md)** - Development instructions and workflows for AI agents
-- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and release notes
-- **[Windows Statusline Support](./docs/statusline-windows-support.md)** - Windows compatibility guide for Claude Code statusline
-- **[Statusline Architecture](./docs/statusline-architecture.md)** - Technical documentation for statusline implementation
+- **[Project Overview & PDR](./docs/project-overview-pdr.md)** - Vision, goals, requirements, and success metrics
+- **[Code Standards](./docs/code-standards.md)** - TypeScript strict mode, naming conventions, testing patterns
+- **[System Architecture](./docs/system-architecture.md)** - Service modules, database schema, data flow, API endpoints
+- **[Codebase Summary](./docs/codebase-summary.md)** - Directory structure, module overview, LOC estimates
+- **[Project Roadmap](./docs/project-roadmap.md)** - Current status, completed phases, future roadmap
 
 ## Quick Start
 
 ### Prerequisites
-- [Claude Code](https://code.claude.com/docs/en/setup) installed and configured
-- Git for version control
-- Node.js 18+ (or your preferred runtime)
-- Operating Systems: macOS 10.15+, Ubuntu 20.04+/Debian 10+, or Windows 10+ (with WSL 1, WSL 2, or Git for Windows)
-- Hardware: 4GB+ RAM
+- **Bun 1.2+** - [Install Bun](https://bun.sh)
+- **Docker** - For containerized deployment
+- **VPS** - 8GB RAM minimum (Linux recommended)
+- **Exchange API Keys** - Binance, OKX, or Bybit
+- **Telegram Bot Token** - Optional, for notifications
 
-### Setup your new project with ClaudeKit
+### Setup
 
-1. **Install ClaudeKit CLI**:
-   ```bash
-   npm install -g claudekit-cli
-   ```
+```bash
+git clone https://github.com/dungngo97/rebalance-bot.git && cd rebalance-bot
+bun install
+cp .env.example .env    # Edit with exchange keys
+bun run src/db/migrate.ts
+bun run src/index.ts    # Start bot
+# Frontend: http://localhost:5173
+# API: http://localhost:3000
+```
 
-2. **Create your new project with ClaudeKit framework**:
-   ```bash
-   mkdir my-project
-   ck new --dir my-project --kit engineer
-   ```
+Or deploy with Docker: `docker-compose up -d`
 
-   **Note:** If you want to use the kit with your existing project:
-   ```bash
-   cd /path/to/project
-   ck init --kit engineer
-   ```
-
-3. **Start development**:
-   ```bash
-   # Begin with Claude Code
-   claude
-   # [YOLO mode - not recommended]
-   # claude --dangerously-skip-permissions
-
-   # now you can use these specific commands
-   /plan "implement user authentication"
-   /cook "add database integration"
-   ```
-
-📖 **Learn more from our docs:** [https://docs.claudekit.cc](https://docs.claudekit.cc)
+See [deployment guide](./docs/deployment-guide.md) for VPS setup.
 
 ## Project Structure
 
 ```
-├── .claude/                 # Claude Code configuration
-│   ├── agents/             # Claude Code agents
-│   ├── command-archive/    # Archived legacy command definitions
-│   ├── hooks/              # Claude Code hooks
-│   │   └── notifications/  # Multi-provider notification system
-│   ├── skills/             # Claude Code skills
-│   └── CLAUDE.md           # Global development instructions
-├── docs/                   # Project documentation
-│   ├── codebase-summary.md # Auto-generated codebase overview
-│   ├── code-standards.md   # Development standards
-│   ├── project-overview-pdr.md # Product requirements
-│   └── development-roadmap.md  # Project roadmap
-├── plans/                  # Implementation plans and reports
-│   ├── templates/          # Plan templates
-│   └── reports/            # Agent-to-agent communication
-├── CLAUDE.md              # Project-specific Claude instructions
-├── AGENTS.md              # Agent coordination guidelines
-└── README.md              # This file
+rebalance-bot/
+├── src/
+│   ├── index.ts           # Application entry point
+│   ├── api/               # REST API + WebSocket server (Hono)
+│   ├── db/                # Database schema & ORM (Drizzle)
+│   ├── exchange/          # Multi-exchange CCXT Pro integration
+│   ├── portfolio/         # Portfolio tracking & allocations
+│   ├── rebalancer/        # Rebalancing strategy engine
+│   ├── executor/          # Order execution
+│   ├── price/             # Market data & indicators
+│   ├── strategies/        # DCA, grid, trailing-stop, TWAP/VWAP
+│   ├── analytics/         # Performance metrics
+│   ├── backtesting/       # Historical testing
+│   ├── notifier/          # Telegram notifications
+│   ├── scheduler/         # Cron tasks
+│   ├── events/            # Event bus
+│   ├── ai/                # ML suggestions
+│   ├── copy-trading/      # Trade replication
+│   └── config/            # Configuration & validation
+├── frontend/              # React dashboard (Vite)
+├── tests/                 # Test suites
+├── docs/                  # Documentation
+├── docker-compose.yml     # Container config
+├── .env.example          # Template environment vars
+└── README.md             # This file
 ```
 
-## The AI Agent Team
+## Tech Stack
 
-This boilerplate includes 17+ specialized AI agents that work together to deliver high-quality software. Agents coordinate through file-based communication, enabling sequential chaining and parallel execution patterns.
+| Layer | Technology |
+|-------|-----------|
+| **Runtime** | Bun 1.2+ |
+| **Language** | TypeScript 5.7+ (strict) |
+| **Backend** | Hono v4 (HTTP + WebSocket) |
+| **Database** | Drizzle ORM + libSQL (SQLite) |
+| **Exchanges** | CCXT Pro 4.4.0 |
+| **Scheduler** | Croner 9.0+ |
+| **Notifications** | grammy 1.35+ (Telegram) |
+| **Frontend** | React 18 + Vite + Tailwind |
+| **UI Components** | shadcn/ui + Radix |
+| **State Management** | React Query v5 |
+| **Validation** | Zod 3.24+ |
+| **Linting** | Biome 1.9+ |
+| **Testing** | Bun test runner |
+| **Deployment** | Docker + nginx + systemd |
 
-### 🎯 Core Development Agents
+## Architecture Overview
 
-#### **Planner Agent**
-- Researches technical approaches and best practices
-- Creates comprehensive implementation plans
-- Analyzes architectural trade-offs
-- Spawns multiple researcher agents for parallel investigation
+**Event-Driven Core**: Services communicate via TypedEventEmitter for loose coupling.
 
-#### **Researcher Agent**
-- Investigates specific technologies and frameworks
-- Analyzes existing solutions and patterns
-- Provides technical recommendations
-- Supports the planner with detailed findings
+**Multi-Exchange Abstraction**: CCXT Pro provides unified API across Binance, OKX, Bybit.
 
-#### **Tester Agent**
-- Generates comprehensive test suites
-- Validates functionality and performance
-- Ensures cross-platform compatibility
-- Reports on test coverage and quality metrics
+**Real-Time Data**: WebSocket feeds from exchanges → Price Service → EventBus → Consumers.
 
-### 🔍 Quality Assurance Agents
+**Execution Model**: Live and paper trading modes via executor pattern.
 
-#### **Code Reviewer Agent**
-- Performs automated code quality analysis
-- Enforces coding standards and conventions
-- Identifies security vulnerabilities
-- Provides improvement recommendations
-
-#### **Debugger Agent**
-- Analyzes application logs and error reports
-- Diagnoses performance bottlenecks
-- Investigates CI/CD pipeline issues
-- Provides root cause analysis
-
-### 📚 Documentation & Management Agents
-
-#### **Docs Manager Agent**
-- Maintains synchronized technical documentation
-- Updates API documentation automatically
-- Ensures documentation accuracy
-- Manages codebase summaries with repomix
-
-#### **Git Manager Agent**
-- Creates clean, conventional commit messages
-- Manages branching and merge strategies
-- Handles version control workflows
-- Ensures professional git history
-
-#### **Project Manager Agent**
-- Tracks development progress and milestones
-- Updates project roadmaps and timelines
-- Manages task completion verification
-- Maintains project health metrics
-
-### 🎨 Design & Content Agents
-
-#### **UI/UX Designer Agent**
-- Creates design specifications and prototypes
-- Develops visual components
-- Ensures design system consistency
-- Performs user experience analysis
-
-#### **Copywriter Agent**
-- Creates marketing and technical content
-- Optimizes copy for conversion
-- Develops documentation narratives
-- Enhances content clarity
-
-### 🔎 Specialized Agents
-
-#### **Scout Agent**
-- Performs parallel codebase exploration
-- Analyzes code patterns and structure
-- Identifies optimization opportunities
-- Maps component relationships
-
-#### **Database Admin Agent**
-- Manages database operations
-- Performs migrations and optimization
-- Ensures data integrity
-- Designs schema patterns
-
-#### **Journal Writer Agent**
-- Documents development decisions
-- Tracks technical explorations
-- Records lessons learned
-- Maintains decision history
-
-## Agent Orchestration Patterns
-
-### Sequential Chaining
-Use when tasks have dependencies:
-```bash
-# Planning → Implementation → Testing → Review
-/plan "implement user dashboard"
-# Wait for plan completion, then:
-/code  # Executes the plan
-# After implementation:
-/test "validate dashboard functionality"
-# Finally:
-/code-review "ensure code quality standards"
-
-# Alternative: Use /cook for standalone implementation (plans internally)
-/cook "implement user dashboard"
-```
-
-### Parallel Execution
-Use for independent tasks:
-```bash
-# Multiple researchers exploring different approaches
-planner agent spawns:
-- researcher (database options)
-- researcher (authentication methods)
-- researcher (UI frameworks)
-# All report back to planner simultaneously
-```
-
-### Context Management
-- Agents communicate through file system reports
-- Context is preserved between agent handoffs
-- Fresh context prevents conversation degradation
-- Essential information is documented in markdown
+**Database-First**: Drizzle ORM with 8+ tables (trades, snapshots, allocations, OHLCV, etc.).
 
 ## Development Workflow
 
-### 1. Feature Development
-```bash
-# Start with planning
-/plan "add real-time notifications"
+### Adding a New Strategy
 
-# Research phase (automatic)
-# Multiple researcher agents investigate approaches
+1. **Create strategy module** in `src/strategies/your-strategy/`
+2. **Emit events** via `eventBus` for Telegram/UI updates
+3. **Write tests** in `tests/strategies/`
+4. **Update README** with strategy description
+5. **Add config option** to `.env.example`
+6. **Commit** with `feat(strategy): add [name]`
 
-# Implementation
-/cook "implement notification system"
+### Configuration
 
-# Quality assurance
-/test
-/code-review
+Key environment variables: `BINANCE_API_KEY`, `OKX_API_KEY`, `BYBIT_API_KEY`, `REBALANCE_THRESHOLD=0.05`, `MIN_TRADE_USD=10`, `PAPER_TRADING=true`, `TELEGRAM_BOT_TOKEN`, `DATABASE_URL`. See `.env.example`.
 
-# Documentation update
-/docs
+## API Reference
 
-# Project tracking
-/watzup  # Check project status
-```
+### REST Endpoints
 
-### 2. Bug Fixing
-```bash
-# Analyze the issue
-/debug "investigate login failures"
+**Portfolio**:
+- `GET /api/health` - System health check
+- `GET /api/portfolio` - Current holdings & allocations
+- `GET /api/allocations` - Target allocations
 
-# Create fix plan
-/plan "resolve authentication bug"
+**Trading**:
+- `POST /api/rebalance` - Trigger manual rebalance
+- `GET /api/trades` - Trade history
+- `GET /api/orders` - Active orders
 
-# Implement solution
-/fix "authentication issue"
+**Strategy**:
+- `POST /api/backtest` - Run backtest
+- `GET /api/backtest/:id/results` - Backtest results
+- `GET /api/analytics` - Performance metrics
 
-# Validate fix
-/test
-```
+**Configuration**:
+- `POST /api/config` - Update configuration
+- `POST /api/allocations/:asset` - Set asset target
 
-### 3. Documentation Management
-```bash
-# Update documentation
-/docs
+### WebSocket Events
 
-# Generate codebase summary
-repomix  # Creates ./docs/codebase-summary.md
+Subscribe to `ws://localhost:3000/ws`:
+- `portfolio:update` - Holdings changed
+- `trade:executed` - Order filled
+- `price:update` - Price changed
+- `rebalance:status` - Rebalance progress
 
-# Review project status
-/watzup
-```
+## Testing
 
-## Configuration Files
-
-### CLAUDE.md
-Project-specific instructions for Claude Code. Customize this file to define:
-- Project architecture guidelines
-- Development standards and conventions
-- Agent coordination protocols
-- Specific workflows for your project
-
-### plans/templates/*.md
-Reusable templates for:
-- Feature implementation plans
-- Bug fix procedures
-- Refactoring strategies
-- Architecture decisions
-
-## Gemini Skills Configuration
-
-This project includes several Gemini-powered skills that require a Google Gemini API key:
-
-- **gemini-audio** - Audio analysis and speech generation
-- **gemini-video-understanding** - Video analysis and understanding
-- **gemini-document-processing** - PDF document processing
-- **gemini-image-gen** - AI image generation
-- **gemini-vision** - Image analysis and vision capabilities
-
-### API Key Setup
-
-The Gemini skills check for `GEMINI_API_KEY` in the following order (priority from highest to lowest):
-
-1. **Environment Variable** (Recommended for development)
-   ```bash
-   export GEMINI_API_KEY='your-api-key-here'
-   ```
-
-2. **Project Root `.env`** (Recommended for project-specific keys)
-   ```bash
-   # Create .env in project root
-   echo 'GEMINI_API_KEY=your-api-key-here' > .env
-   ```
-
-3. **`.claude/.env`** (For Claude-specific configuration)
-   ```bash
-   # Copy example and edit
-   cp .claude/.env.example .claude/.env
-   # Then edit .claude/.env and set your API key
-   ```
-
-4. **`.claude/skills/.env`** (For shared skills configuration)
-   ```bash
-   # Copy example and edit
-   cp .claude/skills/.env.example .claude/skills/.env
-   # Then edit .claude/skills/.env and set your API key
-   ```
-
-5. **Individual Skill Directory `.env`** (For skill-specific keys)
-   ```bash
-   # Example for gemini-audio skill
-   cp .claude/skills/gemini-audio/.env.example .claude/skills/gemini-audio/.env
-   # Then edit and set your API key
-   ```
-
-### Getting Your API Key
-
-Get your free Gemini API key at: https://aistudio.google.com/apikey
-
-### Vertex AI Support
-
-To use Vertex AI instead of Google AI Studio:
+Run tests with Bun:
 
 ```bash
-# Enable Vertex AI
-export GEMINI_USE_VERTEX=true
-export VERTEX_PROJECT_ID=your-gcp-project-id
-export VERTEX_LOCATION=us-central1  # Optional, defaults to us-central1
+# All tests
+bun test
+
+# Watch mode
+bun test --watch
+
+# Specific module
+bun test src/portfolio/portfolio-service.test.ts
+
+# Coverage
+bun test --coverage
 ```
 
-Or in `.env` file:
-```
-GEMINI_USE_VERTEX=true
-VERTEX_PROJECT_ID=your-gcp-project-id
-VERTEX_LOCATION=us-central1
-```
+Test files use Bun's test runner. See `tests/` directory for examples.
 
-### Usage Examples
+## Debugging
+
+Enable detailed logging:
 
 ```bash
-# Audio analysis
-claude "Analyze this audio file and summarize the key points: audio.mp3"
-
-# Video understanding
-claude "Describe what happens in this video: video.mp4"
-
-# Document processing
-claude "Extract all tables from this PDF: document.pdf"
-
-# Image generation
-claude "Generate an image of a serene mountain landscape"
-
-# Image analysis
-claude "What objects are in this image: photo.jpg"
+DEBUG=* bun run src/index.ts
 ```
 
-## Model Context Protocol (MCP)
-
-✍️ Please read [my technical blog article about MCP here](https://faafospecialist.substack.com/p/claude-code-solution-to-use-mcp-servers).
-
-### Pre-requisites
-
-In ClaudeKit, you need to setup the MCP servers in `.claude/.mcp.json` file.
-
-Copy the example file:
-```bash
-mv .claude/.mcp.json.example .claude/.mcp.json
-```
-
-Then add your MCP servers, below are some examples:
-
-### [Context7](https://github.com/upstash/context7)
-```json
-{
-   "mcpServers": {
-      "context7": {
-         "command": "npx",
-         "args": ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_API_KEY"],
-      }
-   }
-}
-```
-
-### [Human MCP](https://github.com/mrgoonie/human-mcp/)
-
-```json
-{
-   "mcpServers": {
-      "human": {
-         "command": "npx",
-         "args": ["@goonnguyen/human-mcp@latest"],
-         "env": { "GOOGLE_GEMINI_API_KEY": "YOUR_API_KEY" }
-      }
-   }
-}
-```
-
-### [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp)
-```json
-{
-   "mcpServers": {
-      "chrome-devtools": {
-         "command": "npx",
-         "args": ["-y", "chrome-devtools-mcp@latest"]
-      }
-   }
-}
-```
-
-## Best Practices
-
-### Development Principles
-- **YAGNI**: You Aren't Gonna Need It - avoid over-engineering
-- **KISS**: Keep It Simple, Stupid - prefer simple solutions
-- **DRY**: Don't Repeat Yourself - eliminate code duplication
-
-### Code Quality
-- All code changes go through automated review
-- Comprehensive testing is mandatory
-- Security considerations are built-in
-- Performance optimization is continuous
-
-### Documentation
-- Documentation evolves with code changes
-- API docs are automatically updated
-- Architecture decisions are recorded
-- Codebase summaries are regularly refreshed
-
-### Git Workflow
-- Clean, conventional commit messages
-- Professional git history
-- No AI attribution in commits
-- Focused, atomic commits
-
-## Usage Examples
-
-### Starting a New Feature
-```bash
-# Research and plan
-claude "I need to implement user authentication with OAuth2"
-# Planner agent creates comprehensive plan
-
-# Follow the plan
-claude "Implement the authentication plan"
-# Implementation follows the detailed plan
-
-# Ensure quality
-claude "Review and test the authentication system"
-# Testing and code review agents validate the implementation
-```
-
-### Debugging Issues
-```bash
-# Investigate problem
-claude "Debug the slow database queries"
-# Debugger agent analyzes logs and performance
-
-# Create solution
-claude "Optimize the identified query performance issues"
-# Implementation follows debugging recommendations
-
-# Validate fix
-claude "Test query performance improvements"
-# Tester agent validates the optimization
-```
-
-### Project Maintenance
-```bash
-# Check project health
-claude "What's the current project status?"
-# Project manager provides comprehensive status
-
-# Update documentation
-claude "Sync documentation with recent changes"
-# Docs manager updates all relevant documentation
-
-# Plan next sprint
-claude "Plan the next development phase"
-# Planner creates detailed roadmap for upcoming work
-```
-
-## Advanced Features
-
-### Multi-Project Support
-- Manage multiple repositories simultaneously
-- Shared agent configurations across projects
-- Consistent development patterns
-
-### Custom Agent Creation
-- Define project-specific agents
-- Extend existing agent capabilities
-- Create domain-specific expertise
-
-### Integration Capabilities
-- **Multi-provider notifications** (Telegram, Discord, Slack) with smart throttling
-- GitHub Actions integration
-- CI/CD pipeline enhancement
-
-See `.claude/hooks/notifications/docs/` for setup guides.
-
-## Customization Guide
-
-### 1. Project Setup
-- Update `CLAUDE.md` with your project specifics
-- Customize plan templates in `plans/templates/`
-
-### 2. Agent Specialization
-- Add domain-specific knowledge to agents
-- Create custom agents for unique requirements
-- Configure agent interaction patterns
-
-### 3. Workflow Optimization
-- Define project-specific commands
-- Create shortcuts for common tasks
-- Establish team coding standards
+Key debug namespaces:
+- `exchange:*` - Exchange API interactions
+- `portfolio:*` - Portfolio updates
+- `rebalancer:*` - Rebalancing logic
+- `executor:*` - Order execution
+- `api:*` - API requests
 
 ## Contributing
 
-1. Fork this repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Follow the agent orchestration workflow
-4. Ensure all tests pass and documentation is updated
-5. Create a Pull Request
+1. **Fork and clone** the repository
+2. **Create feature branch**: `git checkout -b feat/your-feature`
+3. **Follow code standards** in `./docs/code-standards.md`
+4. **Write tests** for new features
+5. **Run lint & tests**: `biome check --fix && bun test`
+6. **Commit** with conventional commits: `feat(scope): description`
+7. **Push** to fork and create PR
+
+See [CLAUDE.md](./CLAUDE.md) for development rules.
+
+## Common Tasks
+
+### Check Portfolio Drift
+```bash
+curl http://localhost:3000/api/portfolio
+# Shows holdings, allocations, drift percentage
+```
+
+### Trigger Manual Rebalance
+```bash
+curl -X POST http://localhost:3000/api/rebalance
+# Validates drift, calculates trades, executes
+```
+
+### View Trade History
+```bash
+curl http://localhost:3000/api/trades?limit=20&exchange=binance
+# Returns recent trades with prices, fees, timestamps
+```
+
+### Backtest Strategy
+```bash
+curl -X POST http://localhost:3000/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy": "momentum-tilt",
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31",
+    "capital": 10000
+  }'
+# Returns Sharpe ratio, returns, drawdown
+```
+
+## Production Deployment
+
+See [deployment guide](./docs/deployment-guide.md) for:
+- Docker image build
+- Environment configuration
+- Database setup
+- nginx reverse proxy
+- systemd service
+- VPS security hardening
+- Monitoring setup
+
+## Troubleshooting
+
+**Exchange connection**: Check API keys, IP whitelist, firewall.
+**Order fails**: Verify balance, minimum order size ($10), pair is active.
+**Database error**: Validate `DATABASE_URL`, file is writable, run migration.
+**Disconnects**: Automatic reconnection every 5s; check internet & rate limits.
+
+See `docker-compose logs` or set `DEBUG=*` for detailed logging.
+
+## Performance
+
+**Typical rebalance cycle**:
+- Portfolio fetch: 200-500ms per exchange
+- Calculation: 50-100ms
+- Order execution: 500ms-2s
+- Total: 1-5 seconds
+
+**Memory usage**: ~300-400MB (Bun + 3 exchanges)
+
+**Database**: SQLite handles 5+ years of trade history efficiently
+
+## Security Notes
+
+- All credentials encrypted at rest
+- Never commit `.env` or database files
+- Rotate API keys monthly
+- Use IP whitelisting on exchange accounts
+- Enable 2FA on exchange accounts
+- Consider using sub-accounts with limited permissions
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT - See [LICENSE](LICENSE)
 
-## Learn More
+## Support
 
-### Claude Code Resources
-- [Claude Code Documentation](https://claude.ai/code)
-
-### Community
-- [ClaudeKit Community](https://claudekit.cc/discord)
-- [Discussion Forum](https://github.com/anthropic/claude-code/discussions)
-- [Example Projects](https://github.com/topics/claude-code)
-
-### Support
-- [Issue Tracker](https://github.com/anthropic/claude-code/issues)
-- [Feature Requests](https://github.com/anthropic/claude-code/discussions/categories/ideas)
-- [Documentation](https://docs.claude.ai/code)
-
----
-
-**Start building with AI-powered development today!** This boilerplate provides everything you need to create professional software with intelligent agent assistance.
+- GitHub Issues: Report bugs and request features
+- Documentation: [./docs/](./docs/)
+- Discord: Join our community for discussions
