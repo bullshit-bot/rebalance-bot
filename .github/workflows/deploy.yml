@@ -32,6 +32,9 @@ jobs:
           script: |
             set -e
 
+            # Install system deps
+            apt-get update -qq && apt-get install -y -qq unzip git curl > /dev/null 2>&1
+
             # Install bun if not present
             if ! command -v bun &> /dev/null; then
               curl -fsSL https://bun.sh/install | bash
@@ -51,6 +54,22 @@ jobs:
             else
               git clone https://github.com/${{ github.repository }}.git "$APP_DIR"
               cd "$APP_DIR"
+            fi
+
+            # Create .env if not exists
+            if [ ! -f "$APP_DIR/.env" ]; then
+              cp "$APP_DIR/.env.example" "$APP_DIR/.env" 2>/dev/null || cat > "$APP_DIR/.env" << 'ENVFILE'
+            API_PORT=3001
+            API_KEY=change-me-to-secure-key
+            ENCRYPTION_KEY=change-me-32-char-encryption-key
+            PAPER_TRADING=true
+            DATABASE_URL=file:data/bot.db
+            REBALANCE_THRESHOLD=5
+            MIN_TRADE_USD=10
+            MAX_TRADE_USD=5000
+            DAILY_LOSS_LIMIT_PCT=10
+            ENVFILE
+              echo "Created default .env — EDIT /opt/rebalance-bot/.env with real values!"
             fi
 
             # Install deps
