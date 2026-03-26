@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN addgroup --system --gid 1001 botgroup && \
-    adduser --system --uid 1001 --ingroup botgroup botuser
+RUN groupadd --system --gid 1001 botgroup && \
+    useradd --system --uid 1001 --gid botgroup --no-create-home botuser
 
 # Copy built output and necessary files
 COPY --from=builder /app/dist ./dist
