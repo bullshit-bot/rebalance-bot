@@ -1,34 +1,14 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { snapshots } from '@db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { snapshotService } from './snapshot-service'
 import type { Portfolio } from '@/types/index'
-import { gte, lte, and, eq } from 'drizzle-orm'
-
-const now = Math.floor(Date.now() / 1000)
 
 beforeAll(async () => {
-  // Clean up previous test snapshots (use timestamp range)
-  const testRange = await db
-    .select()
-    .from(snapshots)
-    .where(and(gte(snapshots.createdAt, now - 86400), lte(snapshots.createdAt, now)))
-
-  for (const snap of testRange) {
-    await db.delete(snapshots).where(eq(snapshots.id, snap.id))
-  }
+  await setupTestDB()
 })
 
 afterAll(async () => {
-  // Clean up test snapshots
-  const testRange = await db
-    .select()
-    .from(snapshots)
-    .where(and(gte(snapshots.createdAt, now - 86400), lte(snapshots.createdAt, now)))
-
-  for (const snap of testRange) {
-    await db.delete(snapshots).where(eq(snapshots.id, snap.id))
-  }
+  await teardownTestDB()
 })
 
 describe('SnapshotService integration', () => {
@@ -106,7 +86,9 @@ describe('SnapshotService integration', () => {
     const latest = await snapshotService.getLatest()
     expect(latest).toBeDefined()
 
-    const holdings = JSON.parse(latest!.holdings)
+    const holdings = typeof latest!.holdings === 'string'
+      ? JSON.parse(latest!.holdings)
+      : latest!.holdings
     expect(holdings['BTC']).toBeDefined()
     expect(holdings['BTC'].amount).toBe(0.1)
     expect(holdings['BTC'].exchange).toBe('okx')
@@ -132,7 +114,9 @@ describe('SnapshotService integration', () => {
     await snapshotService.saveSnapshot(portfolio)
 
     const latest = await snapshotService.getLatest()
-    const allocations = JSON.parse(latest!.allocations)
+    const allocations = typeof latest!.allocations === 'string'
+      ? JSON.parse(latest!.allocations)
+      : latest!.allocations
 
     expect(allocations['ETH']).toBeDefined()
     expect(allocations['ETH'].currentPct).toBe(50)
@@ -141,6 +125,7 @@ describe('SnapshotService integration', () => {
   })
 
   test('getSnapshots returns empty array for empty date range', async () => {
+    const now = Math.floor(Date.now() / 1000)
     const from = now - 86400 * 365 // 1 year ago
     const to = now - 86400 * 364 // 364 days ago
     const result = await snapshotService.getSnapshots(from, to)
@@ -150,6 +135,8 @@ describe('SnapshotService integration', () => {
   })
 
   test('getSnapshots filters by date range', async () => {
+    const now = Math.floor(Date.now() / 1000)
+
     // Save a snapshot
     const portfolio: Portfolio = {
       totalValueUsd: 8000,
@@ -255,6 +242,7 @@ describe('SnapshotService integration', () => {
 
     await snapshotService.saveSnapshot(portfolio2)
 
+    const now = Math.floor(Date.now() / 1000)
     const from = now - 10
     const to = now + 100
     const result = await snapshotService.getSnapshots(from, to)
@@ -262,11 +250,15 @@ describe('SnapshotService integration', () => {
     // Should be ordered by createdAt (oldest first)
     expect(result.length).toBeGreaterThanOrEqual(2)
     if (result.length >= 2) {
-      expect(result[0].createdAt).toBeLessThanOrEqual(result[1].createdAt)
+      const date1 = result[0].createdAt instanceof Date ? result[0].createdAt.getTime() : result[0].createdAt
+      const date2 = result[1].createdAt instanceof Date ? result[1].createdAt.getTime() : result[1].createdAt
+      expect(date1).toBeLessThanOrEqual(date2)
     }
   })
 
   test('getSnapshots with narrow date range', async () => {
+    const now = Math.floor(Date.now() / 1000)
+
     const portfolio: Portfolio = {
       totalValueUsd: 7000,
       assets: [
@@ -343,7 +335,9 @@ describe('SnapshotService integration', () => {
     const latest = await snapshotService.getLatest()
     expect(latest).toBeDefined()
 
-    const holdings = JSON.parse(latest!.holdings)
+    const holdings = typeof latest!.holdings === 'string'
+      ? JSON.parse(latest!.holdings)
+      : latest!.holdings
     expect(Object.keys(holdings).length).toBe(4)
     expect(holdings['SOL'].exchange).toBe('okx')
   })

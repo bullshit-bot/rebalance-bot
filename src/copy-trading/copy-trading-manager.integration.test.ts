@@ -1,22 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { copySources, copySyncLog } from '@db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { CopySyncLogModel } from '@db/database'
 import { copyTradingManager } from './copy-trading-manager'
 
 describe('copy-trading-manager', () => {
   let testSourceId: string
 
   beforeAll(async () => {
-    // Clean up test data
-    await db.delete(copySyncLog)
-    await db.delete(copySources)
+    await setupTestDB()
   })
 
   afterAll(async () => {
-    // Clean up test data
-    await db.delete(copySyncLog)
-    await db.delete(copySources)
+    await teardownTestDB()
   })
 
   describe('addSource', () => {
@@ -94,7 +89,7 @@ describe('copy-trading-manager', () => {
       })
 
       const sources = await copyTradingManager.getSources()
-      const found = sources.find((s) => s.id === id)
+      const found = sources.find((s) => s._id === id)
 
       expect(found).toBeDefined()
     })
@@ -109,11 +104,11 @@ describe('copy-trading-manager', () => {
       })
 
       // Remove related sync logs first
-      await db.delete(copySyncLog).where(eq(copySyncLog.sourceId, id))
+      await CopySyncLogModel.deleteMany({ sourceId: id })
       await copyTradingManager.removeSource(id)
 
       const sources = await copyTradingManager.getSources()
-      const found = sources.find((s) => s.id === id)
+      const found = sources.find((s) => s._id === id)
 
       expect(found).toBeUndefined()
     })
@@ -136,7 +131,7 @@ describe('copy-trading-manager', () => {
       await copyTradingManager.updateSource(id, { name: 'Updated Name' })
 
       const sources = await copyTradingManager.getSources()
-      const updated = sources.find((s) => s.id === id)
+      const updated = sources.find((s) => s._id === id)
 
       expect(updated?.name).toBe('Updated Name')
     })
@@ -151,9 +146,9 @@ describe('copy-trading-manager', () => {
       await copyTradingManager.updateSource(id, { enabled: false })
 
       const sources = await copyTradingManager.getSources()
-      const updated = sources.find((s) => s.id === id)
+      const updated = sources.find((s) => s._id === id)
 
-      expect(updated?.enabled).toBe(0)
+      expect(updated?.enabled).toBe(false)
     })
 
     it('should update allocations', async () => {
@@ -171,9 +166,11 @@ describe('copy-trading-manager', () => {
       })
 
       const sources = await copyTradingManager.getSources()
-      const updated = sources.find((s) => s.id === id)
+      const updated = sources.find((s) => s._id === id)
 
-      const allocs = JSON.parse(updated?.allocations || '[]')
+      const allocs = Array.isArray(updated?.allocations)
+        ? updated.allocations
+        : JSON.parse(updated?.allocations || '[]')
       expect(allocs.length).toBe(2)
     })
   })
@@ -208,8 +205,10 @@ describe('copy-trading-manager', () => {
       expect(id).toBeDefined()
 
       const sources = await copyTradingManager.getSources()
-      const found = sources.find((s) => s.id === id)
-      const foundAllocs = JSON.parse(found?.allocations || '[]')
+      const found = sources.find((s) => s._id === id)
+      const foundAllocs = Array.isArray(found?.allocations)
+        ? found.allocations
+        : JSON.parse(found?.allocations || '[]')
       expect(foundAllocs.length).toBe(50)
     })
 
@@ -221,7 +220,7 @@ describe('copy-trading-manager', () => {
       })
 
       const sources = await copyTradingManager.getSources()
-      const found = sources.find((s) => s.id === id)
+      const found = sources.find((s) => s._id === id)
 
       expect(found?.name).toContain('Special')
     })

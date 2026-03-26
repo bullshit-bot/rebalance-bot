@@ -1,34 +1,26 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { randomUUID } from 'node:crypto'
-import { db } from '@/db/database'
-import { aiSuggestions, allocations } from '@/db/schema'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
+import { AISuggestionModel, AllocationModel } from '@db/database'
 import { aiSuggestionHandler } from './ai-suggestion-handler'
-import { eq } from 'drizzle-orm'
 
 describe('ai-suggestion-handler (integration)', () => {
   const testRebalanceId = randomUUID()
 
   beforeEach(async () => {
-    // Clear allocations for clean state
-    await db.delete(allocations)
+    await setupTestDB()
   })
 
   afterEach(async () => {
-    // Cleanup test data
-    const suggestions = await db.select().from(aiSuggestions)
-    for (const sugg of suggestions) {
-      await db.delete(aiSuggestions).where(eq(aiSuggestions.id, sugg.id))
-    }
-    await db.delete(allocations)
+    await teardownTestDB()
   })
 
   describe('handleSuggestion', () => {
     it('should create a pending suggestion when autoApprove is false', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 40 },
-        { asset: 'ETH', targetPct: 60 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 40, exchange: null },
+        { asset: 'ETH', targetPct: 60, exchange: null },
       ])
 
       const input = {
@@ -47,14 +39,10 @@ describe('ai-suggestion-handler (integration)', () => {
       expect(result.id.length).toBeGreaterThan(0)
 
       // Verify it was saved to DB
-      const saved = await db
-        .select()
-        .from(aiSuggestions)
-        .where(eq(aiSuggestions.id, result.id))
-        .limit(1)
+      const saved = await AISuggestionModel.findById(result.id).lean()
 
-      expect(saved.length).toBe(1)
-      expect(saved[0].reasoning).toBe('Test suggestion')
+      expect(saved).toBeDefined()
+      expect(saved!.reasoning).toBe('Test suggestion')
     })
 
     it('should reject allocations that do not sum to ~100%', async () => {
@@ -77,10 +65,9 @@ describe('ai-suggestion-handler (integration)', () => {
 
     it('should allow allocations summing to 100% ±1%', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 48 },
-        { asset: 'ETH', targetPct: 52 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 48, exchange: null },
+        { asset: 'ETH', targetPct: 52, exchange: null },
       ])
 
       const input = {
@@ -118,9 +105,8 @@ describe('ai-suggestion-handler (integration)', () => {
 
     it('should accept suggestion with sentimentData', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 100 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 100, exchange: null },
       ])
 
       const input = {
@@ -134,23 +120,18 @@ describe('ai-suggestion-handler (integration)', () => {
       const result = await aiSuggestionHandler.handleSuggestion(input)
       expect(result.id).toBeString()
 
-      const saved = await db
-        .select()
-        .from(aiSuggestions)
-        .where(eq(aiSuggestions.id, result.id))
-        .limit(1)
+      const saved = await AISuggestionModel.findById(result.id).lean()
 
-      expect(saved[0].sentimentData).toBeDefined()
+      expect(saved!.sentimentData).toBeDefined()
     })
   })
 
   describe('approve', () => {
     it('should approve pending suggestion and update allocations', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 50 },
-        { asset: 'ETH', targetPct: 50 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 50, exchange: null },
+        { asset: 'ETH', targetPct: 50, exchange: null },
       ])
 
       const input = {
@@ -168,17 +149,14 @@ describe('ai-suggestion-handler (integration)', () => {
       await aiSuggestionHandler.approve(suggestionId)
 
       // Verify it was marked as approved
-      const saved = await db
-        .select()
-        .from(aiSuggestions)
-        .where(eq(aiSuggestions.id, suggestionId))
-        .limit(1)
+      const saved = await AISuggestionModel.findById(suggestionId).lean()
 
-      expect(saved[0].status).toBe('approved')
-      expect(saved[0].approvedAt).toBeGreaterThan(0)
+      expect(saved!.status).toBe('approved')
+      expect(saved!.approvedAt).toBeDefined()
+      expect(saved!.approvedAt).not.toBeNull()
 
       // Verify allocations were updated
-      const allocs = await db.select().from(allocations)
+      const allocs = await AllocationModel.find().lean()
       expect(allocs.length).toBe(2)
       const btcAlloc = allocs.find(a => a.asset === 'BTC')
       expect(btcAlloc?.targetPct).toBe(60)
@@ -196,10 +174,9 @@ describe('ai-suggestion-handler (integration)', () => {
 
     it('should reject approval of non-pending suggestion', async () => {
       // Set initial allocations to avoid shift constraints
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 40 },
-        { asset: 'ETH', targetPct: 60 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 40, exchange: null },
+        { asset: 'ETH', targetPct: 60, exchange: null },
       ])
 
       const input = {
@@ -230,10 +207,9 @@ describe('ai-suggestion-handler (integration)', () => {
   describe('reject', () => {
     it('should reject pending suggestion without changing allocations', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 50 },
-        { asset: 'ETH', targetPct: 50 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 50, exchange: null },
+        { asset: 'ETH', targetPct: 50, exchange: null },
       ])
 
       const input = {
@@ -251,16 +227,12 @@ describe('ai-suggestion-handler (integration)', () => {
       await aiSuggestionHandler.reject(suggestionId)
 
       // Verify it was marked as rejected
-      const saved = await db
-        .select()
-        .from(aiSuggestions)
-        .where(eq(aiSuggestions.id, suggestionId))
-        .limit(1)
+      const saved = await AISuggestionModel.findById(suggestionId).lean()
 
-      expect(saved[0].status).toBe('rejected')
+      expect(saved!.status).toBe('rejected')
 
       // Verify allocations did NOT change
-      const allocs = await db.select().from(allocations)
+      const allocs = await AllocationModel.find().lean()
       const btcAlloc = allocs.find(a => a.asset === 'BTC')
       expect(btcAlloc?.targetPct).toBe(50)
     })
@@ -277,10 +249,9 @@ describe('ai-suggestion-handler (integration)', () => {
 
     it('should reject rejection of non-pending suggestion', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 40 },
-        { asset: 'ETH', targetPct: 60 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 40, exchange: null },
+        { asset: 'ETH', targetPct: 60, exchange: null },
       ])
 
       const input = {
@@ -311,10 +282,9 @@ describe('ai-suggestion-handler (integration)', () => {
   describe('getPending', () => {
     it('should return only pending suggestions', async () => {
       // Set initial allocations to avoid shift constraint violations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 50 },
-        { asset: 'ETH', targetPct: 50 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 50, exchange: null },
+        { asset: 'ETH', targetPct: 50, exchange: null },
       ])
 
       // Create multiple suggestions with small shifts
@@ -343,17 +313,16 @@ describe('ai-suggestion-handler (integration)', () => {
       const pending = await aiSuggestionHandler.getPending()
 
       expect(pending.length).toBeGreaterThanOrEqual(1)
-      const pendingIds = pending.map(p => p.id)
+      const pendingIds = pending.map(p => p._id)
       expect(pendingIds).toContain(result2.id)
       expect(pendingIds).not.toContain(result1.id)
     })
 
     it('should return empty array when no pending suggestions', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 50 },
-        { asset: 'ETH', targetPct: 50 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 50, exchange: null },
+        { asset: 'ETH', targetPct: 50, exchange: null },
       ])
 
       const input = {
@@ -368,7 +337,7 @@ describe('ai-suggestion-handler (integration)', () => {
       await aiSuggestionHandler.approve(result.id)
 
       const pending = await aiSuggestionHandler.getPending()
-      const testIds = pending.map(p => p.id)
+      const testIds = pending.map(p => p._id)
       expect(testIds).not.toContain(result.id)
     })
   })
@@ -376,10 +345,9 @@ describe('ai-suggestion-handler (integration)', () => {
   describe('getAll', () => {
     it('should return all suggestions ordered newest first', async () => {
       // Set initial allocations
-      await db.delete(allocations)
-      await db.insert(allocations).values([
-        { asset: 'BTC', targetPct: 50 },
-        { asset: 'ETH', targetPct: 50 },
+      await AllocationModel.create([
+        { asset: 'BTC', targetPct: 50, exchange: null },
+        { asset: 'ETH', targetPct: 50, exchange: null },
       ])
 
       const input1 = {
@@ -405,7 +373,7 @@ describe('ai-suggestion-handler (integration)', () => {
       const all = await aiSuggestionHandler.getAll(100)
 
       expect(all.length).toBeGreaterThanOrEqual(2)
-      const ids = all.map(s => s.id)
+      const ids = all.map(s => s._id)
       expect(ids).toContain(result1.id)
       expect(ids).toContain(result2.id)
     })

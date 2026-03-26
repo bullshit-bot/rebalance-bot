@@ -54,7 +54,7 @@ describe('copy-trading-routes integration', () => {
 
     const sources = await copyTradingManager.getSources()
     expect(Array.isArray(sources)).toBe(true)
-    expect(sources.some((s) => s.id === id)).toBe(true)
+    expect(sources.some((s) => s._id === id)).toBe(true)
   })
 
   test('PUT /api/copy/source/:id updates source', async () => {
@@ -69,7 +69,7 @@ describe('copy-trading-routes integration', () => {
     })
 
     const sources = await copyTradingManager.getSources()
-    const updated = sources.find((s) => s.id === id)
+    const updated = sources.find((s) => s._id === id)
     expect(updated?.name).toContain('updated-name-')
   })
 
@@ -104,7 +104,7 @@ describe('copy-trading-routes integration', () => {
     await copyTradingManager.removeSource(id)
 
     const sources = await copyTradingManager.getSources()
-    expect(sources.some((s) => s.id === id)).toBe(false)
+    expect(sources.some((s) => s._id === id)).toBe(false)
   })
 
   test('POST /api/copy/sync forces immediate sync', async () => {
@@ -273,7 +273,7 @@ describe('copy-trading-routes integration', () => {
     })
 
     const sources = await copyTradingManager.getSources()
-    const updated = sources.find((s) => s.id === id)
+    const updated = sources.find((s) => s._id === id)
     expect(updated).toBeDefined()
   })
 

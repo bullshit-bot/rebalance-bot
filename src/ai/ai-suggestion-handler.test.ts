@@ -182,7 +182,9 @@ describe('AISuggestionHandler', () => {
     it('should return ordered by newest first', async () => {
       const pending = await aiSuggestionHandler.getPending()
       if (pending.length > 1) {
-        expect(pending[0].createdAt).toBeGreaterThanOrEqual(pending[1].createdAt)
+        const time0 = pending[0].createdAt instanceof Date ? pending[0].createdAt.getTime() : pending[0].createdAt
+        const time1 = pending[1].createdAt instanceof Date ? pending[1].createdAt.getTime() : pending[1].createdAt
+        expect(time0).toBeGreaterThanOrEqual(time1)
       }
       expect(true).toBe(true)
     })

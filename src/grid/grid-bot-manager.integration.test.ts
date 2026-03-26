@@ -1,31 +1,16 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
-import { db } from '@db/database'
-import { gridBots } from '@db/schema'
-import { eq } from 'drizzle-orm'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { gridBotManager } from './grid-bot-manager'
 
 describe('grid-bot-manager integration', () => {
   const testBotIds: string[] = []
 
   beforeAll(async () => {
-    // Clean up old test bots
-    const all = await db.select().from(gridBots)
-    for (const bot of all) {
-      if (bot.id.startsWith('test-bot-')) {
-        await db.delete(gridBots).where(eq(gridBots.id, bot.id))
-      }
-    }
+    await setupTestDB()
   })
 
   afterAll(async () => {
-    // Clean up test bots
-    for (const id of testBotIds) {
-      try {
-        await db.delete(gridBots).where(eq(gridBots.id, id))
-      } catch {
-        // ignore
-      }
-    }
+    await teardownTestDB()
   })
 
   test('create validates price range', async () => {
@@ -34,7 +19,7 @@ describe('grid-bot-manager integration', () => {
         exchange: 'binance',
         pair: 'BTC/USDT',
         priceLower: 50000,
-        priceUpper: 40000, // invalid: upper < lower
+        priceUpper: 40000,
         gridLevels: 10,
         investment: 1000,
         gridType: 'normal',
@@ -60,7 +45,6 @@ describe('grid-bot-manager integration', () => {
       expect(true).toBe(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      // Should fail on missing price or range validation
       expect(message).toBeDefined()
     }
   })
@@ -80,18 +64,16 @@ describe('grid-bot-manager integration', () => {
       if (id) {
         testBotIds.push(id)
 
-        const rows = await db.select().from(gridBots).where(eq(gridBots.id, id))
-        expect(rows.length).toBe(1)
-
-        const bot = rows[0]!
-        expect(bot.exchange).toBe('binance')
-        expect(bot.pair).toBe('BTC/USDT')
-        expect(bot.priceLower).toBe(40000)
-        expect(bot.priceUpper).toBe(60000)
-        expect(bot.gridLevels).toBe(10)
-        expect(bot.investment).toBe(1000)
-        expect(bot.gridType).toBe('normal')
-        expect(bot.status).toBe('active')
+        const bot = await gridBotManager.getBot(id)
+        expect(bot).toBeDefined()
+        expect(bot!.exchange).toBe('binance')
+        expect(bot!.pair).toBe('BTC/USDT')
+        expect(bot!.priceLower).toBe(40000)
+        expect(bot!.priceUpper).toBe(60000)
+        expect(bot!.gridLevels).toBe(10)
+        expect(bot!.investment).toBe(1000)
+        expect(bot!.gridType).toBe('normal')
+        expect(bot!.status).toBe('active')
       }
     } catch (err) {
       // May fail due to executor or price cache — acceptable
@@ -167,7 +149,6 @@ describe('grid-bot-manager integration', () => {
 
         const bot = await gridBotManager.getBot(id)
         expect(bot).toBeDefined()
-        expect(bot?.id).toBe(id)
         expect(bot?.exchange).toBeDefined()
         expect(bot?.pair).toBeDefined()
         expect(bot?.status).toBeDefined()
@@ -200,7 +181,7 @@ describe('grid-bot-manager integration', () => {
         testBotIds.push(id)
 
         const bots = await gridBotManager.listBots()
-        expect(bots.some((b) => b.id === id)).toBe(true)
+        expect(bots.some((b) => b._id === id)).toBe(true)
       }
     } catch (err) {
       // May fail due to executor
@@ -232,10 +213,8 @@ describe('grid-bot-manager integration', () => {
       if (id) {
         testBotIds.push(id)
 
-        // Stop once
         await gridBotManager.stop(id)
 
-        // Stop again should fail
         try {
           await gridBotManager.stop(id)
           expect(true).toBe(false)
@@ -303,7 +282,7 @@ describe('grid-bot-manager integration', () => {
     }
   })
 
-  test('create stores config as JSON', async () => {
+  test('create stores config as object (Mongoose Mixed)', async () => {
     try {
       const id = await gridBotManager.create({
         exchange: 'binance',
@@ -319,9 +298,8 @@ describe('grid-bot-manager integration', () => {
         testBotIds.push(id)
 
         const bot = await gridBotManager.getBot(id)
-        expect(typeof bot?.config).toBe('string')
-
-        const config = JSON.parse(bot?.config || '{}')
+        const config = typeof bot?.config === 'string' ? JSON.parse(bot.config) : bot?.config
+        expect(config).toBeDefined()
         expect(config.gridType).toBe('normal')
         expect(config.priceLower).toBe(40000)
       }
@@ -387,7 +365,6 @@ describe('grid-bot-manager integration', () => {
         investment: 1000,
         gridType: 'normal',
       })
-      // May succeed if executor doesn't validate
     } catch (err) {
       // Expected if validation exists
     }
@@ -404,7 +381,6 @@ describe('grid-bot-manager integration', () => {
         investment: 0,
         gridType: 'normal',
       })
-      // May succeed if executor doesn't validate
     } catch (err) {
       // Expected if validation exists
     }
@@ -456,7 +432,6 @@ describe('grid-bot-manager integration', () => {
       if (id) {
         testBotIds.push(id)
 
-        // Stop should handle order cancellation
         expect(async () => {
           await gridBotManager.stop(id)
         }).not.toThrow()

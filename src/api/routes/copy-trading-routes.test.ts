@@ -162,7 +162,7 @@ describe('Copy Trading Routes', () => {
       if (res.status === 200) {
         const data = await res.json()
         data.forEach((source: any) => {
-          expect(source).toHaveProperty('id')
+          expect(source).toHaveProperty('_id')
           expect(source).toHaveProperty('name')
           expect(source).toHaveProperty('sourceType')
         })
