@@ -77,8 +77,8 @@ jobs:
             bun add protobufjs 2>/dev/null || true
             cd frontend && bun install && cd ..
 
-            # Build frontend
-            cd frontend && bun run build && cd ..
+            # Build frontend with relative API URL (nginx proxies /api → backend)
+            cd frontend && VITE_API_URL=/api bun run build && cd ..
 
             # Build backend
             bun build src/index.ts --outdir dist --target bun
