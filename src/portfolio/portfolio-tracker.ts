@@ -8,6 +8,7 @@ import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from '@/type
 /** Minimal CCXT Pro Exchange interface — avoids importing the broken ccxt.pro namespace. */
 interface CcxtProExchange {
   watchBalance(): Promise<Record<string, unknown>>
+  fetchBalance?(): Promise<Record<string, unknown>>
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -150,38 +151,57 @@ class PortfolioTracker {
     name: ExchangeName,
     signal: AbortSignal,
   ): Promise<void> {
+    let wsFailCount = 0
+    const WS_FAIL_THRESHOLD = 3
+    const REST_POLL_INTERVAL = 30_000
+
     while (!signal.aborted) {
       try {
-        // watchBalance() resolves on every balance update from the WebSocket stream
-        const balanceResponse = await exchange.watchBalance()
+        // Try WebSocket first; fall back to REST polling after repeated failures
+        const useRest = wsFailCount >= WS_FAIL_THRESHOLD && exchange.fetchBalance
+        const balanceResponse = useRest
+          ? await exchange.fetchBalance!()
+          : await exchange.watchBalance()
 
-        // Extract numeric free balances, ignoring zero and metadata keys
-        const snapshot = new Map<string, number>()
-        for (const [asset, data] of Object.entries(balanceResponse)) {
-          // CCXT free balance value — skip non-object entries (info, timestamp, etc.)
-          if (typeof data === 'object' && data !== null && 'free' in data) {
-            const free = (data as { free: number }).free
-            if (typeof free === 'number' && free > 0) {
-              snapshot.set(asset, free)
-            }
-          }
+        // Reset failure count on successful WebSocket response
+        if (!useRest) wsFailCount = 0
+
+        this.processBalanceResponse(balanceResponse, name)
+
+        // REST polling needs explicit delay; WebSocket blocks until next update
+        if (useRest) {
+          await new Promise<void>((resolve) => setTimeout(resolve, REST_POLL_INTERVAL))
         }
-
-        this.balances.set(name, snapshot)
-
-        // Notify raw balance listeners
-        const rawBalances: Record<string, number> = Object.fromEntries(snapshot)
-        this.deps.eventBus.emit('balance:update', { exchange: name, balances: rawBalances })
-
-        this.recalculate()
       } catch (err: unknown) {
         if (signal.aborted) break
+        wsFailCount++
 
-        // Transient network errors — log and retry after a short delay
-        console.error(`[PortfolioTracker] watchBalance error on ${name}:`, err)
+        if (wsFailCount === WS_FAIL_THRESHOLD) {
+          console.warn(`[PortfolioTracker] WebSocket failed ${WS_FAIL_THRESHOLD}x on ${name} — switching to REST polling`)
+        } else if (wsFailCount < WS_FAIL_THRESHOLD) {
+          console.error(`[PortfolioTracker] watchBalance error on ${name}:`, err)
+        }
         await new Promise<void>((resolve) => setTimeout(resolve, 3_000))
       }
     }
+  }
+
+  /** Extract free balances from CCXT response and trigger recalculate. */
+  private processBalanceResponse(balanceResponse: Record<string, unknown>, name: ExchangeName): void {
+    const snapshot = new Map<string, number>()
+    for (const [asset, data] of Object.entries(balanceResponse)) {
+      if (typeof data === 'object' && data !== null && 'free' in data) {
+        const free = (data as { free: number }).free
+        if (typeof free === 'number' && free > 0) {
+          snapshot.set(asset, free)
+        }
+      }
+    }
+
+    this.balances.set(name, snapshot)
+    const rawBalances: Record<string, number> = Object.fromEntries(snapshot)
+    this.deps.eventBus.emit('balance:update', { exchange: name, balances: rawBalances })
+    this.recalculate()
   }
 
   /**

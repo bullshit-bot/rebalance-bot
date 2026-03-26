@@ -27,8 +27,10 @@ async function resolvePairs(): Promise<string[]> {
     const rows = await AllocationModel.find({}, 'asset').lean()
     if (rows.length === 0) return DEFAULT_PAIRS
 
-    const pairs = rows.map((r) => `${r.asset}/USDT`)
-    // Always include USDT pairs for stablecoin price anchoring
+    const pairs = rows
+      .map((r) => `${r.asset}/USDT`)
+      .filter((p) => p !== 'USDT/USDT') // skip stablecoin self-pair
+    // Always include default pairs for price anchoring
     for (const defaultPair of DEFAULT_PAIRS) {
       if (!pairs.includes(defaultPair)) pairs.push(defaultPair)
     }
