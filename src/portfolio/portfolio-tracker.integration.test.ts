@@ -5,6 +5,7 @@ import { portfolioTracker } from './portfolio-tracker'
 
 beforeAll(async () => {
   await setupTestDB()
+  portfolioTracker.clearCache()
 
   // Seed allocations table with test data
   await AllocationModel.create([

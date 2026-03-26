@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { HistoricalDataLoader } from './historical-data-loader'
 import type { HistoricalDataLoaderDeps } from './historical-data-loader'
+
+beforeAll(async () => { await setupTestDB() })
+afterAll(async () => { await teardownTestDB() })
 
 // OHLCV candle type
 interface OHLCVCandle {

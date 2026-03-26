@@ -100,6 +100,12 @@ class PortfolioTracker {
     return this.portfolio
   }
 
+  /** Clears cached allocations — used for test isolation. */
+  clearCache(): void {
+    this.cachedTargets = null
+    this.lastSnapshotAt = 0
+  }
+
   /**
    * Loads target allocation config from the database.
    * Results are cached; a fresh DB query is issued at most once every 60 seconds
