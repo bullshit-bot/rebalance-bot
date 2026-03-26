@@ -1,7 +1,7 @@
 ---
 phase: 15
 title: AI Suggestions Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -34,13 +34,13 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-ai-queries.ts`
-- [ ] Migrate AISuggestionsPage to real data
-- [ ] Wire approve/reject mutations
-- [ ] Add loading/error states
+- [x] Create `use-ai-queries.ts`
+- [x] Migrate AISuggestionsPage to real data
+- [x] Wire approve/reject mutations
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Suggestions list shows real AI-generated data
-- [ ] Approve/reject actions persist to backend
-- [ ] Zero imports from mockData.ts
+- [x] Suggestions list shows real AI-generated data
+- [x] Approve/reject actions persist to backend
+- [x] Zero imports from mockData.ts

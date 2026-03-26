@@ -79,6 +79,8 @@ After completing ANY implementation phase or task from a plan:
 4. If all phases done → set master plan `status: completed`
 5. Reload kanban dashboard if running (`/plans-kanban`)
 
+**Phase table format:** The kanban parser only supports 3-column tables: `| # | Phase | Status |`. Do NOT add extra columns (Pages, Effort, etc.) — the parser reads the 3rd column as status, extra columns break progress tracking.
+
 **This is NON-NEGOTIABLE.** Every phase completion MUST update plan files so the kanban dashboard reflects real progress.
 
 ## Documentation Management

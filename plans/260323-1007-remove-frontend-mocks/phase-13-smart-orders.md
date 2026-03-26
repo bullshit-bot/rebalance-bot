@@ -1,7 +1,7 @@
 ---
 phase: 13
 title: Smart Orders Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -35,13 +35,13 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-smart-order-queries.ts`
-- [ ] Migrate SmartOrdersPage to real data
-- [ ] Wire create/pause/resume/cancel mutations
-- [ ] Add loading/error states
+- [x] Create `use-smart-order-queries.ts`
+- [x] Migrate SmartOrdersPage to real data
+- [x] Wire create/pause/resume/cancel mutations
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Active orders show real data with live progress
-- [ ] All actions (create, pause, resume, cancel) work via API
-- [ ] Zero imports from mockData.ts
+- [x] Active orders show real data with live progress
+- [x] All actions (create, pause, resume, cancel) work via API
+- [x] Zero imports from mockData.ts

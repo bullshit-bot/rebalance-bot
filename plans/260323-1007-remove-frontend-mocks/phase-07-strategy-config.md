@@ -1,7 +1,7 @@
 ---
 phase: 07
 title: Strategy Config Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -29,12 +29,12 @@ Backend: No dedicated strategy config endpoint found in routes. Strategy config 
 
 ## Todo List
 
-- [ ] Verify strategy config backend endpoint
-- [ ] Create hook or localStorage fallback
-- [ ] Migrate StrategyConfigPage away from mock
-- [ ] Add loading/error states if using API
+- [x] Verify strategy config backend endpoint
+- [x] Create hook or localStorage fallback
+- [x] Migrate StrategyConfigPage away from mock
+- [x] Add loading/error states if using API
 
 ## Success Criteria
 
-- [ ] Config page reads/saves settings (API or localStorage)
-- [ ] Zero imports from mockData.ts
+- [x] Config page reads/saves settings (API or localStorage)
+- [x] Zero imports from mockData.ts

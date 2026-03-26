@@ -1,7 +1,7 @@
 ---
 phase: 16
 title: Cleanup & Settings
-status: pending
+status: completed
 priority: low
 depends_on: [2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 ---
@@ -24,16 +24,16 @@ After all pages migrated, `mockData.ts` should have zero imports. SettingsPage h
 
 ## Todo List
 
-- [ ] Verify zero mockData imports (`grep -r "mockData" frontend/src/`)
-- [ ] Delete `mockData.ts`
-- [ ] Review SettingsPage for any needed backend calls
-- [ ] Remove mock-related TODO comments
-- [ ] Run `npm run build` — verify clean build
-- [ ] Test all pages load without errors
+- [x] Verify zero mockData imports (`grep -r "mockData" frontend/src/`)
+- [x] Delete `mockData.ts`
+- [x] Review SettingsPage for any needed backend calls
+- [x] Remove mock-related TODO comments
+- [x] Run `npm run build` — verify clean build
+- [x] Test all pages load without errors
 
 ## Success Criteria
 
-- [ ] `mockData.ts` deleted
-- [ ] Clean build with zero errors
-- [ ] All 16 pages fetch real data from backend
-- [ ] No mock data references remain in codebase
+- [x] `mockData.ts` deleted
+- [x] Clean build with zero errors
+- [x] All 16 pages fetch real data from backend
+- [x] No mock data references remain in codebase

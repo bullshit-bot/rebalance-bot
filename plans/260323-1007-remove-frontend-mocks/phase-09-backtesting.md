@@ -1,7 +1,7 @@
 ---
 phase: 09
 title: Backtesting Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -31,14 +31,14 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-backtest-queries.ts`
-- [ ] Migrate BacktestingPage to real data
-- [ ] Wire run backtest form to mutation
-- [ ] Add loading/error states
+- [x] Create `use-backtest-queries.ts`
+- [x] Migrate BacktestingPage to real data
+- [x] Wire run backtest form to mutation
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Can run a new backtest with real params
-- [ ] Results display equity curve, metrics, trades from backend
-- [ ] Can view past backtest results
-- [ ] Zero imports from mockData.ts
+- [x] Can run a new backtest with real params
+- [x] Results display equity curve, metrics, trades from backend
+- [x] Can view past backtest results
+- [x] Zero imports from mockData.ts

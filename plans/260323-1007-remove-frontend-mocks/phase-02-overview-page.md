@@ -1,7 +1,7 @@
 ---
 phase: 02
 title: Overview Page
-status: pending
+status: completed
 priority: high
 depends_on: [1]
 ---
@@ -39,16 +39,16 @@ No dedicated alerts endpoint exists — alerts derived from exchange status and 
 
 ## Todo List
 
-- [ ] Create `use-overview-queries.ts`
-- [ ] Replace mock imports with real queries in OverviewPage
-- [ ] Wire loading skeletons to `isLoading` state
-- [ ] Add error boundary/fallback
-- [ ] Remove mock data computed at module level (pieData, comparisonData)
+- [x] Create `use-overview-queries.ts`
+- [x] Replace mock imports with real queries in OverviewPage
+- [x] Wire loading skeletons to `isLoading` state
+- [x] Add error boundary/fallback
+- [x] Remove mock data computed at module level (pieData, comparisonData)
 
 ## Success Criteria
 
-- [ ] Overview loads real portfolio data from backend
-- [ ] Charts show real history data
-- [ ] Loading state shows skeletons
-- [ ] Error state shows meaningful message
-- [ ] Zero imports from mockData.ts
+- [x] Overview loads real portfolio data from backend
+- [x] Charts show real history data
+- [x] Loading state shows skeletons
+- [x] Error state shows meaningful message
+- [x] Zero imports from mockData.ts

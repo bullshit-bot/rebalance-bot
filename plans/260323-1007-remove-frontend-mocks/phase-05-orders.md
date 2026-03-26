@@ -1,7 +1,7 @@
 ---
 phase: 05
 title: Orders Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -28,11 +28,11 @@ Backend: `GET /api/trades?limit=50&rebalanceId=...`
 
 ## Todo List
 
-- [ ] Create `use-trade-queries.ts`
-- [ ] Migrate OrdersPage to real data
-- [ ] Add loading/error states
+- [x] Create `use-trade-queries.ts`
+- [x] Migrate OrdersPage to real data
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Orders list shows real trades from backend
-- [ ] Zero imports from mockData.ts
+- [x] Orders list shows real trades from backend
+- [x] Zero imports from mockData.ts

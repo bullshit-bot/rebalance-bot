@@ -1,7 +1,7 @@
 ---
 phase: 04
 title: Rebalance Plan Page
-status: pending
+status: completed
 priority: high
 depends_on: [1]
 ---
@@ -32,13 +32,13 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-rebalance-queries.ts`
-- [ ] Migrate RebalancePlanPage to real data
-- [ ] Wire execute rebalance mutation
-- [ ] Add loading/error states
+- [x] Create `use-rebalance-queries.ts`
+- [x] Migrate RebalancePlanPage to real data
+- [x] Wire execute rebalance mutation
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Preview shows real dry-run trades
-- [ ] Execute button triggers real rebalance
-- [ ] Zero imports from mockData.ts
+- [x] Preview shows real dry-run trades
+- [x] Execute button triggers real rebalance
+- [x] Zero imports from mockData.ts

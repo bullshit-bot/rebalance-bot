@@ -1,7 +1,7 @@
 ---
 phase: 06
 title: Exchanges Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -30,12 +30,12 @@ Backend: `GET /api/health` returns exchange connection status. No dedicated `/ex
 
 ## Todo List
 
-- [ ] Verify exchange status endpoint exists
-- [ ] Create `use-exchange-queries.ts`
-- [ ] Migrate ExchangesPage to real data
-- [ ] Add loading/error states
+- [x] Verify exchange status endpoint exists
+- [x] Create `use-exchange-queries.ts`
+- [x] Migrate ExchangesPage to real data
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Exchange connection status shows real data
-- [ ] Zero imports from mockData.ts
+- [x] Exchange connection status shows real data
+- [x] Zero imports from mockData.ts

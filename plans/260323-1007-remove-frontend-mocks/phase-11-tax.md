@@ -1,7 +1,7 @@
 ---
 phase: 11
 title: Tax Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -31,13 +31,13 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-tax-queries.ts`
-- [ ] Migrate TaxPage to real data
-- [ ] Wire CSV export download
-- [ ] Add loading/error states
+- [x] Create `use-tax-queries.ts`
+- [x] Migrate TaxPage to real data
+- [x] Wire CSV export download
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Tax report shows real FIFO-calculated events
-- [ ] CSV export downloads real data
-- [ ] Zero imports from mockData.ts
+- [x] Tax report shows real FIFO-calculated events
+- [x] CSV export downloads real data
+- [x] Zero imports from mockData.ts

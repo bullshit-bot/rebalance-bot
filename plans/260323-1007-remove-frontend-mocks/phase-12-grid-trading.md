@@ -1,7 +1,7 @@
 ---
 phase: 12
 title: Grid Trading Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -34,13 +34,13 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-grid-queries.ts`
-- [ ] Migrate GridTradingPage to real data
-- [ ] Wire create/stop mutations
-- [ ] Add loading/error states
+- [x] Create `use-grid-queries.ts`
+- [x] Migrate GridTradingPage to real data
+- [x] Wire create/stop mutations
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Grid bot list shows real bots from backend
-- [ ] Can create and stop bots via API
-- [ ] Zero imports from mockData.ts
+- [x] Grid bot list shows real bots from backend
+- [x] Can create and stop bots via API
+- [x] Zero imports from mockData.ts

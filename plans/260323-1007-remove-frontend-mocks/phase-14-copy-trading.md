@@ -1,7 +1,7 @@
 ---
 phase: 14
 title: Copy Trading Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -35,14 +35,14 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-copy-trading-queries.ts`
-- [ ] Migrate CopyTradingPage to real data
-- [ ] Wire all CRUD + sync mutations
-- [ ] Add loading/error states
+- [x] Create `use-copy-trading-queries.ts`
+- [x] Migrate CopyTradingPage to real data
+- [x] Wire all CRUD + sync mutations
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Sources list shows real data
-- [ ] Can add/edit/remove/sync sources via API
-- [ ] Sync history shows real events
-- [ ] Zero imports from mockData.ts
+- [x] Sources list shows real data
+- [x] Can add/edit/remove/sync sources via API
+- [x] Sync history shows real events
+- [x] Zero imports from mockData.ts

@@ -1,7 +1,7 @@
 ---
 phase: 08
 title: Logs & Alerts Pages
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -37,14 +37,14 @@ Backend: No dedicated logs or alerts endpoints found in routes. Logs may come fr
 
 ## Todo List
 
-- [ ] Verify log/alert backend endpoints
-- [ ] Wire WebSocket for real-time logs
-- [ ] Build alert derivation logic
-- [ ] Migrate LogsPage to real data
-- [ ] Migrate AlertsPage to real data
+- [x] Verify log/alert backend endpoints
+- [x] Wire WebSocket for real-time logs
+- [x] Build alert derivation logic
+- [x] Migrate LogsPage to real data
+- [x] Migrate AlertsPage to real data
 
 ## Success Criteria
 
-- [ ] Logs page shows real-time or historical logs
-- [ ] Alerts page shows derived alerts from system state
-- [ ] Zero imports from mockData.ts
+- [x] Logs page shows real-time or historical logs
+- [x] Alerts page shows derived alerts from system state
+- [x] Zero imports from mockData.ts

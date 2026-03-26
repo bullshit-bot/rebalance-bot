@@ -1,7 +1,7 @@
 ---
 phase: 10
 title: Analytics Page
-status: pending
+status: completed
 priority: medium
 depends_on: [1]
 ---
@@ -33,13 +33,13 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-analytics-queries.ts`
-- [ ] Migrate AnalyticsPage to real data
-- [ ] Add date range filter controls
-- [ ] Add loading/error states per chart section
+- [x] Create `use-analytics-queries.ts`
+- [x] Migrate AnalyticsPage to real data
+- [x] Add date range filter controls
+- [x] Add loading/error states per chart section
 
 ## Success Criteria
 
-- [ ] All 4 charts show real data from backend
-- [ ] Date range filtering works
-- [ ] Zero imports from mockData.ts
+- [x] All 4 charts show real data from backend
+- [x] Date range filtering works
+- [x] Zero imports from mockData.ts

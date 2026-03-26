@@ -1,7 +1,7 @@
 ---
 phase: 01
 title: API Infrastructure & Auth
-status: pending
+status: completed
 priority: critical
 ---
 
@@ -75,18 +75,18 @@ export function usePortfolio() {
 
 ## Todo List
 
-- [ ] Create `api-types.ts` with all response interfaces
-- [ ] Add proper types to `api.ts` (replace `unknown`)
-- [ ] Fix query param handling in api.ts (avoid `undefined` in URLs)
-- [ ] Rewrite `AuthContext.tsx` — API key based auth
-- [ ] Update `LoginPage.tsx` — API key input, remove mock hints
-- [ ] Create `use-portfolio-queries.ts` as hook pattern reference
-- [ ] Verify api client handles 401 redirect correctly
+- [x] Create `api-types.ts` with all response interfaces
+- [x] Add proper types to `api.ts` (replace `unknown`)
+- [x] Fix query param handling in api.ts (avoid `undefined` in URLs)
+- [x] Rewrite `AuthContext.tsx` — API key based auth
+- [x] Update `LoginPage.tsx` — API key input, remove mock hints
+- [x] Create `use-portfolio-queries.ts` as hook pattern reference
+- [x] Verify api client handles 401 redirect correctly
 
 ## Success Criteria
 
-- [ ] Login with valid API key → authenticated, redirected to dashboard
-- [ ] Invalid API key → error message
-- [ ] 401 from any API call → auto logout and redirect to login
-- [ ] All API client methods have proper TypeScript types
-- [ ] No references to MOCK_USER or MOCK_CREDENTIALS remain
+- [x] Login with valid API key → authenticated, redirected to dashboard
+- [x] Invalid API key → error message
+- [x] 401 from any API call → auto logout and redirect to login
+- [x] All API client methods have proper TypeScript types
+- [x] No references to MOCK_USER or MOCK_CREDENTIALS remain

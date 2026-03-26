@@ -1,7 +1,7 @@
 ---
 phase: 03
 title: Portfolio & Allocations Pages
-status: pending
+status: completed
 priority: high
 depends_on: [1]
 ---
@@ -38,16 +38,16 @@ Backend endpoints:
 
 ## Todo List
 
-- [ ] Create `use-allocation-queries.ts`
-- [ ] Migrate PortfolioPage to real data
-- [ ] Migrate AllocationsPage to real data with save functionality
-- [ ] Wire mutation for updating allocations
-- [ ] Add loading/error states
+- [x] Create `use-allocation-queries.ts`
+- [x] Migrate PortfolioPage to real data
+- [x] Migrate AllocationsPage to real data with save functionality
+- [x] Wire mutation for updating allocations
+- [x] Add loading/error states
 
 ## Success Criteria
 
-- [ ] Portfolio page shows real holdings from backend
-- [ ] Allocations page loads real targets
-- [ ] Saving allocations persists to backend
-- [ ] Deleting an allocation works
-- [ ] Zero imports from mockData.ts
+- [x] Portfolio page shows real holdings from backend
+- [x] Allocations page loads real targets
+- [x] Saving allocations persists to backend
+- [x] Deleting an allocation works
+- [x] Zero imports from mockData.ts
