@@ -147,6 +147,7 @@ class ExchangeManager {
       configs.set('binance', {
         apiKey: env.BINANCE_API_KEY,
         secret: env.BINANCE_API_SECRET,
+        sandbox: env.BINANCE_SANDBOX === 'true',
       })
     }
 

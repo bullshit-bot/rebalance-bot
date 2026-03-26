@@ -14,6 +14,7 @@ export const env = createEnv({
     // Exchange credentials (all optional — user enables what they have)
     BINANCE_API_KEY: z.string().optional(),
     BINANCE_API_SECRET: z.string().optional(),
+    BINANCE_SANDBOX: z.string().optional(),
 
     OKX_API_KEY: z.string().optional(),
     OKX_API_SECRET: z.string().optional(),
@@ -63,6 +64,7 @@ export const env = createEnv({
 
     BINANCE_API_KEY: process.env['BINANCE_API_KEY'],
     BINANCE_API_SECRET: process.env['BINANCE_API_SECRET'],
+    BINANCE_SANDBOX: process.env['BINANCE_SANDBOX'],
 
     OKX_API_KEY: process.env['OKX_API_KEY'],
     OKX_API_SECRET: process.env['OKX_API_SECRET'],
