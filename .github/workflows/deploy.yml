@@ -55,6 +55,11 @@ jobs:
               echo "Created default .env — EDIT /opt/rebalance-bot/.env with real values!"
             fi
 
+            # Ensure MONGO_PASSWORD exists in .env
+            if ! grep -q "^MONGO_PASSWORD=" "$APP_DIR/.env"; then
+              echo "MONGO_PASSWORD=changeme-$(head -c 12 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')" >> "$APP_DIR/.env"
+            fi
+
             # Build and deploy with Docker Compose
             docker compose build
             docker compose up -d
