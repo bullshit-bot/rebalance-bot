@@ -11,3 +11,4 @@ export { GridOrderModel, type GridOrder, type NewGridOrder, type IGridOrder } fr
 export { AISuggestionModel, type AISuggestion, type NewAISuggestion, type IAISuggestion } from './ai-suggestion-model'
 export { CopySourceModel, type CopySource, type NewCopySource, type ICopySource } from './copy-source-model'
 export { CopySyncLogModel, type CopySyncLog, type NewCopySyncLog, type ICopySyncLog } from './copy-sync-log-model'
+export { StrategyConfigModel, STRATEGY_PRESETS, type IStrategyConfig, type PresetName } from './strategy-config-model'

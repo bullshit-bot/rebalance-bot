@@ -13,6 +13,7 @@ import { smartOrderRoutes } from '@api/routes/smart-order-routes'
 import { gridRoutes } from '@api/routes/grid-routes'
 import { aiRoutes } from '@api/routes/ai-routes'
 import { copyTradingRoutes } from '@api/routes/copy-trading-routes'
+import { strategyConfigRoutes } from '@api/routes/strategy-config-routes'
 import { initWebSocket, handleOpen, handleClose } from '@api/ws/ws-handler'
 
 // ─── Rate limiter ─────────────────────────────────────────────────────────────
@@ -86,6 +87,7 @@ app.route('/api', smartOrderRoutes)
 app.route('/api', gridRoutes)
 app.route('/api', aiRoutes)
 app.route('/api', copyTradingRoutes)
+app.route('/api/strategy-config', strategyConfigRoutes)
 
 // ─── 404 fallback ─────────────────────────────────────────────────────────────
 

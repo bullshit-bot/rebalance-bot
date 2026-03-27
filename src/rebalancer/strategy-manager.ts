@@ -2,10 +2,12 @@ import type { Allocation } from "@/types/index";
 import { env } from "@config/app-config";
 import { momentumCalculator } from "@rebalancer/momentum-calculator";
 import { volatilityTracker } from "@rebalancer/volatility-tracker";
+import { StrategyConfigModel, type IStrategyConfig } from "@db/database";
+import { eventBus } from "@events/event-bus";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type StrategyMode = "threshold" | "equal-weight" | "momentum-tilt" | "vol-adjusted";
+export type StrategyMode = "threshold" | "equal-weight" | "momentum-tilt" | "vol-adjusted" | "mean-reversion" | "momentum-weighted";
 
 export interface StrategyInfo {
   mode: StrategyMode;
@@ -31,9 +33,43 @@ export interface StrategyInfo {
  */
 class StrategyManager {
   private mode: StrategyMode;
+  private activeConfig: IStrategyConfig | null = null;
 
   constructor() {
     this.mode = env.STRATEGY_MODE as StrategyMode;
+    // Listen for config changes via EventBus
+    eventBus.on('strategy:config-changed', (config: unknown) => {
+      this.applyConfig(config as IStrategyConfig);
+    });
+  }
+
+  /** Load active config from DB on startup. Falls back to env if none found. */
+  async loadFromDb(): Promise<void> {
+    try {
+      const config = await StrategyConfigModel.findOne({ isActive: true }).lean();
+      if (config) {
+        this.applyConfig(config);
+        console.log(`[StrategyManager] Loaded active config "${config.name}" (${(config.params as Record<string, unknown>).type})`);
+      } else {
+        console.log(`[StrategyManager] No active DB config — using env defaults (${this.mode})`);
+      }
+    } catch (err) {
+      console.warn('[StrategyManager] Failed to load from DB, using env defaults:', err);
+    }
+  }
+
+  /** Apply a strategy config from DB (hot-reload). */
+  applyConfig(config: IStrategyConfig): void {
+    const params = config.params as Record<string, unknown>;
+    const newMode = params.type as StrategyMode;
+    console.info(`[StrategyManager] Config applied: "${config.name}" mode=${newMode}`);
+    this.mode = newMode;
+    this.activeConfig = config;
+  }
+
+  /** Returns the currently active DB config, or null if using env defaults. */
+  getActiveConfig(): IStrategyConfig | null {
+    return this.activeConfig;
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────────
