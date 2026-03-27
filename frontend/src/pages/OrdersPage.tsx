@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 
 const FILTER_TABS = ["All", "Filled"];
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 // Map Trade fields to display row shape
 function formatTrade(trade: {
