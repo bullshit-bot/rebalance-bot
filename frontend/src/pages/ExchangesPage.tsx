@@ -1,15 +1,27 @@
 import { PageTitle, SectionTitle, StatusBadge } from "@/components/ui-brutal";
 import { useHealth } from "@/hooks/use-health-queries";
+import { usePortfolio } from "@/hooks/use-portfolio-queries";
 import { Server, RefreshCw, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ExchangesPage() {
   const { data: health, isLoading, isError } = useHealth();
+  const { data: portfolio } = usePortfolio();
+
+  // Compute per-exchange spot balance from portfolio assets
+  const exchangeBalances: Record<string, number> = {};
+  for (const asset of portfolio?.assets ?? []) {
+    const ex = asset.exchange ?? "unknown";
+    exchangeBalances[ex] = (exchangeBalances[ex] ?? 0) + asset.valueUsd;
+  }
 
   const exchanges = health
     ? Object.entries(health.exchanges).map(([name, status]) => ({
         name,
         connected: status === "connected",
+        spotBalance: exchangeBalances[name] ?? 0,
+        mode: name === "binance" && status === "connected" ? "Testnet (Sandbox)" : "—",
+        lastSync: portfolio?.updatedAt ? new Date(portfolio.updatedAt).toLocaleString() : "—",
       }))
     : [];
 
@@ -45,22 +57,26 @@ export default function ExchangesPage() {
               <div>
                 <span className="stat-label">API Label</span>
                 <br />
-                <span className="font-mono text-xs text-muted-foreground">—</span>
+                <span className="font-mono text-xs">{ex.connected ? "trading-bot" : "—"}</span>
               </div>
               <div>
                 <span className="stat-label">Spot Balance</span>
                 <br />
-                <span className="font-bold tabular-nums text-muted-foreground">—</span>
+                <span className="font-bold tabular-nums">
+                  {ex.connected && ex.spotBalance > 0
+                    ? `$${ex.spotBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                    : "—"}
+                </span>
               </div>
               <div>
                 <span className="stat-label">Last Sync</span>
                 <br />
-                <span className="text-xs tabular-nums text-muted-foreground">—</span>
+                <span className="text-xs tabular-nums">{ex.connected ? ex.lastSync : "—"}</span>
               </div>
               <div>
                 <span className="stat-label">Mode</span>
                 <br />
-                <span className="text-xs text-muted-foreground">—</span>
+                <span className="text-xs">{ex.mode}</span>
               </div>
             </div>
 
