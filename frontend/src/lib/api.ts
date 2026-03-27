@@ -133,6 +133,22 @@ export const api = {
   getCopyHistory: (sourceId?: string, limit?: number) =>
     apiFetch<CopySyncLog[]>(`/copy/history${qs({ sourceId, limit })}`),
 
+  // Strategy Config
+  getStrategyConfig: () =>
+    apiFetch<{ active: any; configs: any[] }>('/strategy-config'),
+  getStrategyPresets: () =>
+    apiFetch<Record<string, any>>('/strategy-config/presets'),
+  createStrategyConfig: (data: any) =>
+    apiFetch<any>('/strategy-config', { method: 'POST', body: JSON.stringify(data) }),
+  updateStrategyConfig: (name: string, data: any) =>
+    apiFetch<any>(`/strategy-config/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  activateStrategyConfig: (name: string) =>
+    apiFetch<any>(`/strategy-config/${encodeURIComponent(name)}/activate`, { method: 'POST' }),
+  createFromPreset: (presetName: string, configName: string) =>
+    apiFetch<any>('/strategy-config/from-preset', { method: 'POST', body: JSON.stringify({ presetName, configName }) }),
+  deleteStrategyConfig: (name: string) =>
+    apiFetch<any>(`/strategy-config/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+
   // AI Suggestions
   getAISuggestions: (status?: string, limit?: number) =>
     apiFetch<AISuggestion[]>(`/ai/suggestions${qs({ status, limit })}`),

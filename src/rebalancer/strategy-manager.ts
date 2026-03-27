@@ -4,6 +4,19 @@ import { momentumCalculator } from "@rebalancer/momentum-calculator";
 import { volatilityTracker } from "@rebalancer/volatility-tracker";
 import { StrategyConfigModel, type IStrategyConfig } from "@db/database";
 import { eventBus } from "@events/event-bus";
+import { meanReversionStrategy } from "@rebalancer/strategies/mean-reversion-strategy";
+import { volAdjustedStrategy } from "@rebalancer/strategies/vol-adjusted-strategy";
+import { momentumWeightedStrategy } from "@rebalancer/strategies/momentum-weighted-strategy";
+import {
+  MeanReversionParamsSchema,
+  VolAdjustedParamsSchema,
+  MomentumWeightedParamsSchema,
+} from "@rebalancer/strategies/strategy-config-types";
+import type { z } from "zod";
+
+type MeanReversionParams = z.infer<typeof MeanReversionParamsSchema>;
+type VolAdjustedParams = z.infer<typeof VolAdjustedParamsSchema>;
+type MomentumWeightedParams = z.infer<typeof MomentumWeightedParamsSchema>;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,13 +91,22 @@ class StrategyManager {
    * Returns effective target allocations after applying the active strategy.
    * For threshold / vol-adjusted modes the base allocations are returned unchanged.
    */
-  getEffectiveAllocations(baseAllocations: Allocation[]): Allocation[] {
+  getEffectiveAllocations(
+    baseAllocations: Allocation[],
+    priceHistories?: Map<string, number[]>,
+  ): Allocation[] {
     switch (this.mode) {
       case "equal-weight":
         return this.toEqualWeight(baseAllocations);
 
       case "momentum-tilt":
         return momentumCalculator.getMomentumAllocations(baseAllocations);
+
+      case "momentum-weighted": {
+        const params = this.activeConfig?.params as MomentumWeightedParams | undefined;
+        if (!params || !priceHistories) return baseAllocations;
+        return momentumWeightedStrategy.getAdjustedAllocations(baseAllocations, priceHistories, params);
+      }
 
       default:
         return baseAllocations;
@@ -95,26 +117,45 @@ class StrategyManager {
    * Returns true when the strategy allows a rebalance at this moment.
    *
    * @param maxDriftPct - largest absolute drift across all assets (%)
+   * @param drifts      - per-asset drift map (required for mean-reversion mode)
    */
-  shouldRebalance(maxDriftPct: number): boolean {
-    const threshold = this.getDynamicThreshold();
+  shouldRebalance(maxDriftPct: number, drifts?: Map<string, number>): boolean {
+    if (this.mode === "mean-reversion") {
+      if (!drifts) return false;
+      const params = this.activeConfig?.params as MeanReversionParams | undefined;
+      if (!params) return false;
+      return meanReversionStrategy.shouldRebalance(drifts, params);
+    }
 
     if (this.mode === "vol-adjusted") {
-      // vol-adjusted: only act when the market is in a high-vol regime
+      const params = this.activeConfig?.params as VolAdjustedParams | undefined;
+      if (params) {
+        // Continuous formula: use dynamic threshold from vol history
+        const threshold = volAdjustedStrategy.getDynamicThreshold(params);
+        return maxDriftPct >= threshold;
+      }
+      // Fallback: legacy binary high-vol gate
       if (!volatilityTracker.isHighVolatility()) return false;
     }
 
-    return maxDriftPct >= threshold;
+    return maxDriftPct >= this.getDynamicThreshold();
   }
 
   /**
    * Returns the effective drift threshold (%) for the current strategy + vol regime.
    *
-   * - threshold / equal-weight / momentum-tilt: always env.REBALANCE_THRESHOLD
-   * - vol-adjusted: DYNAMIC_THRESHOLD_LOW when high-vol, DYNAMIC_THRESHOLD_HIGH otherwise
+   * - threshold / equal-weight / momentum-tilt / mean-reversion / momentum-weighted:
+   *     always env.REBALANCE_THRESHOLD
+   * - vol-adjusted with DB params: continuous formula via volAdjustedStrategy
+   * - vol-adjusted without DB params: legacy binary high/low from env
    */
   getDynamicThreshold(): number {
     if (this.mode !== "vol-adjusted") return env.REBALANCE_THRESHOLD;
+
+    const params = this.activeConfig?.params as VolAdjustedParams | undefined;
+    if (params) {
+      return volAdjustedStrategy.getDynamicThreshold(params);
+    }
 
     return volatilityTracker.isHighVolatility()
       ? env.DYNAMIC_THRESHOLD_LOW

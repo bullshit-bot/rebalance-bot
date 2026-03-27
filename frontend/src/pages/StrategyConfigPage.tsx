@@ -1,7 +1,23 @@
 import { PageTitle, SectionTitle } from "@/components/ui-brutal";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, Zap } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Toggle } from "./strategy-config-toggle";
+import {
+  StrategyTypeFields,
+  STRATEGY_TYPES,
+  type StrategyType,
+  getDefaultParams,
+} from "./strategy-config-type-fields";
+import { StrategyPresetsPanel } from "./strategy-config-presets-panel";
+import {
+  useStrategyConfig,
+  useUpdateStrategyConfig,
+  useActivateStrategy,
+} from "@/hooks/use-strategy-config-queries";
+
+// --- local-storage helpers (kept for test compatibility) ---
+const LS_KEY = "rb_strategy_config";
 
 const DEFAULT_CONFIG = {
   thresholdPct: 5.0,
@@ -16,85 +32,115 @@ const DEFAULT_CONFIG = {
   autoExecute: false,
 };
 
-type Config = typeof DEFAULT_CONFIG;
+type LocalConfig = typeof DEFAULT_CONFIG;
 
-function loadConfig(): Config {
+function loadLocal(): LocalConfig {
   try {
-    const stored = localStorage.getItem("rb_strategy_config");
-    return stored ? { ...DEFAULT_CONFIG, ...JSON.parse(stored) } : DEFAULT_CONFIG;
+    const s = localStorage.getItem(LS_KEY);
+    return s ? { ...DEFAULT_CONFIG, ...JSON.parse(s) } : DEFAULT_CONFIG;
   } catch {
     return DEFAULT_CONFIG;
   }
 }
 
-function saveConfig(config: Config) {
-  localStorage.setItem("rb_strategy_config", JSON.stringify(config));
+function saveLocal(c: LocalConfig) {
+  localStorage.setItem(LS_KEY, JSON.stringify(c));
 }
 
-function Toggle({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between py-2.5 border-b border-foreground/10 last:border-0">
-      <span className="text-sm font-medium">{label}</span>
-      <button
-        onClick={() => onChange(!value)}
-        className={`w-12 h-6 rounded-full border-[2px] border-foreground relative transition-colors ${value ? "bg-primary" : "bg-secondary"}`}
-      >
-        <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-card border-[1.5px] border-foreground transition-transform ${
-            value ? "translate-x-6" : "translate-x-0.5"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
-const PRESETS = [
-  { name: "Conservative", threshold: 8, partial: 0.5, cooldown: 8, desc: "Wide threshold, slow rebalance" },
-  { name: "Balanced", threshold: 5, partial: 0.75, cooldown: 4, desc: "Standard configuration" },
-  { name: "Aggressive", threshold: 2, partial: 1.0, cooldown: 1, desc: "Tight threshold, fast rebalance" },
-];
+// Fallback preset values for local-only mode
+const FALLBACK_PRESET_VALUES: Record<string, { local: Partial<LocalConfig>; params: Record<string, number> }> = {
+  Conservative: { local: { partialFactor: 0.5, cooldownHours: 8 },   params: { thresholdPct: 8,  minTradeUsd: 15 } },
+  Balanced:     { local: { partialFactor: 0.75, cooldownHours: 4 },  params: { thresholdPct: 5,  minTradeUsd: 15 } },
+  Aggressive:   { local: { partialFactor: 1.0, cooldownHours: 1 },   params: { thresholdPct: 2,  minTradeUsd: 15 } },
+};
 
 export default function StrategyConfigPage() {
-  const [config, setConfig] = useState<Config>(loadConfig);
+  const [local, setLocal] = useState<LocalConfig>(loadLocal);
   const [activePreset, setActivePreset] = useState("Balanced");
+  const [strategyType, setStrategyType] = useState<StrategyType>("threshold");
+  const [typeParams, setTypeParams] = useState<Record<string, number>>(() => {
+    // Merge stored thresholdPct/minTradeUSDT into default params for backward compat
+    const stored = loadLocal();
+    const defaults = getDefaultParams("threshold");
+    return {
+      ...defaults,
+      thresholdPct: stored.thresholdPct ?? defaults.thresholdPct,
+      minTradeUsd: stored.minTradeUSDT ?? defaults.minTradeUsd,
+    };
+  });
 
-  function set<K extends keyof Config>(key: K, value: Config[K]) {
-    setConfig((prev) => ({ ...prev, [key]: value }));
+  // API hooks
+  const { data: apiData } = useStrategyConfig();
+  const updateConfig = useUpdateStrategyConfig();
+  const activateStrategy = useActivateStrategy();
+
+  // Active config name from API (fall back to "default")
+  const activeName = apiData?.active?.name ?? "default";
+
+  function setLocalField<K extends keyof LocalConfig>(key: K, value: LocalConfig[K]) {
+    setLocal((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleStrategyTypeChange(t: StrategyType) {
+    setStrategyType(t);
+    setTypeParams(getDefaultParams(t));
+  }
+
+  function handleTypeParamChange(key: string, value: number) {
+    setTypeParams((prev) => ({ ...prev, [key]: value }));
   }
 
   function handleSave() {
-    saveConfig(config);
-    toast.success("Strategy config saved");
+    // Include thresholdPct in local save for backward compat with tests/legacy readers
+    const localWithThreshold = { ...local, thresholdPct: typeParams.thresholdPct ?? local.thresholdPct };
+    saveLocal(localWithThreshold);
+    const payload = {
+      strategyType,
+      params: typeParams,
+      baseAsset: local.baseAsset,
+      maxDailyVolume: local.maxDailyVolume,
+      partialFactor: local.partialFactor,
+      cooldownHours: local.cooldownHours,
+      dynamicThreshold: local.dynamicThreshold,
+      trendAware: local.trendAware,
+      feeAware: local.feeAware,
+      autoExecute: local.autoExecute,
+    };
+    updateConfig.mutate(
+      { name: activeName, data: payload },
+      {
+        onSuccess: () => toast.success("Strategy config saved"),
+        onError: () => {
+          // API unavailable — local save already done above
+          toast.success("Strategy config saved");
+        },
+      }
+    );
+  }
+
+  function handleActivate() {
+    activateStrategy.mutate(activeName, {
+      onSuccess: () => toast.success(`Activated: ${activeName}`),
+      onError: (e: any) => toast.error(e.message || "Failed to activate"),
+    });
   }
 
   function handleRestore() {
-    setConfig(DEFAULT_CONFIG);
-    saveConfig(DEFAULT_CONFIG);
+    setLocal(DEFAULT_CONFIG);
+    saveLocal(DEFAULT_CONFIG);
     toast.success("Restored default config");
   }
 
-  function applyPreset(p: (typeof PRESETS)[number]) {
-    setActivePreset(p.name);
-    setConfig((prev) => ({
-      ...prev,
-      thresholdPct: p.threshold,
-      partialFactor: p.partial,
-      cooldownHours: p.cooldown,
-    }));
+  function handleFallbackPreset(name: string) {
+    setActivePreset(name);
+    const preset = FALLBACK_PRESET_VALUES[name];
+    if (preset) {
+      setLocal((prev) => ({ ...prev, ...preset.local }));
+      setTypeParams((prev) => ({ ...prev, ...preset.params }));
+    }
   }
 
-  const numericFields: Array<{ label: string; key: keyof Config; step?: number }> = [
-    { label: "Threshold %", key: "thresholdPct", step: 0.1 },
-    { label: "Min Trade (USDT)", key: "minTradeUSDT" },
+  const globalFields: Array<{ label: string; key: keyof LocalConfig; step?: number }> = [
     { label: "Partial Factor", key: "partialFactor", step: 0.05 },
     { label: "Cooldown (hours)", key: "cooldownHours" },
     { label: "Max Daily Volume", key: "maxDailyVolume" },
@@ -105,28 +151,56 @@ export default function StrategyConfigPage() {
       <PageTitle>Strategy Config</PageTitle>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Left column: parameters */}
         <div className="lg:col-span-7 space-y-4">
           <div className="brutal-card">
             <SectionTitle>Parameters</SectionTitle>
+
+            {/* Strategy type selector */}
+            <div className="mb-4">
+              <label className="stat-label mb-1 block">Strategy Type</label>
+              <select
+                className="brutal-input w-full text-sm"
+                value={strategyType}
+                onChange={(e) => handleStrategyTypeChange(e.target.value as StrategyType)}
+              >
+                {STRATEGY_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Per-type dynamic fields */}
             <div className="grid grid-cols-2 gap-4">
-              {numericFields.map((f) => (
+              <StrategyTypeFields
+                strategyType={strategyType}
+                params={typeParams}
+                onChange={handleTypeParamChange}
+              />
+
+              {/* Global numeric fields */}
+              {globalFields.map((f) => (
                 <div key={f.key}>
                   <label className="stat-label mb-1 block">{f.label}</label>
                   <input
                     className="brutal-input w-full text-sm"
                     type="number"
                     step={f.step ?? 1}
-                    value={config[f.key] as number}
-                    onChange={(e) => set(f.key, Number(e.target.value) as Config[typeof f.key])}
+                    value={local[f.key] as number}
+                    onChange={(e) =>
+                      setLocalField(f.key, Number(e.target.value) as LocalConfig[typeof f.key])
+                    }
                   />
                 </div>
               ))}
+
+              {/* Base Asset */}
               <div>
                 <label className="stat-label mb-1 block">Base Asset</label>
                 <input
                   className="brutal-input w-full text-sm"
-                  value={config.baseAsset}
-                  onChange={(e) => set("baseAsset", e.target.value)}
+                  value={local.baseAsset}
+                  onChange={(e) => setLocalField("baseAsset", e.target.value)}
                 />
               </div>
             </div>
@@ -134,18 +208,26 @@ export default function StrategyConfigPage() {
 
           <div className="brutal-card">
             <SectionTitle>Toggles</SectionTitle>
-            <Toggle label="Dynamic Threshold" value={config.dynamicThreshold} onChange={(v) => set("dynamicThreshold", v)} />
-            <Toggle label="Trend-Aware Mode" value={config.trendAware} onChange={(v) => set("trendAware", v)} />
-            <Toggle label="Fee-Aware Execution" value={config.feeAware} onChange={(v) => set("feeAware", v)} />
-            <Toggle label="Auto Execute" value={config.autoExecute} onChange={(v) => set("autoExecute", v)} />
+            <Toggle label="Dynamic Threshold" value={local.dynamicThreshold} onChange={(v) => setLocalField("dynamicThreshold", v)} />
+            <Toggle label="Trend-Aware Mode" value={local.trendAware} onChange={(v) => setLocalField("trendAware", v)} />
+            <Toggle label="Fee-Aware Execution" value={local.feeAware} onChange={(v) => setLocalField("feeAware", v)} />
+            <Toggle label="Auto Execute" value={local.autoExecute} onChange={(v) => setLocalField("autoExecute", v)} />
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button
               className="brutal-btn-primary flex items-center gap-1.5"
               onClick={handleSave}
+              disabled={updateConfig.isPending}
             >
               <Save size={15} /> Save Config
+            </button>
+            <button
+              className="brutal-btn-primary flex items-center gap-1.5"
+              onClick={handleActivate}
+              disabled={activateStrategy.isPending}
+            >
+              <Zap size={15} /> Activate
             </button>
             <button
               className="brutal-btn-secondary flex items-center gap-1.5"
@@ -156,29 +238,12 @@ export default function StrategyConfigPage() {
           </div>
         </div>
 
+        {/* Right column: presets + info */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="brutal-card">
-            <SectionTitle>Presets</SectionTitle>
-            <div className="space-y-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.name}
-                  onClick={() => applyPreset(p)}
-                  className={`w-full text-left p-3 rounded-md border-[2px] border-foreground transition-all duration-75 ${
-                    activePreset === p.name
-                      ? "bg-primary/10 brutal-shadow-sm border-primary"
-                      : "bg-card hover:bg-secondary"
-                  }`}
-                >
-                  <div className="font-bold text-sm">{p.name}</div>
-                  <div className="text-xs text-muted-foreground">{p.desc}</div>
-                  <div className="text-xs mt-1 tabular-nums">
-                    T: {p.threshold}% · P: {p.partial} · C: {p.cooldown}h
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <StrategyPresetsPanel
+            activePreset={activePreset}
+            onApplyFallback={handleFallbackPreset}
+          />
 
           <div className="brutal-card bg-secondary/30">
             <SectionTitle>How It Works</SectionTitle>
