@@ -8,7 +8,7 @@ const PAGE_SIZE = 20;
 
 // Map Trade fields to display row shape
 function formatTrade(trade: {
-  id: number;
+  _id: string;
   exchange: string;
   pair: string;
   side: "buy" | "sell";
@@ -16,11 +16,11 @@ function formatTrade(trade: {
   price: number;
   fee: number | null;
   rebalanceId: string | null;
-  executedAt: number;
+  executedAt: string;
 }) {
   return {
-    id: String(trade.id),
-    time: new Date(trade.executedAt * 1000).toLocaleString(),
+    id: trade._id,
+    time: new Date(trade.executedAt).toLocaleString(),
     exchange: trade.exchange,
     symbol: trade.pair,
     side: trade.side,

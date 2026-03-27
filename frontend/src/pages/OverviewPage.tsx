@@ -127,8 +127,8 @@ export default function OverviewPage() {
 
   // Recent trades formatted for display
   const recentTrades = (tradesQuery.data ?? []).slice(0, 5).map((t) => ({
-    id: String(t.id),
-    time: new Date(t.executedAt * 1000).toLocaleString(),
+    id: String(t._id),
+    time: new Date(t.executedAt).toLocaleString(),
     exchange: t.exchange,
     symbol: t.pair,
     side: t.side,

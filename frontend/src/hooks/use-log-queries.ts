@@ -8,8 +8,8 @@ export function useLogs() {
     queryFn: async () => {
       const trades = await api.getTrades(50)
       return trades.map((t) => ({
-        id: `T-${t.id}`,
-        time: new Date(t.executedAt * 1000)
+        id: `T-${t._id}`,
+        time: new Date(t.executedAt)
           .toISOString()
           .replace('T', ' ')
           .slice(0, 19),
