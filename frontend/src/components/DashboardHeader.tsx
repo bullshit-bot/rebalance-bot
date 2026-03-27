@@ -35,7 +35,7 @@ export function DashboardHeader() {
         </div>
       </div>
 
-      <div className="flex items-center gap-5 text-sm">
+      <div className="flex items-center gap-8 text-sm">
         <div className="text-right">
           <div className="stat-label">Portfolio</div>
           <div className="font-bold tabular-nums">
