@@ -159,9 +159,19 @@ class PortfolioTracker {
       try {
         // Try WebSocket first; fall back to REST polling after repeated failures
         const useRest = wsFailCount >= WS_FAIL_THRESHOLD && exchange.fetchBalance
-        const balanceResponse = useRest
-          ? await exchange.fetchBalance!()
-          : await exchange.watchBalance()
+        let balanceResponse: Record<string, unknown>
+        if (useRest) {
+          balanceResponse = await exchange.fetchBalance!()
+        } else {
+          // Timeout WebSocket after 15s to avoid hanging forever (e.g. testnet)
+          const WS_TIMEOUT = 15_000
+          balanceResponse = await Promise.race([
+            exchange.watchBalance(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('watchBalance timeout')), WS_TIMEOUT)
+            ),
+          ])
+        }
 
         // Reset failure count on successful WebSocket response
         if (!useRest) wsFailCount = 0

@@ -15,8 +15,8 @@ RUN bun build src/index.ts --outdir dist --target bun
 FROM oven/bun:1-slim AS runner
 WORKDIR /app
 
-# Install curl for Docker health checks
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+# Install curl + CA certs for Docker health checks and HTTPS API calls
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
