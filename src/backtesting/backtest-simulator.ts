@@ -339,7 +339,7 @@ class BacktestSimulator {
         .filter((a): a is PortfolioAsset => a !== null),
     }
 
-    const orders = calculateTrades(portfolio, effectiveAllocations)
+    const orders = calculateTrades(portfolio, effectiveAllocations, prices)
     const simTrades: SimulatedTrade[] = []
 
     for (const order of orders) {

@@ -17,7 +17,7 @@ import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/in
  * All pairs use the canonical "ASSET/USDT" format.
  * USDT itself is the rebalancing currency and is never traded.
  */
-export function calculateTrades(portfolio: Portfolio, targets: Allocation[]): TradeOrder[] {
+export function calculateTrades(portfolio: Portfolio, targets: Allocation[], priceOverrides?: Record<string, number>): TradeOrder[] {
   const totalUsd = portfolio.totalValueUsd
   if (totalUsd <= 0) return []
 
@@ -87,8 +87,9 @@ export function calculateTrades(portfolio: Portfolio, targets: Allocation[]): Tr
   for (const d of deltas) {
     const pair = `${d.asset}/USDT`
 
-    // Resolve current price to convert USD delta → base quantity (e.g. BTC not USD)
+    // Resolve current price — use overrides (backtest) or live price cache
     const price =
+      priceOverrides?.[pair] ??
       priceCache.getBestPrice(pair) ??
       priceCache.getBestPrice(`${d.asset}/USD`) ??
       priceCache.getBestPrice(`${d.asset}/USDC`)

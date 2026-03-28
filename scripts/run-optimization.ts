@@ -4,22 +4,22 @@
  *
  * Usage: bun run scripts/run-optimization.ts [--strategy threshold,mean-reversion] [--top 20]
  */
-import { connectToDatabase } from '../src/db/database'
+import { connectDB } from '../src/db/connection'
 import { strategyOptimizer } from '../src/backtesting/strategy-optimizer'
 import type { StrategyType } from '../src/rebalancer/strategies/strategy-config-types'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const PAIRS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'ADA/USDT', 'DOT/USDT']
+const PAIRS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'AVAX/USDT', 'LINK/USDT']
 const ALLOCATIONS = [
-  { asset: 'BTC', targetPct: 40 },
+  { asset: 'BTC', targetPct: 35 },
   { asset: 'ETH', targetPct: 25 },
   { asset: 'SOL', targetPct: 15 },
-  { asset: 'BNB', targetPct: 10 },
-  { asset: 'ADA', targetPct: 5 },
-  { asset: 'DOT', targetPct: 5 },
+  { asset: 'BNB', targetPct: 5 },
+  { asset: 'AVAX', targetPct: 10 },
+  { asset: 'LINK', targetPct: 10 },
 ]
-const INITIAL_BALANCE = 10_000
+const INITIAL_BALANCE = 100_000
 const FEE_PCT = 0.001
 const YEARS = 5
 
@@ -65,7 +65,7 @@ async function main() {
   if (strategyTypes) console.log(`Filtering: ${strategyTypes.join(', ')}`)
   console.log('')
 
-  await connectToDatabase()
+  await connectDB()
 
   const now = Date.now()
   const startDate = now - YEARS * 365 * 24 * 60 * 60 * 1000
