@@ -72,9 +72,10 @@ jobs:
               fi
             done
 
-            # Kill any process on port 80 (nginx, stale docker-proxy, etc.)
-            sudo fuser -k 80/tcp 2>/dev/null || true
-            sudo fuser -k 27017/tcp 2>/dev/null || true
+            # Kill any non-Docker process on required ports
+            for PORT in 3001 27017; do
+              sudo fuser -k $PORT/tcp 2>/dev/null || true
+            done
 
             # Restart Docker daemon to release stale docker-proxy port bindings
             sudo systemctl restart docker || true
