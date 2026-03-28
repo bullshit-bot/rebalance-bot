@@ -50,6 +50,13 @@ jobs:
 
       - run: bun install
 
+      - name: TypeScript check
+        run: bunx tsc --noEmit 2>&1 | grep -v "\.test\." | grep "error TS" && exit 1 || echo "No production TS errors"
+
+      - name: Lint (Biome)
+        run: bun run lint
+        continue-on-error: true
+
       - name: Run tests
         run: bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts' --timeout 30000
         continue-on-error: false

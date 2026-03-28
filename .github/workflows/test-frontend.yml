@@ -30,6 +30,10 @@ jobs:
       - name: TypeScript check
         run: bunx tsc --noEmit
 
+      - name: Lint (ESLint)
+        run: bun run lint
+        continue-on-error: true
+
       - name: Run tests
         run: bun run test
 
