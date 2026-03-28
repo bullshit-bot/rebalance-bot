@@ -2,7 +2,6 @@ import { PageTitle, SectionTitle } from "@/components/ui-brutal";
 import { Save, RotateCcw, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Toggle } from "./strategy-config-toggle";
 import {
   StrategyTypeFields,
   STRATEGY_TYPES,
@@ -10,6 +9,7 @@ import {
   getDefaultParams,
 } from "./strategy-config-type-fields";
 import { StrategyPresetsPanel } from "./strategy-config-presets-panel";
+import { GlobalSettingsSection, DEFAULT_GLOBAL_SETTINGS, type GlobalSettings } from "./strategy-config-global-settings";
 import {
   useStrategyConfig,
   useUpdateStrategyConfig,
@@ -19,54 +19,68 @@ import {
 // --- local-storage helpers (kept for test compatibility) ---
 const LS_KEY = "rb_strategy_config";
 
-const DEFAULT_CONFIG = {
-  thresholdPct: 5.0,
-  minTradeUSDT: 15,
+const DEFAULT_MISC = {
+  baseAsset: "USDT",
+  maxDailyVolume: 50000,
   partialFactor: 0.75,
   cooldownHours: 4,
-  maxDailyVolume: 50000,
-  baseAsset: "USDT",
-  dynamicThreshold: true,
-  trendAware: false,
-  feeAware: true,
-  autoExecute: false,
 };
 
-type LocalConfig = typeof DEFAULT_CONFIG;
+type MiscConfig = typeof DEFAULT_MISC;
 
-function loadLocal(): LocalConfig {
+function loadLocal(): MiscConfig & GlobalSettings {
   try {
     const s = localStorage.getItem(LS_KEY);
-    return s ? { ...DEFAULT_CONFIG, ...JSON.parse(s) } : DEFAULT_CONFIG;
+    return s ? { ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS, ...JSON.parse(s) } : { ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS };
   } catch {
-    return DEFAULT_CONFIG;
+    return { ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS };
   }
 }
 
-function saveLocal(c: LocalConfig) {
+function saveLocal(c: MiscConfig & GlobalSettings & { thresholdPct?: number }) {
   localStorage.setItem(LS_KEY, JSON.stringify(c));
 }
 
 // Fallback preset values for local-only mode
-const FALLBACK_PRESET_VALUES: Record<string, { local: Partial<LocalConfig>; params: Record<string, number> }> = {
-  Conservative: { local: { partialFactor: 0.5, cooldownHours: 8 },   params: { thresholdPct: 8,  minTradeUsd: 15 } },
-  Balanced:     { local: { partialFactor: 0.75, cooldownHours: 4 },  params: { thresholdPct: 5,  minTradeUsd: 15 } },
-  Aggressive:   { local: { partialFactor: 1.0, cooldownHours: 1 },   params: { thresholdPct: 2,  minTradeUsd: 15 } },
+const FALLBACK_PRESET_VALUES: Record<string, { misc: Partial<MiscConfig>; global?: Partial<GlobalSettings>; params: Record<string, number> }> = {
+  Conservative: { misc: { partialFactor: 0.5, cooldownHours: 8 },   params: { thresholdPct: 8,  minTradeUsd: 15 } },
+  Balanced:     { misc: { partialFactor: 0.75, cooldownHours: 4 },  params: { thresholdPct: 5,  minTradeUsd: 15 } },
+  Aggressive:   { misc: { partialFactor: 1.0, cooldownHours: 1 },   params: { thresholdPct: 2,  minTradeUsd: 15 } },
+  CashAwareBalanced: {
+    misc: { partialFactor: 0.75, cooldownHours: 4 },
+    global: { cashReservePct: 10, dcaRebalanceEnabled: false, hardRebalanceThreshold: 15 },
+    params: { thresholdPct: 5, minTradeUsd: 15 },
+  },
+  DCARebalance: {
+    misc: { partialFactor: 0.75, cooldownHours: 4 },
+    global: { cashReservePct: 5, dcaRebalanceEnabled: true, hardRebalanceThreshold: 20 },
+    params: { thresholdPct: 5, minTradeUsd: 15 },
+  },
 };
 
 export default function StrategyConfigPage() {
-  const [local, setLocal] = useState<LocalConfig>(loadLocal);
+  const [misc, setMisc] = useState<MiscConfig>(() => {
+    const l = loadLocal();
+    return { baseAsset: l.baseAsset, maxDailyVolume: l.maxDailyVolume, partialFactor: l.partialFactor, cooldownHours: l.cooldownHours };
+  });
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
+    const l = loadLocal();
+    return {
+      dynamicThreshold: l.dynamicThreshold,
+      trendAware: l.trendAware,
+      feeAware: l.feeAware,
+      autoExecute: l.autoExecute,
+      cashReservePct: l.cashReservePct ?? 0,
+      dcaRebalanceEnabled: l.dcaRebalanceEnabled ?? false,
+      hardRebalanceThreshold: l.hardRebalanceThreshold ?? 15,
+    };
+  });
   const [activePreset, setActivePreset] = useState("Balanced");
   const [strategyType, setStrategyType] = useState<StrategyType>("threshold");
   const [typeParams, setTypeParams] = useState<Record<string, number>>(() => {
-    // Merge stored thresholdPct/minTradeUSDT into default params for backward compat
     const stored = loadLocal();
     const defaults = getDefaultParams("threshold");
-    return {
-      ...defaults,
-      thresholdPct: stored.thresholdPct ?? defaults.thresholdPct,
-      minTradeUsd: stored.minTradeUSDT ?? defaults.minTradeUsd,
-    };
+    return { ...defaults, thresholdPct: (stored as any).thresholdPct ?? defaults.thresholdPct };
   });
 
   // API hooks
@@ -74,7 +88,6 @@ export default function StrategyConfigPage() {
   const updateConfig = useUpdateStrategyConfig();
   const activateStrategy = useActivateStrategy();
 
-  // Active config name from API (fall back to "default")
   const activeName = apiData?.active?.name ?? "default";
 
   // Sync form from API active config on first load
@@ -83,27 +96,28 @@ export default function StrategyConfigPage() {
     if (!active) return;
     const p = active.params ?? {};
     const g = active.globalSettings ?? {};
-    setLocal((prev) => ({
+    setMisc((prev) => ({
       ...prev,
-      thresholdPct: p.thresholdPct ?? p.baseThresholdPct ?? prev.thresholdPct,
-      minTradeUSDT: p.minTradeUsd ?? prev.minTradeUSDT,
       partialFactor: g.partialFactor ?? prev.partialFactor,
       cooldownHours: g.cooldownHours ?? prev.cooldownHours,
+    }));
+    setGlobalSettings((prev) => ({
+      ...prev,
       dynamicThreshold: g.dynamicThreshold ?? prev.dynamicThreshold,
       trendAware: g.trendAware ?? prev.trendAware,
       feeAware: g.feeAware ?? prev.feeAware,
       autoExecute: g.autoExecute ?? prev.autoExecute,
+      cashReservePct: g.cashReservePct ?? prev.cashReservePct,
+      dcaRebalanceEnabled: g.dcaRebalanceEnabled ?? prev.dcaRebalanceEnabled,
+      hardRebalanceThreshold: g.hardRebalanceThreshold ?? prev.hardRebalanceThreshold,
     }));
-    setTypeParams((prev) => ({
-      ...prev,
-      ...p,
-    }));
+    setTypeParams((prev) => ({ ...prev, ...p }));
     if (active.strategyType) setStrategyType(active.strategyType as StrategyType);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiData?.active?.name]);
 
-  function setLocalField<K extends keyof LocalConfig>(key: K, value: LocalConfig[K]) {
-    setLocal((prev) => ({ ...prev, [key]: value }));
+  function handleGlobalChange<K extends keyof GlobalSettings>(key: K, value: GlobalSettings[K]) {
+    setGlobalSettings((prev) => ({ ...prev, [key]: value }));
   }
 
   function handleStrategyTypeChange(t: StrategyType) {
@@ -111,34 +125,29 @@ export default function StrategyConfigPage() {
     setTypeParams(getDefaultParams(t));
   }
 
-  function handleTypeParamChange(key: string, value: number) {
-    setTypeParams((prev) => ({ ...prev, [key]: value }));
-  }
-
   function handleSave() {
-    // Include thresholdPct in local save for backward compat with tests/legacy readers
-    const localWithThreshold = { ...local, thresholdPct: typeParams.thresholdPct ?? local.thresholdPct };
-    saveLocal(localWithThreshold);
+    const snapshot = { ...misc, ...globalSettings, thresholdPct: typeParams.thresholdPct };
+    saveLocal(snapshot);
     const payload = {
       strategyType,
       params: typeParams,
-      baseAsset: local.baseAsset,
-      maxDailyVolume: local.maxDailyVolume,
-      partialFactor: local.partialFactor,
-      cooldownHours: local.cooldownHours,
-      dynamicThreshold: local.dynamicThreshold,
-      trendAware: local.trendAware,
-      feeAware: local.feeAware,
-      autoExecute: local.autoExecute,
+      baseAsset: misc.baseAsset,
+      maxDailyVolume: misc.maxDailyVolume,
+      partialFactor: misc.partialFactor,
+      cooldownHours: misc.cooldownHours,
+      dynamicThreshold: globalSettings.dynamicThreshold,
+      trendAware: globalSettings.trendAware,
+      feeAware: globalSettings.feeAware,
+      autoExecute: globalSettings.autoExecute,
+      cashReservePct: globalSettings.cashReservePct,
+      dcaRebalanceEnabled: globalSettings.dcaRebalanceEnabled,
+      hardRebalanceThreshold: globalSettings.hardRebalanceThreshold,
     };
     updateConfig.mutate(
       { name: activeName, data: payload },
       {
         onSuccess: () => toast.success("Strategy config saved"),
-        onError: () => {
-          // API unavailable — local save already done above
-          toast.success("Strategy config saved");
-        },
+        onError: () => toast.success("Strategy config saved"),
       }
     );
   }
@@ -151,8 +160,9 @@ export default function StrategyConfigPage() {
   }
 
   function handleRestore() {
-    setLocal(DEFAULT_CONFIG);
-    saveLocal(DEFAULT_CONFIG);
+    setMisc(DEFAULT_MISC);
+    setGlobalSettings(DEFAULT_GLOBAL_SETTINGS);
+    saveLocal({ ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS });
     toast.success("Restored default config");
   }
 
@@ -160,12 +170,13 @@ export default function StrategyConfigPage() {
     setActivePreset(name);
     const preset = FALLBACK_PRESET_VALUES[name];
     if (preset) {
-      setLocal((prev) => ({ ...prev, ...preset.local }));
+      if (preset.misc) setMisc((prev) => ({ ...prev, ...preset.misc }));
+      if (preset.global) setGlobalSettings((prev) => ({ ...prev, ...preset.global }));
       setTypeParams((prev) => ({ ...prev, ...preset.params }));
     }
   }
 
-  const globalFields: Array<{ label: string; key: keyof LocalConfig; step?: number }> = [
+  const globalNumericFields: Array<{ label: string; key: keyof MiscConfig; step?: number }> = [
     { label: "Partial Factor", key: "partialFactor", step: 0.05 },
     { label: "Cooldown (hours)", key: "cooldownHours" },
     { label: "Max Daily Volume", key: "maxDailyVolume" },
@@ -181,7 +192,6 @@ export default function StrategyConfigPage() {
           <div className="brutal-card">
             <SectionTitle>Parameters</SectionTitle>
 
-            {/* Strategy type selector */}
             <div className="mb-4">
               <label className="stat-label mb-1 block">Strategy Type</label>
               <select
@@ -195,49 +205,38 @@ export default function StrategyConfigPage() {
               </select>
             </div>
 
-            {/* Per-type dynamic fields */}
             <div className="grid grid-cols-2 gap-4">
               <StrategyTypeFields
                 strategyType={strategyType}
                 params={typeParams}
-                onChange={handleTypeParamChange}
+                onChange={(key, val) => setTypeParams((prev) => ({ ...prev, [key]: val }))}
               />
 
-              {/* Global numeric fields */}
-              {globalFields.map((f) => (
+              {globalNumericFields.map((f) => (
                 <div key={f.key}>
                   <label className="stat-label mb-1 block">{f.label}</label>
                   <input
                     className="brutal-input w-full text-sm"
                     type="number"
                     step={f.step ?? 1}
-                    value={local[f.key] as number}
-                    onChange={(e) =>
-                      setLocalField(f.key, Number(e.target.value) as LocalConfig[typeof f.key])
-                    }
+                    value={misc[f.key] as number}
+                    onChange={(e) => setMisc((prev) => ({ ...prev, [f.key]: Number(e.target.value) }))}
                   />
                 </div>
               ))}
 
-              {/* Base Asset */}
               <div>
                 <label className="stat-label mb-1 block">Base Asset</label>
                 <input
                   className="brutal-input w-full text-sm"
-                  value={local.baseAsset}
-                  onChange={(e) => setLocalField("baseAsset", e.target.value)}
+                  value={misc.baseAsset}
+                  onChange={(e) => setMisc((prev) => ({ ...prev, baseAsset: e.target.value }))}
                 />
               </div>
             </div>
           </div>
 
-          <div className="brutal-card">
-            <SectionTitle>Toggles</SectionTitle>
-            <Toggle label="Dynamic Threshold" value={local.dynamicThreshold} onChange={(v) => setLocalField("dynamicThreshold", v)} />
-            <Toggle label="Trend-Aware Mode" value={local.trendAware} onChange={(v) => setLocalField("trendAware", v)} />
-            <Toggle label="Fee-Aware Execution" value={local.feeAware} onChange={(v) => setLocalField("feeAware", v)} />
-            <Toggle label="Auto Execute" value={local.autoExecute} onChange={(v) => setLocalField("autoExecute", v)} />
-          </div>
+          <GlobalSettingsSection settings={globalSettings} onChange={handleGlobalChange} />
 
           <div className="flex gap-3 flex-wrap">
             <button
@@ -278,6 +277,8 @@ export default function StrategyConfigPage() {
               <p><strong>Cooldown:</strong> Minimum wait between rebalance executions.</p>
               <p><strong>Dynamic Threshold:</strong> Adjusts threshold based on market volatility.</p>
               <p><strong>Fee-Aware:</strong> Skips trades where fee exceeds expected drift benefit.</p>
+              <p><strong>Cash Reserve:</strong> Keeps a % of portfolio in USDT as buffer before rebalancing.</p>
+              <p><strong>DCA Routing:</strong> New deposits go to the most underweight asset automatically.</p>
             </div>
           </div>
         </div>

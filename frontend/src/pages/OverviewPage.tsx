@@ -2,6 +2,7 @@ import { StatCard, ActionBadge, StatusBadge, PageTitle, SectionTitle, BrutalSkel
 import { usePortfolio, usePortfolioHistory } from "@/hooks/use-portfolio-queries";
 import { useTrades } from "@/hooks/use-trade-queries";
 import { useRebalancePreview } from "@/hooks/use-rebalance-queries";
+import { useStrategyConfig } from "@/hooks/use-strategy-config-queries";
 import { DollarSign, TrendingUp, Coins, Activity, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
 
@@ -35,6 +36,7 @@ export default function OverviewPage() {
   const historyQuery = usePortfolioHistory();
   const tradesQuery = useTrades(5);
   const previewQuery = useRebalancePreview();
+  const strategyQuery = useStrategyConfig();
 
   const isLoading =
     portfolioQuery.isLoading ||
@@ -94,6 +96,14 @@ export default function OverviewPage() {
     ? Math.max(...assets.map((a) => Math.abs(a.driftPct)))
     : 0;
   const pendingActions = previewQuery.data?.trades.length ?? 0;
+
+  // Cash reserve derived stats
+  const cashReservePct = strategyQuery.data?.active?.globalSettings?.cashReservePct ?? 0;
+  const cashTargetUsd = cashReservePct > 0 ? (portfolioValue * cashReservePct) / 100 : 0;
+  const cashActualPct = portfolioValue > 0 ? (cashAvailable / portfolioValue) * 100 : 0;
+  const cashDeviation = cashReservePct > 0 ? cashActualPct - cashReservePct : 0;
+  const cashVariant: "success" | "warning" | "danger" =
+    Math.abs(cashDeviation) <= 2 ? "success" : Math.abs(cashDeviation) <= 5 ? "warning" : "danger";
 
   // PnL derived from history (first vs last snapshot)
   const history = historyQuery.data ?? [];
@@ -158,11 +168,29 @@ export default function OverviewPage() {
           variant={pnlDisplay.startsWith("+") ? "success" : "default"}
           icon={<TrendingUp size={18} />}
         />
-        <StatCard
-          label="USDT Available"
-          value={`$${cashAvailable.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-          icon={<Coins size={18} />}
-        />
+        {cashReservePct > 0 ? (
+          <div className={`brutal-card ${cashVariant === "success" ? "bg-success/10 border-success" : cashVariant === "warning" ? "bg-warning/10 border-warning" : "bg-destructive/10 border-destructive"}`}>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="stat-label mb-1">Cash Reserve</div>
+                <div className="stat-value">
+                  ${cashAvailable.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {cashActualPct.toFixed(1)}% of {cashReservePct}% target
+                  {" "}(${cashTargetUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+                </div>
+              </div>
+              <div className="text-muted-foreground"><Coins size={18} /></div>
+            </div>
+          </div>
+        ) : (
+          <StatCard
+            label="USDT Available"
+            value={`$${cashAvailable.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            icon={<Coins size={18} />}
+          />
+        )}
         <StatCard
           label="Drift Score"
           value={`${driftScore.toFixed(1)}%`}

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 priority: P2
 effort: 2h
 depends_on: [phase-01]
@@ -78,23 +78,23 @@ Find Overview page component. Add a card/section showing:
 
 ## Todo List
 
-- [ ] Add cashReservePct slider to Global Settings section
-- [ ] Add dcaRebalanceEnabled toggle
-- [ ] Add hardRebalanceThreshold input (conditional on dcaRebalanceEnabled)
-- [ ] Wire new fields to form state and API submission
-- [ ] Add client-side validation matching Zod schema
-- [ ] Add cash reserve status card to Overview page
-- [ ] Test preset selection populates new fields correctly
-- [ ] Test conditional visibility (threshold hidden when DCA off)
+- [x] Add cashReservePct slider to Global Settings section
+- [x] Add dcaRebalanceEnabled toggle
+- [x] Add hardRebalanceThreshold input (conditional on dcaRebalanceEnabled)
+- [x] Wire new fields to form state and API submission
+- [x] Add client-side validation matching Zod schema
+- [x] Add cash reserve status card to Overview page
+- [x] Test preset selection populates new fields correctly
+- [x] Test conditional visibility (threshold hidden when DCA off)
 
 ## Success Criteria
 
-- [ ] Cash reserve slider visible and functional (0-50%)
-- [ ] DCA toggle controls visibility of hard rebalance threshold
-- [ ] Form submission includes new fields
-- [ ] Overview shows cash reserve status when enabled
-- [ ] Presets auto-fill new fields
-- [ ] Responsive layout on mobile
+- [x] Cash reserve slider visible and functional (0-50%)
+- [x] DCA toggle controls visibility of hard rebalance threshold
+- [x] Form submission includes new fields
+- [x] Overview shows cash reserve status when enabled
+- [x] Presets auto-fill new fields
+- [x] Responsive layout on mobile
 
 ## Risk Assessment
 
