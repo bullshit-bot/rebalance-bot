@@ -1,5 +1,9 @@
 // MA-based trend filter for bear market protection.
 // Tracks daily BTC closes and determines bull/bear regime.
+// Persists daily closes to MongoDB for restart resilience.
+
+import { OhlcvCandleModel } from '@db/models/ohlcv-candle-model'
+import { eventBus } from '@events/event-bus'
 
 class TrendFilter {
   /** Rolling daily BTC close prices (capped at 400 entries) */
@@ -8,11 +12,43 @@ class TrendFilter {
   /** Day number (floor(epoch_ms / 86400000)) of the last recorded entry */
   private lastRecordedDay = 0
 
+  /** Previous bull/bear state — null until first evaluation (avoids false flip on startup) */
+  private lastBullish: boolean | null = null
+
   // ─── Public API ─────────────────────────────────────────────────────────────
+
+  /**
+   * Hydrate dailyCloses from MongoDB on startup.
+   * Safe to call when DB is empty — defaults to bull (no data).
+   */
+  async loadFromDb(): Promise<void> {
+    try {
+      const candles = await OhlcvCandleModel.find({
+        exchange: 'trend-filter',
+        pair: 'BTC/USDT',
+        timeframe: '1d',
+      })
+        .sort({ timestamp: 1 })
+        .limit(400)
+        .lean()
+
+      if (candles.length === 0) {
+        console.info('[TrendFilter] No persisted candles found — starting fresh')
+        return
+      }
+
+      this.dailyCloses = candles.map((c) => c.close)
+      this.lastRecordedDay = Math.floor(candles[candles.length - 1]!.timestamp / 86_400_000)
+      console.info('[TrendFilter] Loaded %d data points from DB', candles.length)
+    } catch (err) {
+      console.error('[TrendFilter] Failed to load from DB — starting fresh:', err)
+    }
+  }
 
   /**
    * Record the current BTC price.
    * Call on every price update — dedupes within the same calendar day.
+   * Persists new day entries to MongoDB (fire-and-forget).
    */
   recordPrice(btcPrice: number): void {
     const today = Math.floor(Date.now() / 86_400_000)
@@ -24,6 +60,16 @@ class TrendFilter {
       this.lastRecordedDay = today
       // Cap at 400 entries — more than any MA period we'd use
       if (this.dailyCloses.length > 400) this.dailyCloses.shift()
+
+      // Persist new day entry to MongoDB (fire-and-forget)
+      const dayStartMs = today * 86_400_000
+      OhlcvCandleModel.updateOne(
+        { exchange: 'trend-filter', pair: 'BTC/USDT', timeframe: '1d', timestamp: dayStartMs },
+        { $set: { open: btcPrice, high: btcPrice, low: btcPrice, close: btcPrice, volume: 0 } },
+        { upsert: true },
+      ).catch((err) => {
+        console.error('[TrendFilter] Failed to persist daily close:', err)
+      })
     }
   }
 
@@ -39,6 +85,25 @@ class TrendFilter {
     if (ma === null) return true // not enough data → assume bull (safe default)
     const currentPrice = this.dailyCloses[this.dailyCloses.length - 1] ?? 0
     // Bull if price >= MA * (1 - buffer/100)
+    const bullish = currentPrice >= ma * (1 - bufferPct / 100)
+
+    // Emit trend:changed only on actual state flip (skip first evaluation)
+    if (this.lastBullish !== null && bullish !== this.lastBullish) {
+      eventBus.emit('trend:changed', { bullish, price: currentPrice, ma })
+    }
+    this.lastBullish = bullish
+
+    return bullish
+  }
+
+  /**
+   * Read-only bull/bear query — does NOT emit trend:changed events.
+   * Use this in health endpoints, status displays, and startup messages.
+   */
+  isBullishReadOnly(maPeriod = 100, bufferPct = 2): boolean {
+    const ma = this.sma(maPeriod)
+    if (ma === null) return true
+    const currentPrice = this.dailyCloses[this.dailyCloses.length - 1] ?? 0
     return currentPrice >= ma * (1 - bufferPct / 100)
   }
 

@@ -1,9 +1,9 @@
 # Project Roadmap
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-26
-**Current Version**: 1.0.0
-**Status**: Production (Stable)
+**Last Updated**: 2026-03-28
+**Current Version**: 1.0.1
+**Status**: Production (Stable) + Production Readiness Complete
 **Repository**: https://github.com/dungngo97/rebalance-bot
 
 ## Current Status
@@ -80,10 +80,24 @@ All four major phases complete. System is production-ready with 14 features impl
 | MongoDB Migration | ✅ | 5 | 420 |
 | MCP Server | ✅ | 5 | 200 |
 | OpenClaw AI + ChromaDB | ✅ | 5 | 150 |
+| Trend Filter (MA-based) | ✅ | 6 | 280 |
+| Bear Market Protection | ✅ | 6 | - |
+| Health Endpoint (enhanced) | ✅ | 6 | 50 |
+| Docker Autoheal | ✅ | 6 | - |
 
 ## Recent Updates (2026)
 
-**March 2026**:
+**March 28, 2026 — Production Readiness**:
+- ✅ TrendFilter persistence to MongoDB (restart resilience)
+- ✅ Bear market protection (`trend-filter-bear` trigger)
+- ✅ Enhanced health endpoint (memory, version, trend status)
+- ✅ Docker autoheal sidecar (auto-recovery within 60s)
+- ✅ Trend-safe read-only API (no spurious events)
+- ✅ 30s timeout on ExchangeManager.loadMarkets()
+- ✅ Telegram startup + trend-change notifications
+- ✅ Mainnet configuration guide
+
+**March 22, 2026 — v1.0.0 Production Release**:
 - ✅ Docker Compose migration (6-service stack)
 - ✅ SQLite → MongoDB 7 with Mongoose
 - ✅ Drizzle ORM → Mongoose models (14 schemas)

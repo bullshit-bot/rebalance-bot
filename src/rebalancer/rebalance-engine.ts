@@ -5,6 +5,8 @@ import { eventBus } from '@events/event-bus'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
 import { driftDetector } from '@rebalancer/drift-detector'
 import { calculateTrades } from '@rebalancer/trade-calculator'
+import { DEFAULT_BEAR_CASH_PCT } from '@rebalancer/drift-detector'
+import { strategyManager } from '@rebalancer/strategy-manager'
 import type { Portfolio, RebalanceEvent, RebalanceTrigger, TradeOrder, TradeResult } from '@/types/index'
 
 // ─── OrderExecutor interface ──────────────────────────────────────────────────
@@ -101,7 +103,14 @@ class RebalanceEngine {
     const targets = await portfolioTracker.getTargetAllocations()
 
     // ── Step 3: calculate trades ──────────────────────────────────────────────
-    const orders = calculateTrades(beforeState, targets)
+    // Bear trigger: override cash reserve to bearCashPct (sell to safety)
+    let cashReservePct: number | undefined
+    if (trigger === 'trend-filter-bear') {
+      const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
+      cashReservePct = typeof gs?.bearCashPct === 'number' ? gs.bearCashPct : DEFAULT_BEAR_CASH_PCT
+      console.info('[RebalanceEngine] Bear trigger — targeting %d%% cash reserve', cashReservePct)
+    }
+    const orders = calculateTrades(beforeState, targets, undefined, cashReservePct)
 
     // ── Step 4: persist initial record ───────────────────────────────────────
     await RebalanceModel.create({

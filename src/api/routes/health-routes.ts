@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { exchangeManager } from '@exchange/exchange-manager'
+import { portfolioTracker } from '@portfolio/portfolio-tracker'
 import { trendFilter } from '@rebalancer/trend-filter'
 import { strategyManager } from '@rebalancer/strategy-manager'
 
@@ -23,10 +24,13 @@ healthRoutes.get('/', (c) => {
   return c.json({
     status: 'ok',
     uptimeSeconds: Math.floor((Date.now() - START_TIME) / 1_000),
+    memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+    version: process.env.npm_package_version ?? 'unknown',
+    lastPriceUpdate: portfolioTracker.getLastUpdateTime() || null,
     exchanges: exchangeManager.getStatus(),
     trendStatus: {
       enabled: trendEnabled,
-      bullish: trendFilter.isBullish(maPeriod, buffer),
+      bullish: trendFilter.isBullishReadOnly(maPeriod, buffer),
       ma: trendFilter.getMA(maPeriod),
       price: trendFilter.getCurrentPrice(),
       dataPoints: trendFilter.getDataPoints(),

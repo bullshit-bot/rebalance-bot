@@ -67,6 +67,8 @@ services:
     image: mongo:7
     container_name: rebalance-mongodb
     restart: unless-stopped
+    ports:
+      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
@@ -141,6 +143,28 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - app-network
+
+  autoheal:
+    image: willfarrell/autoheal
+    container_name: rebalance-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: all
+      AUTOHEAL_INTERVAL: 60
+      AUTOHEAL_START_PERIOD: 120
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
     networks:
       - app-network
 

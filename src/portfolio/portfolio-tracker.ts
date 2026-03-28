@@ -68,6 +68,9 @@ class PortfolioTracker {
   /** Cached target allocations to avoid DB round-trip on every balance tick */
   private cachedTargets: import('@/types/index').Allocation[] | null = null
 
+  /** Timestamp (ms) of last successful portfolio recalculation */
+  private lastUpdateTime = 0
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   /**
@@ -100,6 +103,11 @@ class PortfolioTracker {
   /** Returns the most recently calculated portfolio, or null if not yet ready. */
   getPortfolio(): Portfolio | null {
     return this.portfolio
+  }
+
+  /** Returns the timestamp (ms) of the last successful portfolio recalculation. */
+  getLastUpdateTime(): number {
+    return this.lastUpdateTime
   }
 
   /** Clears cached allocations — used for test isolation. */
@@ -305,6 +313,7 @@ class PortfolioTracker {
         }
 
         this.portfolio = portfolio
+        this.lastUpdateTime = Date.now()
         this.deps.eventBus.emit('portfolio:update', portfolio)
 
         // Emit drift warnings for any asset exceeding threshold

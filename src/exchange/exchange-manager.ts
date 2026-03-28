@@ -64,7 +64,14 @@ class ExchangeManager {
         const exchange = this.deps.exchangeFactory(name, config)
 
         // Verify connectivity with a lightweight ping before marking as ready
-        await exchange.loadMarkets()
+        // 30s timeout prevents hanging forever if exchange is unreachable
+        const LOAD_MARKETS_TIMEOUT = 30_000
+        await Promise.race([
+          exchange.loadMarkets(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`loadMarkets timeout after ${LOAD_MARKETS_TIMEOUT}ms`)), LOAD_MARKETS_TIMEOUT),
+          ),
+        ])
 
         this.exchanges.set(name, exchange)
         this.deps.eventBus.emit('exchange:connected', name)

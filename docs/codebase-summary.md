@@ -19,9 +19,9 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 
 | Module | LOC | Responsibility |
 |--------|-----|-----------------|
-| api/ | 1,850 | REST API (11 routes) + WebSocket server |
+| api/ | 1,900 | REST API (11 routes + health) + WebSocket server |
 | backtesting/ | 1,015 | Historical simulation, metrics calculation |
-| rebalancer/ | 800 | Rebalance orchestration, strategy execution |
+| rebalancer/ | 920 | Orchestration, drift detection, trend filter, bear triggers |
 | analytics/ | 880 | Performance metrics, reporting |
 | executor/ | 670 | Order execution (live & paper trading) |
 | grid/ | 710 | Grid trading strategy implementation |
@@ -74,7 +74,9 @@ src/
 │   ├── portfolio-tracker.ts # Balance management
 │   └── allocation-calc.ts  # Target calculation
 ├── rebalancer/
-│   ├── drift-detector.ts   # Allocation monitoring
+│   ├── drift-detector.ts   # Allocation monitoring, bear trigger
+│   ├── trend-filter.ts     # MA-based trend detection (BTC closes)
+│   ├── rebalance-engine.ts # Trigger routing, cash override logic
 │   ├── trade-planner.ts    # Trade optimization
 │   └── strategies/         # Strategy implementations
 ├── executor/

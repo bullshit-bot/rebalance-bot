@@ -7,6 +7,7 @@ import { rebalanceEngine } from '@rebalancer/rebalance-engine'
 import { driftDetector } from '@rebalancer/drift-detector'
 import { getExecutor, type IOrderExecutor } from '@executor/index'
 import type { OrderExecutor as EngineExecutor } from '@rebalancer/rebalance-engine'
+import { trendFilter } from '@rebalancer/trend-filter'
 import { trailingStopManager } from '@trailing-stop/trailing-stop-manager'
 import { dcaService } from '@dca/dca-service'
 import { telegramNotifier } from '@notifier/telegram-notifier'
@@ -49,6 +50,9 @@ async function main(): Promise<void> {
   // Step 1: Connect to MongoDB
   await connectDB()
   console.log('[main] Database ready')
+
+  // Step 1b: Hydrate trend filter from persisted candles
+  await trendFilter.loadFromDb()
 
   // Step 2: Connect to exchanges (skips any exchange missing credentials)
   try {

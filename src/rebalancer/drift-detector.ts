@@ -4,6 +4,9 @@ import { strategyManager } from '@rebalancer/strategy-manager'
 import { trendFilter } from '@rebalancer/trend-filter'
 import type { Portfolio } from '@/types/index'
 
+/** Default bear market cash target — shared with RebalanceEngine */
+export const DEFAULT_BEAR_CASH_PCT = 70
+
 // ─── Dependency injection ─────────────────────────────────────────────────────
 
 export interface IEventBusDepDD {
@@ -97,7 +100,7 @@ class DriftDetector {
     if (gs?.trendFilterEnabled) {
       const maPeriod = typeof gs.trendFilterMA === 'number' ? gs.trendFilterMA : 100
       const buffer = typeof gs.trendFilterBuffer === 'number' ? gs.trendFilterBuffer : 2
-      const bearCashPct = typeof gs.bearCashPct === 'number' ? gs.bearCashPct : 70
+      const bearCashPct = typeof gs.bearCashPct === 'number' ? gs.bearCashPct : DEFAULT_BEAR_CASH_PCT
 
       if (!trendFilter.isBullish(maPeriod, buffer)) {
         // Calculate current cash percentage

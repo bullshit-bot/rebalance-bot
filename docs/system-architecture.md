@@ -122,6 +122,14 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - Estimate total fees
 - Trigger executor on approval
 
+**Trend Filter Sub-module** (`src/rebalancer/trend-filter.ts`):
+- MA-based trend detection (BTC daily closes, default MA100)
+- Persists historical candles to MongoDB for restart resilience
+- Emits `trend:changed` event on bull↔bear flip
+- Provides read-only query API (`isBullishReadOnly()`) for healthchecks
+- Triggers `trend-filter-bear` rebalance when trend turns bearish
+- Default bear mode: override allocations to 70% cash (configurable via `bearCashPct`)
+
 ### 5. Executor Service
 **Location**: `src/executor/`
 **Responsibility**: Execute approved trades
@@ -227,7 +235,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - `POST /api/allocations/:asset` - Update target
 - `GET /api/analytics` - Performance metrics
 - `GET /api/backtest/:strategyId/results` - Backtest performance
-- `GET /api/status` - System health status
+- `GET /api/health` - System health (uptime, memory, version, trend status, last price update)
 
 ### WebSocket API
 **URL**: `ws://localhost:3000/ws`
@@ -247,9 +255,11 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 | `price:update` | Price Service | Rebalancer, UI, Backtesting |
 | `portfolio:snapshot` | Portfolio Service | Database, Analytics |
 | `rebalance:triggered` | Rebalancer | Executor, Notifier |
+| `rebalance:trigger` | Drift Detector | Rebalancer (for `trend-filter-bear` routing) |
 | `trade:executed` | Executor | Portfolio, Database, Notifier |
 | `strategy:signal` | Strategy Services | Executor, Notifier |
 | `alert:threshold` | Price Service | Notifier |
+| `trend:changed` | Trend Filter | Notifier (Telegram alerts) |
 
 ## Data Flow
 
@@ -287,6 +297,12 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - `MIN_TRADE_USD` - Minimum trade value for execution
 - `PAPER_TRADING` - Boolean flag for simulation mode
 - `VITE_API_URL` - Frontend API URL (set to /api in Docker)
+
+**Strategy Configuration** (via `/api/strategy` endpoints):
+- `trendFilterEnabled` - Enable/disable MA-based trend filter (bool)
+- `trendFilterMA` - MA period for bull/bear detection (default: 100 days)
+- `trendFilterBuffer` - % buffer below MA still treated as bull (default: 2%)
+- `bearCashPct` - Cash override % when trend turns bearish (default: 70%)
 
 ## Security Model
 

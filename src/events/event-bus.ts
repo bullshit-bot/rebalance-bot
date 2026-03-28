@@ -25,6 +25,7 @@ interface EventMap {
   'rebalance:failed': { id: string; error: string }
   'trade:executed': TradeResult
   'trailing-stop:triggered': { asset: string; exchange: ExchangeName; price: number; stopPrice: number }
+  'trend:changed': { bullish: boolean; price: number; ma: number | null }
   'exchange:connected': ExchangeName
   'exchange:disconnected': ExchangeName
   'exchange:error': { exchange: ExchangeName; error: string }
