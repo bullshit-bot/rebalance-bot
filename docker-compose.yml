@@ -126,6 +126,7 @@ services:
       - "18789:18789"
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-changeme}
     volumes:
       - openclaw_config:/home/node/.openclaw
@@ -134,8 +135,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    profiles:
-      - full
     deploy:
       resources:
         limits:
