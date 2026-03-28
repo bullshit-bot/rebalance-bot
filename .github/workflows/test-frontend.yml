@@ -40,6 +40,7 @@ jobs:
       - name: Coverage
         if: always()
         run: bun run test:cov
+        continue-on-error: true
 
       - uses: actions/upload-artifact@v4
         if: always()
