@@ -1,0 +1,9 @@
+{
+  "gateway": {
+    "trustedProxies": ["127.0.0.1", "::1"],
+    "controlUi": {
+      "dangerouslyDisableDeviceAuth": true,
+      "allowedOrigins": ["https://14-225-218-190.nip.io:8888"]
+    }
+  }
+}

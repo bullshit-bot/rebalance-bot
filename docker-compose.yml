@@ -128,7 +128,7 @@ services:
       XAI_API_KEY: ${XAI_API_KEY:-}
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-changeme}
     volumes:
-      - openclaw_config:/home/node/.openclaw
+      - ./openclaw-config:/home/node/.openclaw
       - ./openclaw-skills:/home/node/workspace/skills
       - ./openclaw-skills/mcporter.json:/home/node/.config/mcporter/mcporter.json
     deploy:
@@ -169,4 +169,3 @@ networks:
 
 volumes:
   mongodb_data:
-  openclaw_config:
