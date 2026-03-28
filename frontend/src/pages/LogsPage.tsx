@@ -2,6 +2,7 @@ import { PageTitle, LogLevelBadge, BrutalPagination } from "@/components/ui-brut
 import { useLogs } from "@/hooks/use-log-queries";
 import { useState } from "react";
 import { Download, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const FILTER_CHIPS = ["All", "Info", "Warning", "Error", "Execution", "Sync"];
 const PAGE_SIZE = 20;
@@ -33,11 +34,23 @@ export default function LogsPage() {
     setCurrentPage(1);
   };
 
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'logs.json'; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Logs exported');
+  };
+
+  // Filters that only execution logs exist for
+  const isSystemFilter = ["Info", "Warning", "Error", "Sync"].includes(filter);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <PageTitle>Logs</PageTitle>
-        <button className="brutal-btn-secondary text-xs flex items-center gap-1.5">
+        <button className="brutal-btn-secondary text-xs flex items-center gap-1.5" onClick={handleExport}>
           <Download size={13} /> Export Logs
         </button>
       </div>
@@ -119,7 +132,9 @@ export default function LogsPage() {
           ))}
           {!isLoading && paged.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No logs found
+              {isSystemFilter
+                ? "System logs not available — only trade execution logs are recorded"
+                : "No logs found"}
             </div>
           )}
         </div>

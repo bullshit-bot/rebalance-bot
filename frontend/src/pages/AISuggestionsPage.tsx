@@ -146,10 +146,32 @@ function HistoryTab({ suggestions }: { suggestions: AISuggestion[] }) {
   );
 }
 
+const AI_CONFIG_KEY = "ai_config";
+
+function loadAIConfig() {
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY);
+    if (raw) return JSON.parse(raw) as { autoApprove: boolean; maxShift: number };
+  } catch { /* ignore */ }
+  return { autoApprove: false, maxShift: 5 };
+}
+
 function ConfigTab() {
-  const [autoApprove, setAutoApprove] = useState(false);
-  const [maxShift, setMaxShift] = useState(5);
+  const saved = loadAIConfig();
+  const [autoApprove, setAutoApprove] = useState(saved.autoApprove);
+  const [maxShift, setMaxShift] = useState(saved.maxShift);
   const updateConfig = useUpdateAIConfig();
+
+  function handleAutoApproveToggle() {
+    const next = !autoApprove;
+    setAutoApprove(next);
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ autoApprove: next, maxShift }));
+  }
+
+  function handleMaxShiftChange(val: number) {
+    setMaxShift(val);
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ autoApprove, maxShift: val }));
+  }
 
   function handleSave() {
     updateConfig.mutate({ autoApprove, maxAllocationShiftPct: maxShift });
@@ -165,7 +187,7 @@ function ConfigTab() {
           <div className="text-xs text-muted-foreground">Automatically apply AI suggestions above confidence threshold</div>
         </div>
         <button
-          onClick={() => setAutoApprove(!autoApprove)}
+          onClick={handleAutoApproveToggle}
           className={`w-12 h-6 rounded-full border-[2px] border-foreground relative transition-colors ${autoApprove ? "bg-primary" : "bg-secondary"}`}
         >
           <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-card border-[1.5px] border-foreground transition-transform ${autoApprove ? "translate-x-6" : "translate-x-0.5"}`} />
@@ -181,7 +203,7 @@ function ConfigTab() {
           min={1}
           max={20}
           value={maxShift}
-          onChange={(e) => setMaxShift(Number(e.target.value))}
+          onChange={(e) => handleMaxShiftChange(Number(e.target.value))}
           className="w-full accent-primary"
         />
         <p className="text-xs text-muted-foreground mt-1">

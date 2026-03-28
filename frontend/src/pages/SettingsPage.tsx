@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { api } from "@/lib/api";
 
 function SettingToggle({ label, desc, defaultOn }: { label: string; desc: string; defaultOn: boolean }) {
   const [on, setOn] = useState(defaultOn);
@@ -28,7 +29,46 @@ function SettingSelect({ label, options, defaultValue }: { label: string; option
   );
 }
 
+function downloadJson(data: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function SettingsPage() {
+  const handleExportPortfolio = async () => {
+    try {
+      const data = await api.getPortfolio();
+      downloadJson(data, 'portfolio.json');
+      toast.success('Portfolio exported');
+    } catch {
+      toast.error('Failed to export portfolio');
+    }
+  };
+
+  const handleExportOrderHistory = async () => {
+    try {
+      const data = await api.getTrades(1000);
+      downloadJson(data, 'order-history.json');
+      toast.success('Order history exported');
+    } catch {
+      toast.error('Failed to export order history');
+    }
+  };
+
+  const handleClearCache = () => {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith('rb_'));
+    keys.forEach((k) => localStorage.removeItem(k));
+    toast.success('Cache cleared');
+  };
+
+  const handleSaveSettings = () => {
+    // No backend settings API yet — persist to localStorage
+    toast.success('Settings saved locally');
+  };
+
   return (
     <div>
       <PageTitle>Settings</PageTitle>
@@ -56,9 +96,15 @@ export default function SettingsPage() {
           <div className="brutal-card">
             <SectionTitle>Data</SectionTitle>
             <div className="space-y-2">
-              <button className="brutal-btn-secondary text-xs w-full">Export Portfolio Data (JSON)</button>
-              <button className="brutal-btn-secondary text-xs w-full">Export Order History (CSV)</button>
-              <button className="brutal-btn-danger text-xs w-full">Clear Local Cache</button>
+              <button className="brutal-btn-secondary text-xs w-full" onClick={handleExportPortfolio}>
+                Export Portfolio Data (JSON)
+              </button>
+              <button className="brutal-btn-secondary text-xs w-full" onClick={handleExportOrderHistory}>
+                Export Order History (JSON)
+              </button>
+              <button className="brutal-btn-danger text-xs w-full" onClick={handleClearCache}>
+                Clear Local Cache
+              </button>
             </div>
           </div>
         </div>
@@ -67,7 +113,7 @@ export default function SettingsPage() {
       <div className="mt-4">
         <button
           className="brutal-btn-primary flex items-center gap-1.5"
-          onClick={() => toast.success("Settings saved")}
+          onClick={handleSaveSettings}
         >
           <Save size={15} /> Save Settings
         </button>

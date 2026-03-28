@@ -1,6 +1,6 @@
 import { PageTitle, SectionTitle } from "@/components/ui-brutal";
 import { Save, RotateCcw, Zap } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Toggle } from "./strategy-config-toggle";
 import {
@@ -76,6 +76,31 @@ export default function StrategyConfigPage() {
 
   // Active config name from API (fall back to "default")
   const activeName = apiData?.active?.name ?? "default";
+
+  // Sync form from API active config on first load
+  useEffect(() => {
+    const active = apiData?.active;
+    if (!active) return;
+    const p = active.params ?? {};
+    const g = active.globalSettings ?? {};
+    setLocal((prev) => ({
+      ...prev,
+      thresholdPct: p.thresholdPct ?? p.baseThresholdPct ?? prev.thresholdPct,
+      minTradeUSDT: p.minTradeUsd ?? prev.minTradeUSDT,
+      partialFactor: g.partialFactor ?? prev.partialFactor,
+      cooldownHours: g.cooldownHours ?? prev.cooldownHours,
+      dynamicThreshold: g.dynamicThreshold ?? prev.dynamicThreshold,
+      trendAware: g.trendAware ?? prev.trendAware,
+      feeAware: g.feeAware ?? prev.feeAware,
+      autoExecute: g.autoExecute ?? prev.autoExecute,
+    }));
+    setTypeParams((prev) => ({
+      ...prev,
+      ...p,
+    }));
+    if (active.strategyType) setStrategyType(active.strategyType as StrategyType);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiData?.active?.name]);
 
   function setLocalField<K extends keyof LocalConfig>(key: K, value: LocalConfig[K]) {
     setLocal((prev) => ({ ...prev, [key]: value }));

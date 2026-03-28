@@ -1,6 +1,7 @@
 import { PageTitle, SectionTitle, StatCard, ActionBadge, BrutalConfirmDialog, BrutalSkeleton } from "@/components/ui-brutal";
 import { useRebalancePreview, useTriggerRebalance } from "@/hooks/use-rebalance-queries";
 import { usePortfolio } from "@/hooks/use-portfolio-queries";
+import { useStrategyConfig } from "@/hooks/use-strategy-config-queries";
 import { Repeat, CheckCircle, XCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ export default function RebalancePlanPage() {
   const portfolioQuery = usePortfolio();
   const previewQuery = useRebalancePreview();
   const triggerMutation = useTriggerRebalance();
+  const strategyQuery = useStrategyConfig();
 
   const isLoading = portfolioQuery.isLoading || previewQuery.isLoading;
   const isError = portfolioQuery.isError || previewQuery.isError;
@@ -63,6 +65,11 @@ export default function RebalancePlanPage() {
 
   const portfolioValue = portfolioQuery.data?.totalValueUsd ?? 0;
   const trades = previewQuery.data?.trades ?? [];
+  const activeParams = strategyQuery.data?.active?.params;
+  const activeGlobal = strategyQuery.data?.active?.globalSettings;
+  const threshold = activeParams?.thresholdPct ?? activeParams?.baseThresholdPct;
+  const minTrade = activeParams?.minTradeUsd;
+  const partialFactor = activeGlobal?.partialFactor;
 
   return (
     <div>
@@ -73,9 +80,9 @@ export default function RebalancePlanPage() {
           label="Portfolio NAV"
           value={`$${portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
         />
-        <StatCard label="Threshold" value="—" />
-        <StatCard label="Min Trade" value="—" />
-        <StatCard label="Partial Factor" value="—" />
+        <StatCard label="Threshold" value={threshold != null ? `${threshold}%` : "—"} />
+        <StatCard label="Min Trade" value={minTrade != null ? `$${minTrade}` : "—"} />
+        <StatCard label="Partial Factor" value={partialFactor != null ? String(partialFactor) : "—"} />
         <StatCard
           label="Total Actions"
           value={String(trades.length)}
@@ -119,10 +126,16 @@ export default function RebalancePlanPage() {
             <CheckCircle size={15} />
             {triggerMutation.isPending ? "Executing…" : "Approve & Execute"}
           </button>
-          <button className="brutal-btn-secondary flex items-center gap-1.5">
+          <button
+            className="brutal-btn-secondary flex items-center gap-1.5"
+            onClick={() => toast.info("Dry run shows the proposed trades above")}
+          >
             <Repeat size={15} /> Dry Run
           </button>
-          <button className="brutal-btn-danger flex items-center gap-1.5">
+          <button
+            className="brutal-btn-danger flex items-center gap-1.5"
+            onClick={() => toast.info("Plan rejected — no trades will be executed")}
+          >
             <XCircle size={15} /> Reject Plan
           </button>
         </div>

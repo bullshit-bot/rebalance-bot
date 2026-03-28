@@ -13,6 +13,9 @@ const CATEGORY_MAP: Record<string, string> = {
   AVAX: "Alt",
   USDT: "Stablecoin",
   USDC: "Stablecoin",
+  TUSD: "Stablecoin",
+  DAI: "Stablecoin",
+  USD: "Stablecoin",
   LINK: "Alt",
 };
 

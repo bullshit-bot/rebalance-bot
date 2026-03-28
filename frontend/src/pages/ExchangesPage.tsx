@@ -88,7 +88,10 @@ export default function ExchangesPage() {
                 <RefreshCw size={12} /> Sync Now
               </button>
               {!ex.connected && (
-                <button className="brutal-btn-primary text-xs flex items-center gap-1">
+                <button
+                  className="brutal-btn-primary text-xs flex items-center gap-1"
+                  onClick={() => toast.info("Reconnect requires restarting the backend with valid API keys")}
+                >
                   Reconnect
                 </button>
               )}
@@ -106,18 +109,21 @@ export default function ExchangesPage() {
       <div className="brutal-card">
         <SectionTitle>API Permission Checklist</SectionTitle>
         <div className="space-y-2">
-          {["Read Account", "Read Balances", "Spot Trading", "Margin Trading", "Futures Trading", "Withdrawal"].map((perm, i) => (
+          {["Read Account", "Read Balances", "Spot Trading", "Margin Trading", "Futures Trading", "Withdrawal"].map((perm) => (
             <div key={perm} className="flex items-center justify-between py-2 border-b border-foreground/10 last:border-0">
               <span className="text-sm font-medium">{perm}</span>
               <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1 text-xs">
-                  {i < 3 ? <CheckCircle size={13} className="text-success" /> : <XCircle size={13} className="text-muted-foreground" />}
-                  Binance
-                </span>
-                <span className="flex items-center gap-1 text-xs">
-                  {i < 1 ? <CheckCircle size={13} className="text-success" /> : <XCircle size={13} className="text-destructive" />}
-                  OKX
-                </span>
+                {exchanges.map((ex) => (
+                  <span key={ex.name} className="flex items-center gap-1 text-xs capitalize">
+                    {ex.connected
+                      ? <CheckCircle size={13} className="text-success" />
+                      : <XCircle size={13} className="text-destructive" />}
+                    {ex.name}
+                  </span>
+                ))}
+                {exchanges.length === 0 && (
+                  <span className="text-xs text-muted-foreground">No exchanges</span>
+                )}
               </div>
             </div>
           ))}

@@ -19,3 +19,14 @@ export function useUpdateAllocations() {
     },
   })
 }
+
+export function useDeleteAllocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (asset: string) => api.deleteAllocation(asset),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['allocations'] })
+      qc.invalidateQueries({ queryKey: ['portfolio'] })
+    },
+  })
+}
