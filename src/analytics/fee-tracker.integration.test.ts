@@ -63,7 +63,7 @@ beforeAll(async () => {
       feeCurrency: 'USDT',
       isPaper: false,
       rebalanceId: TEST_REBALANCE_ID,
-      executedAt: new Date((now - 86400 * 30) * 1000),
+      executedAt: new Date((now - 86400 * 29) * 1000),
     },
     // Trade with null fee
     {
