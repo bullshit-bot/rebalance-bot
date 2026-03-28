@@ -158,6 +158,13 @@ async function main(): Promise<void> {
       console.error('[main] Error shutting down exchange manager:', err)
     }
 
+    // Persist latest intra-day BTC close before DB disconnect
+    try {
+      await trendFilter.persistCurrentClose()
+    } catch (err) {
+      console.error('[main] Error persisting trend filter close:', err)
+    }
+
     try {
       await disconnectDB()
     } catch (err) {

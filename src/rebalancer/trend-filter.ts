@@ -122,6 +122,27 @@ class TrendFilter {
     return this.dailyCloses.length
   }
 
+  /**
+   * Persist the current day's latest close to MongoDB.
+   * Call during graceful shutdown to avoid losing intra-day price updates.
+   */
+  async persistCurrentClose(): Promise<void> {
+    if (this.dailyCloses.length === 0 || this.lastRecordedDay === 0) return
+
+    const price = this.dailyCloses[this.dailyCloses.length - 1]!
+    const dayStartMs = this.lastRecordedDay * 86_400_000
+
+    try {
+      await OhlcvCandleModel.updateOne(
+        { exchange: 'trend-filter', pair: 'BTC/USDT', timeframe: '1d', timestamp: dayStartMs },
+        { $set: { close: price } },
+        { upsert: true },
+      )
+    } catch (err) {
+      console.error('[TrendFilter] Failed to persist close on shutdown:', err)
+    }
+  }
+
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   /** Simple Moving Average over the last `period` closes. Null if insufficient data. */
