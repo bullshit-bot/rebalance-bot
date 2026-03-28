@@ -3,10 +3,6 @@ name: E2E Tests
 on:
   push:
     branches: [main, dev]
-    paths:
-      - 'frontend/**'
-      - 'src/**'
-      - '.github/workflows/test-e2e.yml'
   pull_request:
     branches: [main, dev]
   workflow_dispatch:
