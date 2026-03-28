@@ -60,15 +60,17 @@ jobs:
               echo "MONGO_PASSWORD=changeme-$(head -c 12 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')" >> "$APP_DIR/.env"
             fi
 
-            # Stop old containers (preserve volumes to keep MongoDB data)
+            # Stop ALL project containers and orphans (preserve volumes for MongoDB data)
             docker compose down --remove-orphans 2>/dev/null || true
 
-            # Kill any leftover container binding port 27017 (from previous compose projects)
-            MONGO_CID=$(docker ps -q --filter "publish=27017" 2>/dev/null)
-            if [ -n "$MONGO_CID" ]; then
-              docker stop "$MONGO_CID" 2>/dev/null || true
-              docker rm "$MONGO_CID" 2>/dev/null || true
-            fi
+            # Kill any leftover containers binding our ports (from previous deployments)
+            for PORT in 80 27017 3001; do
+              CID=$(docker ps -q --filter "publish=$PORT" 2>/dev/null)
+              if [ -n "$CID" ]; then
+                docker stop $CID 2>/dev/null || true
+                docker rm $CID 2>/dev/null || true
+              fi
+            done
 
             # Build and deploy with Docker Compose
             docker compose build
