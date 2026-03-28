@@ -8,6 +8,7 @@ import { metricsCalculator } from './metrics-calculator'
 import type { BacktestConfig, BacktestMetrics, SimulatedTrade } from './metrics-calculator'
 import { benchmarkComparator } from './benchmark-comparator'
 import type { BenchmarkResult } from './benchmark-comparator'
+import { StrategyBacktestAdapter } from './strategy-backtest-adapter'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,15 @@ class BacktestSimulator {
     const firstPrices = this._pricesAtTimestamp(ohlcvData, timeline[0]!)
     const holdings = this._initHoldings(config, firstPrices)
 
+    // Create strategy adapter when a non-default strategy is configured
+    const adapter = config.strategyType && config.strategyType !== 'threshold' && config.strategyParams
+      ? new StrategyBacktestAdapter(config.strategyParams)
+      : null
+
+    // Rolling window of recent daily returns for per-candle volatility estimate
+    const recentReturns: number[] = []
+    let prevTotalValue: number | null = null
+
     const trades: SimulatedTrade[] = []
     const equityCurve: { timestamp: number; value: number }[] = []
 
@@ -72,14 +82,59 @@ class BacktestSimulator {
 
       const totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0)
 
-      // Check drift and conditionally rebalance
-      if (this._needsRebalance(holdings, config.allocations, totalValueUsd, config.threshold)) {
+      // Maintain rolling return window for volatility calculation
+      if (prevTotalValue !== null && prevTotalValue > 0) {
+        recentReturns.push((totalValueUsd - prevTotalValue) / prevTotalValue)
+        // Keep a 30-sample window (≈30 candles)
+        if (recentReturns.length > 30) recentReturns.shift()
+      }
+      prevTotalValue = totalValueUsd
+
+      // Compute current annualised volatility from recent returns
+      const currentVol = this._annualisedVol(recentReturns)
+
+      // Feed strategy state and check rebalance trigger
+      let shouldRebalance: boolean
+      let effectiveAllocations: Allocation[] = config.allocations
+
+      if (adapter) {
+        // Build drifts map (asset → drift %) for state update
+        const drifts = new Map<string, number>()
+        for (const alloc of config.allocations) {
+          const pair = `${alloc.asset}/USDT`
+          const currentPct = totalValueUsd > 0
+            ? ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100
+            : 0
+          drifts.set(alloc.asset, currentPct - alloc.targetPct)
+        }
+
+        adapter.updateState(drifts, currentVol, prices)
+        shouldRebalance = adapter.needsRebalance(
+          holdings,
+          config.allocations,
+          totalValueUsd,
+          config.threshold,
+        )
+        if (shouldRebalance) {
+          effectiveAllocations = adapter.getEffectiveAllocations(config.allocations)
+        }
+      } else {
+        shouldRebalance = this._needsRebalance(
+          holdings,
+          config.allocations,
+          totalValueUsd,
+          config.threshold,
+        )
+      }
+
+      if (shouldRebalance) {
         const rebalanceTrades = this._simulateRebalance(
           holdings,
           config,
           prices,
           totalValueUsd,
           ts,
+          effectiveAllocations,
         )
         trades.push(...rebalanceTrades)
       }
@@ -208,6 +263,17 @@ class BacktestSimulator {
   }
 
   /**
+   * Computes annualised volatility from a window of fractional returns.
+   * Returns 0 when fewer than 2 samples are available.
+   */
+  private _annualisedVol(returns: number[]): number {
+    if (returns.length < 2) return 0
+    const mean = returns.reduce((s, r) => s + r, 0) / returns.length
+    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length
+    return Math.sqrt(variance) * Math.sqrt(365)
+  }
+
+  /**
    * Returns true when any asset drifts more than `threshold` percentage points
    * from its target allocation.
    */
@@ -236,6 +302,9 @@ class BacktestSimulator {
    *  2. Runs calculateTrades to determine required trades.
    *  3. Applies each trade (adjusting amounts), deducting fees.
    *  4. Returns SimulatedTrade records for audit trail.
+   *
+   * @param effectiveAllocations - targets to use; defaults to config.allocations
+   *                               (overridden by momentum-weighted / equal-weight)
    */
   private _simulateRebalance(
     holdings: Record<string, HoldingState>,
@@ -243,12 +312,13 @@ class BacktestSimulator {
     prices: Record<string, number>,
     totalValueUsd: number,
     ts: number,
+    effectiveAllocations: Allocation[] = config.allocations,
   ): SimulatedTrade[] {
     // Build Portfolio shape expected by calculateTrades
     const portfolio: Portfolio = {
       totalValueUsd,
       updatedAt: ts,
-      assets: config.allocations
+      assets: effectiveAllocations
         .map((alloc): PortfolioAsset | null => {
           const pair = `${alloc.asset}/USDT`
           const holding = holdings[pair]
@@ -269,7 +339,7 @@ class BacktestSimulator {
         .filter((a): a is PortfolioAsset => a !== null),
     }
 
-    const orders = calculateTrades(portfolio, config.allocations)
+    const orders = calculateTrades(portfolio, effectiveAllocations)
     const simTrades: SimulatedTrade[] = []
 
     for (const order of orders) {

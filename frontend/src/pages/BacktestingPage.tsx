@@ -1,361 +1,64 @@
 import { useState } from "react";
-import { PageTitle, SectionTitle, StatCard, ActionBadge } from "@/components/ui-brutal";
-import { useRunBacktest } from "@/hooks/use-backtest-queries";
-import {
-  FlaskConical,
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  DollarSign,
-  Percent,
-  ReceiptText,
-  Loader2,
-} from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import { PageTitle } from "@/components/ui-brutal";
+import { FlaskConical, Zap } from "lucide-react";
+import { BacktestSingleTab } from "./backtest-single-tab";
+import { BacktestOptimizerTab } from "./backtest-optimizer-tab";
+import type { OptimizationResultItem } from "@/lib/api-types";
 import type { BacktestConfig } from "@/lib/api-types";
 
-const PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"];
-
-// Cast a trade record from the unknown[] result to a displayable shape
-interface BacktestTrade {
-  date?: string
-  pair?: string
-  side?: string
-  qty?: number
-  price?: number
-  fee?: number
-  pnl?: number
-  [key: string]: unknown
-}
+type Tab = "single" | "optimizer";
 
 export default function BacktestingPage() {
-  const [selectedPairs, setSelectedPairs] = useState<string[]>(["BTC/USDT", "ETH/USDT"]);
-  const [startDate, setStartDate] = useState("2026-02-01");
-  const [endDate, setEndDate] = useState("2026-03-01");
-  const [threshold, setThreshold] = useState(5);
-  const [balance, setBalance] = useState(100000);
-  const [fee, setFee] = useState(0.1);
+  const [tab, setTab] = useState<Tab>("single");
+  const [prefilledConfig, setPrefilledConfig] = useState<
+    Partial<BacktestConfig & { strategyLabel?: string }> | undefined
+  >(undefined);
 
-  const mutation = useRunBacktest();
-
-  function togglePair(p: string) {
-    setSelectedPairs((prev) =>
-      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
-    );
+  /** Called when user clicks "Apply Best" in the optimizer table */
+  function handleApplyBest(item: OptimizationResultItem) {
+    setPrefilledConfig({
+      threshold: typeof item.params["thresholdPct"] === "number"
+        ? (item.params["thresholdPct"] as number)
+        : 5,
+      strategyLabel: item.label,
+    });
+    setTab("single");
   }
-
-  function handleRunBacktest() {
-    if (selectedPairs.length === 0) return;
-    const config: BacktestConfig = {
-      pairs: selectedPairs,
-      allocations: selectedPairs.map((p) => ({
-        asset: p.split("/")[0],
-        targetPct: 100 / selectedPairs.length,
-      })),
-      startDate: new Date(startDate).getTime(),
-      endDate: new Date(endDate).getTime(),
-      initialBalance: balance,
-      threshold,
-      feePct: fee / 100,
-      timeframe: "1d",
-      exchange: "binance",
-    };
-    mutation.mutate(config);
-  }
-
-  const result = mutation.data;
-  const metrics = result?.metrics ?? {};
-
-  // Derive numeric metric values for display
-  const totalReturn = typeof metrics.totalReturn === "number" ? metrics.totalReturn : null;
-  const annualized = typeof metrics.annualized === "number" ? metrics.annualized : null;
-  const sharpe = typeof metrics.sharpe === "number" ? metrics.sharpe : null;
-  const maxDrawdown = typeof metrics.maxDrawdown === "number" ? metrics.maxDrawdown : null;
-  const totalTrades = typeof metrics.trades === "number" ? metrics.trades : (result?.trades?.length ?? null);
-  const totalFees = typeof metrics.fees === "number" ? metrics.fees : null;
-
-  const trades = (result?.trades ?? []) as BacktestTrade[];
-
-  // Build equity curve if available in metrics
-  const equityCurve = Array.isArray(metrics.equityCurve)
-    ? (metrics.equityCurve as Array<{ date: string; strategy: number; benchmark?: number }>)
-    : [];
 
   return (
     <div>
       <PageTitle>Backtesting</PageTitle>
 
-      <div className="brutal-card mb-4">
-        <SectionTitle>Configuration</SectionTitle>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Pair selection */}
-          <div className="md:col-span-2 lg:col-span-1">
-            <label className="stat-label mb-2 block">Pairs</label>
-            <div className="flex flex-wrap gap-3">
-              {PAIRS.map((p) => (
-                <label key={p} className="flex items-center gap-1.5 cursor-pointer text-sm font-bold">
-                  <input
-                    type="checkbox"
-                    className="brutal-checkbox"
-                    checked={selectedPairs.includes(p)}
-                    onChange={() => togglePair(p)}
-                  />
-                  {p}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="stat-label mb-1 block">Start Date</label>
-            <input
-              type="date"
-              className="brutal-input w-full text-sm"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="stat-label mb-1 block">End Date</label>
-            <input
-              type="date"
-              className="brutal-input w-full text-sm"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="stat-label mb-1 block">
-              Rebalance Threshold: <span className="tabular-nums">{threshold}%</span>
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={15}
-              value={threshold}
-              onChange={(e) => setThreshold(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </div>
-
-          <div>
-            <label className="stat-label mb-1 block">Initial Balance (USDT)</label>
-            <input
-              type="number"
-              className="brutal-input w-full text-sm"
-              value={balance}
-              onChange={(e) => setBalance(Number(e.target.value))}
-            />
-          </div>
-
-          <div>
-            <label className="stat-label mb-1 block">Fee per Trade (%)</label>
-            <input
-              type="number"
-              step="0.01"
-              className="brutal-input w-full text-sm"
-              value={fee}
-              onChange={(e) => setFee(Number(e.target.value))}
-            />
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <button
-            className="brutal-btn-primary flex items-center gap-2"
-            onClick={handleRunBacktest}
-            disabled={mutation.isPending || selectedPairs.length === 0}
-          >
-            {mutation.isPending ? (
-              <>
-                <Loader2 size={15} className="animate-spin" /> Running…
-              </>
-            ) : (
-              <>
-                <FlaskConical size={15} /> Run Backtest
-              </>
-            )}
-          </button>
-          {mutation.isError && (
-            <p className="text-sm text-destructive mt-2">
-              Backtest failed: {String(mutation.error)}
-            </p>
-          )}
-        </div>
+      {/* Tab bar */}
+      <div className="flex gap-2 mb-4">
+        <button
+          className={`flex items-center gap-2 px-4 py-2 font-bold border-2 border-foreground transition-colors text-sm ${
+            tab === "single"
+              ? "bg-foreground text-background"
+              : "bg-background hover:bg-secondary/30"
+          }`}
+          onClick={() => setTab("single")}
+        >
+          <FlaskConical size={15} />
+          Single Backtest
+        </button>
+        <button
+          className={`flex items-center gap-2 px-4 py-2 font-bold border-2 border-foreground transition-colors text-sm ${
+            tab === "optimizer"
+              ? "bg-foreground text-background"
+              : "bg-background hover:bg-secondary/30"
+          }`}
+          onClick={() => setTab("optimizer")}
+        >
+          <Zap size={15} />
+          Strategy Optimizer
+        </button>
       </div>
 
-      {result && (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
-            <StatCard
-              label="Total Return"
-              value={totalReturn !== null ? `+${totalReturn}%` : "—"}
-              variant="success"
-              icon={<TrendingUp size={16} />}
-            />
-            <StatCard
-              label="Annualized"
-              value={annualized !== null ? `+${annualized}%` : "—"}
-              variant="success"
-              icon={<Percent size={16} />}
-            />
-            <StatCard
-              label="Sharpe Ratio"
-              value={sharpe !== null ? String(sharpe) : "—"}
-              variant="purple"
-              icon={<Activity size={16} />}
-            />
-            <StatCard
-              label="Max Drawdown"
-              value={maxDrawdown !== null ? `${maxDrawdown}%` : "—"}
-              variant="danger"
-              icon={<TrendingDown size={16} />}
-            />
-            <StatCard
-              label="Total Trades"
-              value={totalTrades !== null ? String(totalTrades) : "—"}
-              icon={<ReceiptText size={16} />}
-            />
-            <StatCard
-              label="Total Fees"
-              value={totalFees !== null ? `$${totalFees}` : "—"}
-              variant="warning"
-              icon={<DollarSign size={16} />}
-            />
-          </div>
-
-          {equityCurve.length > 0 && (
-            <div className="brutal-card mb-4">
-              <SectionTitle>Equity Curve</SectionTitle>
-              <div className="h-60">
-                <ResponsiveContainer>
-                  <LineChart data={equityCurve}>
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                      domain={["dataMin - 5000", "dataMax + 5000"]}
-                    />
-                    <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="strategy"
-                      stroke="#7c3aed"
-                      strokeWidth={2.5}
-                      dot={false}
-                      name="Strategy"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="benchmark"
-                      stroke="#6b7280"
-                      strokeWidth={2}
-                      strokeDasharray="5 4"
-                      dot={false}
-                      name="Benchmark"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* Metrics summary card (for non-equity-curve metrics) */}
-          {Object.keys(metrics).length > 0 && equityCurve.length === 0 && (
-            <div className="brutal-card mb-4">
-              <SectionTitle>Result Metrics</SectionTitle>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                {Object.entries(metrics).map(([k, v]) => (
-                  <div key={k}>
-                    <span className="stat-label block capitalize">{k.replace(/([A-Z])/g, " $1")}</span>
-                    <span className="font-mono font-bold">{String(v)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="brutal-card">
-            <SectionTitle>Simulated Trades</SectionTitle>
-            <div className="overflow-x-auto">
-              <table className="brutal-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Pair</th>
-                    <th>Side</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Fee</th>
-                    <th>PnL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trades.map((t, i) => (
-                    <tr key={i}>
-                      <td className="tabular-nums text-xs">{t.date ?? "—"}</td>
-                      <td className="font-bold text-sm">{t.pair ?? "—"}</td>
-                      <td>
-                        {t.side ? (
-                          <ActionBadge action={t.side.toLowerCase()} />
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </td>
-                      <td className="tabular-nums">{t.qty ?? "—"}</td>
-                      <td className="tabular-nums">
-                        {t.price !== undefined ? `$${Number(t.price).toLocaleString()}` : "—"}
-                      </td>
-                      <td className="tabular-nums text-muted-foreground">
-                        {t.fee !== undefined ? `$${t.fee}` : "—"}
-                      </td>
-                      <td
-                        className={`tabular-nums font-bold ${
-                          t.pnl !== undefined
-                            ? t.pnl >= 0
-                              ? "text-success"
-                              : "text-destructive"
-                            : ""
-                        }`}
-                      >
-                        {t.pnl !== undefined
-                          ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl}`
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                  {trades.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center text-muted-foreground py-4">
-                        No trades in result
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-
-      {!result && !mutation.isPending && (
-        <div className="brutal-card bg-secondary/20 text-center py-12 text-muted-foreground">
-          <FlaskConical size={32} className="mx-auto mb-3 opacity-40" />
-          <p className="font-medium">
-            Configure parameters above and click <strong>Run Backtest</strong> to see results.
-          </p>
-        </div>
+      {tab === "single" ? (
+        <BacktestSingleTab prefilledConfig={prefilledConfig} />
+      ) : (
+        <BacktestOptimizerTab onApplyBest={handleApplyBest} />
       )}
     </div>
   );

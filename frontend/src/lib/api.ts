@@ -11,6 +11,7 @@ import type {
   SmartOrderDetail, SmartOrderInput,
   CopySource, CopySourceInput, CopySyncLog,
   AISuggestion,
+  OptimizationRequest, OptimizationResult,
 } from './api-types'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -83,6 +84,8 @@ export const api = {
     apiFetch<BacktestResult>('/backtest', { method: 'POST', body: JSON.stringify(config) }),
   getBacktestResult: (id: string) => apiFetch<BacktestResult>(`/backtest/${id}`),
   listBacktests: () => apiFetch<BacktestResult[]>('/backtest/list'),
+  runOptimization: (config: OptimizationRequest) =>
+    apiFetch<OptimizationResult>('/backtest/optimize', { method: 'POST', body: JSON.stringify(config) }),
 
   // Analytics
   getEquityCurve: (from?: number, to?: number) =>

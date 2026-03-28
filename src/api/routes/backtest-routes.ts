@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { BacktestResultModel } from '@db/database'
 import { backtestSimulator } from '@/backtesting/backtest-simulator'
 import type { BacktestConfig } from '@/backtesting/backtest-simulator'
+import { StrategyParamsSchema } from '@rebalancer/strategies/strategy-config-types'
+import { strategyOptimizer } from '@/backtesting/strategy-optimizer'
+import type { OptimizationRequest } from '@/backtesting/strategy-optimizer'
 
 const backtestRoutes = new Hono()
 
@@ -47,6 +50,25 @@ function validateConfig(body: unknown): string | null {
     return 'exchange must be a non-empty string'
   }
 
+  // Optional strategy fields
+  if (b['strategyType'] !== undefined) {
+    if (typeof b['strategyType'] !== 'string') {
+      return 'strategyType must be a string'
+    }
+    if (b['strategyParams'] === undefined) {
+      return 'strategyParams is required when strategyType is provided'
+    }
+    const parsed = StrategyParamsSchema.safeParse(b['strategyParams'])
+    if (!parsed.success) {
+      return `strategyParams invalid: ${parsed.error.issues.map((i) => i.message).join(', ')}`
+    }
+    // Ensure strategyParams.type matches strategyType
+    const parsedType = (parsed.data as { type: string }).type
+    if (parsedType !== b['strategyType']) {
+      return `strategyParams.type ('${parsedType}') must match strategyType ('${b['strategyType']}')`
+    }
+  }
+
   return null
 }
 
@@ -71,7 +93,16 @@ backtestRoutes.post('/backtest', async (c) => {
   }
 
   try {
-    const result = await backtestSimulator.run(body as BacktestConfig)
+    // Merge Zod-coerced strategyParams (with defaults applied) into the config
+    const rawConfig = body as Record<string, unknown>
+    let config = rawConfig as unknown as BacktestConfig
+    if (rawConfig['strategyType'] && rawConfig['strategyParams']) {
+      const parsed = StrategyParamsSchema.safeParse(rawConfig['strategyParams'])
+      if (parsed.success) {
+        config = { ...config, strategyParams: parsed.data }
+      }
+    }
+    const result = await backtestSimulator.run(config)
     return c.json(result, 201)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -147,6 +178,65 @@ backtestRoutes.get('/backtest/:id', async (c) => {
     }
 
     return c.json(parsed)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return c.json({ error: message }, 500)
+  }
+})
+
+/**
+ * POST /api/backtest/optimize
+ * Runs a grid-search optimization across all strategy parameter combinations.
+ * WARNING: This can take several minutes for the full grid (~98 combos).
+ * Accepts: OptimizationRequest (pairs, allocations, dates, balance, fee + optional strategyTypes/topN)
+ */
+backtestRoutes.post('/backtest/optimize', async (c) => {
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
+
+  if (!body || typeof body !== 'object') {
+    return c.json({ error: 'Request body must be a JSON object' }, 400)
+  }
+
+  const b = body as Record<string, unknown>
+
+  // Validate required base config fields
+  if (!Array.isArray(b['pairs']) || b['pairs'].length === 0) {
+    return c.json({ error: 'pairs must be a non-empty array' }, 400)
+  }
+  if (!Array.isArray(b['allocations']) || b['allocations'].length === 0) {
+    return c.json({ error: 'allocations must be a non-empty array' }, 400)
+  }
+  if (typeof b['startDate'] !== 'number' || b['startDate'] <= 0) {
+    return c.json({ error: 'startDate must be a positive Unix millisecond timestamp' }, 400)
+  }
+  if (typeof b['endDate'] !== 'number' || b['endDate'] <= 0) {
+    return c.json({ error: 'endDate must be a positive Unix millisecond timestamp' }, 400)
+  }
+  if ((b['startDate'] as number) >= (b['endDate'] as number)) {
+    return c.json({ error: 'startDate must be earlier than endDate' }, 400)
+  }
+  if (typeof b['initialBalance'] !== 'number' || b['initialBalance'] <= 0) {
+    return c.json({ error: 'initialBalance must be a positive number' }, 400)
+  }
+  if (typeof b['feePct'] !== 'number' || b['feePct'] < 0) {
+    return c.json({ error: 'feePct must be a non-negative number' }, 400)
+  }
+  if (typeof b['exchange'] !== 'string' || b['exchange'].length === 0) {
+    return c.json({ error: 'exchange must be a non-empty string' }, 400)
+  }
+
+  try {
+    const request = body as OptimizationRequest
+    // Default timeframe to '1d' if not provided
+    if (!request.timeframe) (request as Record<string, unknown>)['timeframe'] = '1d'
+
+    const result = await strategyOptimizer.optimize(request)
+    return c.json(result)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return c.json({ error: message }, 500)

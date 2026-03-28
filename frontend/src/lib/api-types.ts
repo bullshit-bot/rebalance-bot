@@ -276,6 +276,42 @@ export interface CopySyncLog {
   syncedAt: number
 }
 
+// ─── Strategy Optimizer ───────────────────────────────────────────────────────
+
+export interface OptimizationRequest {
+  pairs: string[]
+  allocations: AllocationInput[]
+  startDate: number
+  endDate: number
+  initialBalance: number
+  feePct: number
+  timeframe: '1h' | '1d'
+  exchange: string
+  strategyTypes?: string[]
+  topN?: number
+}
+
+export interface OptimizationResultItem {
+  rank: number
+  label: string
+  strategyType: string
+  params: Record<string, unknown>
+  totalReturn: number
+  sharpeRatio: number
+  maxDrawdown: number
+  totalTrades: number
+  compositeScore: number
+}
+
+export interface OptimizationResult {
+  results: OptimizationResultItem[]
+  bestStrategy: string
+  totalCombinations: number
+  ranCombinations: number
+  skippedCombinations: number
+  elapsedMs: number
+}
+
 // ─── AI Suggestions ───────────────────────────────────────────────────────────
 
 export interface AISuggestion {

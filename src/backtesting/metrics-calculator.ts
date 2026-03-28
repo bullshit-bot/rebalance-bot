@@ -1,4 +1,5 @@
 import type { OHLCVCandle } from './historical-data-loader'
+import type { StrategyType, StrategyParams } from '@rebalancer/strategies/strategy-config-types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,10 +31,12 @@ export interface BacktestConfig {
   startDate: number         // unix ms
   endDate: number           // unix ms
   initialBalance: number    // USD
-  threshold: number         // rebalance threshold %
+  threshold: number         // rebalance threshold % (used when strategyType is 'threshold' or unset)
   feePct: number            // fee per trade, e.g. 0.001 = 0.1%
   timeframe: '1h' | '1d'
   exchange: import('@/types/index').ExchangeName
+  strategyType?: StrategyType     // if omitted, falls back to fixed-threshold behavior
+  strategyParams?: StrategyParams // strategy-specific params; required when strategyType is set
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────
@@ -224,4 +227,4 @@ export { MetricsCalculator }
 
 // Suppress unused-import warning — OHLCVCandle is used by benchmark-comparator
 // which imports from this file. Keep it available for type consumers.
-export type { OHLCVCandle }
+export type { OHLCVCandle, StrategyType, StrategyParams }
