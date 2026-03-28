@@ -1,5 +1,6 @@
 import { env } from '@config/app-config'
 import { eventBus } from '@events/event-bus'
+import { strategyManager } from '@rebalancer/strategy-manager'
 import type { Portfolio } from '@/types/index'
 
 // ─── Dependency injection ─────────────────────────────────────────────────────
@@ -88,9 +89,16 @@ class DriftDetector {
   private handlePortfolioUpdate(portfolio: Portfolio): void {
     if (!this.canRebalance()) return
 
-    // Check whether any asset breaches the drift threshold
+    // Use hardRebalanceThreshold from active config when DCA routing is enabled,
+    // otherwise fall back to env.REBALANCE_THRESHOLD
+    const activeConfig = strategyManager.getActiveConfig()
+    const gs = activeConfig?.globalSettings as Record<string, unknown> | undefined
+    const threshold = (gs?.dcaRebalanceEnabled && gs?.hardRebalanceThreshold)
+      ? Number(gs.hardRebalanceThreshold)
+      : env.REBALANCE_THRESHOLD
+
     const breachedAsset = portfolio.assets.find(
-      (a) => Math.abs(a.driftPct) > env.REBALANCE_THRESHOLD,
+      (a) => Math.abs(a.driftPct) > threshold,
     )
     if (!breachedAsset) return
 
@@ -98,7 +106,7 @@ class DriftDetector {
       '[DriftDetector] Threshold breached — asset=%s drift=%.2f%% (threshold=%.1f%%)',
       breachedAsset.asset,
       breachedAsset.driftPct,
-      env.REBALANCE_THRESHOLD,
+      threshold,
     )
 
     // Optimistically mark the rebalance time to block concurrent triggers
