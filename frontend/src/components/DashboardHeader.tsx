@@ -25,7 +25,7 @@ export function DashboardHeader() {
         toast.info("Dry Run: No trades needed — portfolio is within threshold");
       } else {
         toast.success(`Dry Run: ${trades} trades proposed. Check Rebalance Plan page.`);
-        navigate("/rebalance-plan");
+        navigate("/rebalance");
       }
     } catch {
       toast.error("Dry Run failed — check backend connection");
