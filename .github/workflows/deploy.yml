@@ -72,12 +72,17 @@ jobs:
               fi
             done
 
-            # Kill any non-Docker process on port 80 (e.g. nginx from previous setup)
+            # Kill any process on port 80 (nginx, stale docker-proxy, etc.)
             sudo fuser -k 80/tcp 2>/dev/null || true
+            sudo fuser -k 27017/tcp 2>/dev/null || true
 
-            # Build and deploy with Docker Compose
+            # Restart Docker daemon to release stale docker-proxy port bindings
+            sudo systemctl restart docker || true
+            sleep 5
+
+            # Force-recreate all containers
             docker compose build
-            docker compose up -d --wait --wait-timeout 180
+            docker compose up -d --force-recreate --wait --wait-timeout 180
 
             # Show service status and logs for debugging
             docker compose ps
