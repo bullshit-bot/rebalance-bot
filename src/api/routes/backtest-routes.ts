@@ -234,6 +234,11 @@ backtestRoutes.post('/backtest/optimize', async (c) => {
     const request = body as OptimizationRequest
     // Default timeframe to '1d' if not provided
     if (!request.timeframe) (request as Record<string, unknown>)['timeframe'] = '1d'
+    // Forward includeCashScenarios flag from request body
+    const includeCashScenarios = typeof b['includeCashScenarios'] === 'boolean'
+      ? b['includeCashScenarios']
+      : false
+    ;(request as Record<string, unknown>)['includeCashScenarios'] = includeCashScenarios
 
     const result = await strategyOptimizer.optimize(request)
     return c.json(result)

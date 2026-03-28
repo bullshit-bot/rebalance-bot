@@ -37,6 +37,10 @@ export interface BacktestConfig {
   exchange: import('@/types/index').ExchangeName
   strategyType?: StrategyType     // if omitted, falls back to fixed-threshold behavior
   strategyParams?: StrategyParams // strategy-specific params; required when strategyType is set
+  /** Percentage of portfolio kept as cash reserve (0–100). Default: 0. */
+  cashReservePct?: number
+  /** Route pending buys through DCA slices instead of immediate execution. Requires cashReservePct > 0. */
+  dcaRebalanceEnabled?: boolean
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────

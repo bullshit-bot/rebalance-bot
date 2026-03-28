@@ -289,6 +289,8 @@ export interface OptimizationRequest {
   exchange: string
   strategyTypes?: string[]
   topN?: number
+  /** When true, runs additional cash-reserve + DCA routing scenarios */
+  includeCashScenarios?: boolean
 }
 
 export interface OptimizationResultItem {
@@ -301,6 +303,8 @@ export interface OptimizationResultItem {
   maxDrawdown: number
   totalTrades: number
   compositeScore: number
+  cashReservePct?: number
+  dcaRebalanceEnabled?: boolean
 }
 
 export interface OptimizationResult {

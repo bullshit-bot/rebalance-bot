@@ -6,6 +6,10 @@ export interface ParamCombination {
   strategyType: StrategyType
   strategyParams: Record<string, unknown>
   label: string
+  /** Fraction of portfolio to hold as cash reserve (0–100). Default: 0 */
+  cashReservePct?: number
+  /** Route sells through DCA instead of immediate execution. Requires cashReservePct > 0. */
+  dcaRebalanceEnabled?: boolean
 }
 
 // ─── Grid generators ──────────────────────────────────────────────────────────
@@ -136,4 +140,42 @@ export function generateParameterGrid(strategyTypes?: StrategyType[]): ParamComb
 
   if (!strategyTypes || strategyTypes.length === 0) return all
   return all.filter((c) => strategyTypes.includes(c.strategyType))
+}
+
+/**
+ * Generates cash-reserve + DCA routing parameter combinations.
+ * Tests threshold and equal-weight base strategies across:
+ *   cashReservePct: [0, 10, 20] × dcaRebalanceEnabled: [false, true]
+ * Skips dcaRoute=true when cashPct=0 (DCA needs a cash buffer).
+ * Total: 4 bases × (3 cashPct + 2 dca variants with cash>0) = ~20 combos
+ */
+export function generateCashDCAGrid(): ParamCombination[] {
+  const combos: ParamCombination[] = []
+
+  const baseStrategies = [
+    { type: 'threshold' as StrategyType, thresholdPct: 5, minTradeUsd: 10 },
+    { type: 'threshold' as StrategyType, thresholdPct: 15, minTradeUsd: 10 },
+    { type: 'equal-weight' as StrategyType, thresholdPct: 2, minTradeUsd: 10 },
+    { type: 'equal-weight' as StrategyType, thresholdPct: 5, minTradeUsd: 10 },
+  ]
+
+  for (const base of baseStrategies) {
+    for (const cashPct of [0, 10, 20]) {
+      for (const dcaRoute of [false, true]) {
+        if (dcaRoute && cashPct === 0) continue // DCA routing requires a cash reserve
+        const prefix = base.type === 'equal-weight' ? 'ew' : 't'
+        const dcaSuffix = dcaRoute ? '-dca' : ''
+        const label = `${prefix}-${base.thresholdPct}%-cash${cashPct}${dcaSuffix}`
+        combos.push({
+          strategyType: base.type,
+          strategyParams: { ...base },
+          label,
+          cashReservePct: cashPct,
+          dcaRebalanceEnabled: dcaRoute,
+        })
+      }
+    }
+  }
+
+  return combos
 }

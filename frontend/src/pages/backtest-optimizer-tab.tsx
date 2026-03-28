@@ -35,6 +35,7 @@ export function BacktestOptimizerTab({ onApplyBest }: BacktestOptimizerTabProps)
   const [fee, setFee] = useState(0.1);
   const [topN, setTopN] = useState(20);
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
+  const [includeCashScenarios, setIncludeCashScenarios] = useState(true);
 
   const mutation = useRunOptimization();
 
@@ -62,13 +63,14 @@ export function BacktestOptimizerTab({ onApplyBest }: BacktestOptimizerTabProps)
       exchange: "binance",
       strategyTypes: selectedStrategies.length > 0 ? selectedStrategies : undefined,
       topN,
+      includeCashScenarios,
     });
   }
 
   const result = mutation.data;
-  const comboCount = selectedStrategies.length === 0
-    ? 98  // total combos across all strategies
-    : "varies";
+  const baseCombos = selectedStrategies.length === 0 ? 98 : "varies";
+  const cashCombos = includeCashScenarios ? "+20" : "";
+  const comboCount = typeof baseCombos === "number" ? `${baseCombos}${cashCombos}` : baseCombos;
 
   return (
     <div>
@@ -125,6 +127,19 @@ export function BacktestOptimizerTab({ onApplyBest }: BacktestOptimizerTabProps)
               </label>
             ))}
           </div>
+        </div>
+
+        {/* Cash + DCA scenarios toggle */}
+        <div className="mt-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-bold">
+            <input
+              type="checkbox"
+              className="brutal-checkbox"
+              checked={includeCashScenarios}
+              onChange={(e) => setIncludeCashScenarios(e.target.checked)}
+            />
+            Include cash reserve scenarios (cash 0/10/20% + DCA routing, ~20 extra combos)
+          </label>
         </div>
 
         <div className="mt-4 flex items-center gap-4">

@@ -1,6 +1,6 @@
 import { backtestSimulator } from './backtest-simulator'
 import type { BacktestConfig } from './backtest-simulator'
-import { generateParameterGrid } from './optimizer-parameter-grids'
+import { generateParameterGrid, generateCashDCAGrid } from './optimizer-parameter-grids'
 import type { StrategyType } from '@rebalancer/strategies/strategy-config-types'
 import type { Allocation } from '@/types/index'
 
@@ -22,6 +22,8 @@ export interface OptimizationRequest extends OptimizationBaseConfig {
   strategyTypes?: StrategyType[]
   /** Number of top results to return (default 20) */
   topN?: number
+  /** When true, appends cash-reserve + DCA routing scenarios to the grid */
+  includeCashScenarios?: boolean
 }
 
 export interface OptimizationResultItem {
@@ -34,6 +36,8 @@ export interface OptimizationResultItem {
   maxDrawdown: number
   totalTrades: number
   compositeScore: number
+  cashReservePct?: number
+  dcaRebalanceEnabled?: boolean
 }
 
 export interface OptimizationResult {
@@ -59,8 +63,11 @@ class StrategyOptimizer {
     request: OptimizationRequest,
     onProgress?: (completed: number, total: number) => void,
   ): Promise<OptimizationResult> {
-    const { strategyTypes, topN = 20, ...baseConfig } = request
-    const grid = generateParameterGrid(strategyTypes)
+    const { strategyTypes, topN = 20, includeCashScenarios = false, ...baseConfig } = request
+    const grid = [
+      ...generateParameterGrid(strategyTypes),
+      ...(includeCashScenarios ? generateCashDCAGrid() : []),
+    ]
     const total = grid.length
     const startMs = Date.now()
 
@@ -79,6 +86,8 @@ class StrategyOptimizer {
           threshold: 5, // fallback threshold; strategies use their own params
           strategyType: combo.strategyType,
           strategyParams: combo.strategyParams as import('@rebalancer/strategies/strategy-config-types').StrategyParams,
+          cashReservePct: combo.cashReservePct ?? 0,
+          dcaRebalanceEnabled: combo.dcaRebalanceEnabled ?? false,
         }
 
         const result = await backtestSimulator.run(config)
@@ -94,6 +103,8 @@ class StrategyOptimizer {
           maxDrawdown: m.maxDrawdownPct,
           totalTrades: m.totalTrades,
           compositeScore: 0, // computed below
+          cashReservePct: combo.cashReservePct,
+          dcaRebalanceEnabled: combo.dcaRebalanceEnabled,
         })
       } catch (err) {
         skipped++
