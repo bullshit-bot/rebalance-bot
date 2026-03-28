@@ -21,6 +21,21 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: testpass
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 30s
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,12 +62,12 @@ jobs:
         run: bun install
 
       - name: Seed test database
-        run: mkdir -p data && bun run scripts/seed-dev-data.ts
+        run: bun run scripts/seed-dev-data.ts
         env:
           API_KEY: test-ci-key
           ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
           PAPER_TRADING: "true"
-          DATABASE_URL: "file:data/ci-test.db"
+          MONGODB_URI: "mongodb://admin:testpass@localhost:27017/rebalance-test?authSource=admin"
 
       - name: Run tests
         run: bun run test
@@ -61,7 +76,7 @@ jobs:
           API_PORT: "3001"
           ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
           PAPER_TRADING: "true"
-          DATABASE_URL: "file:data/ci-test.db"
+          MONGODB_URI: "mongodb://admin:testpass@localhost:27017/rebalance-test?authSource=admin"
           REBALANCE_THRESHOLD: "5"
           REBALANCE_COOLDOWN_HOURS: "1"
           MIN_TRADE_USD: "10"

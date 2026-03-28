@@ -60,17 +60,16 @@ jobs:
               echo "MONGO_PASSWORD=changeme-$(head -c 12 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')" >> "$APP_DIR/.env"
             fi
 
-            # Stop old containers and remove stale MongoDB volume (fresh start)
-            docker compose down -v 2>/dev/null || true
+            # Stop old containers (preserve volumes to keep MongoDB data)
+            docker compose down --remove-orphans 2>/dev/null || true
 
             # Build and deploy with Docker Compose
             docker compose build
-            docker compose up -d --wait --wait-timeout 120 || true
+            docker compose up -d --wait --wait-timeout 180
 
             # Show service status and logs for debugging
             docker compose ps
             docker compose logs --tail=30 backend
             docker compose logs --tail=10 mongodb
 
-            # Verify health
-            docker compose ps --format json | grep -q '"Health":"healthy"' && echo "Deploy complete!" || { echo "Some services unhealthy"; docker compose ps; exit 1; }
+            echo "Deploy complete!"
