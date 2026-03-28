@@ -5,7 +5,7 @@ import { Download, ChevronDown, ChevronRight, Search, Loader2 } from "lucide-rea
 import { toast } from "sonner";
 
 const FILTER_CHIPS = ["All", "Info", "Warning", "Error", "Execution", "Sync"];
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 export default function LogsPage() {
   const [filter, setFilter] = useState("All");
