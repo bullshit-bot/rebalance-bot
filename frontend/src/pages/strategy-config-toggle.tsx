@@ -14,11 +14,11 @@ export function Toggle({
       <span className="text-sm font-medium">{label}</span>
       <button
         onClick={() => onChange(!value)}
-        className={`w-11 h-6 rounded-full border-[2px] border-foreground relative transition-colors flex-shrink-0 ${value ? "bg-primary" : "bg-secondary"}`}
+        className={`w-10 h-[22px] rounded-full border-[2px] border-foreground relative transition-colors flex-shrink-0 overflow-hidden ${value ? "bg-primary" : "bg-secondary"}`}
       >
         <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-card border-[1.5px] border-foreground transition-transform ${
-            value ? "translate-x-[1.25rem]" : "translate-x-0.5"
+          className={`absolute top-[1px] w-3.5 h-3.5 rounded-full bg-card border-[1.5px] border-foreground transition-transform ${
+            value ? "translate-x-[18px]" : "translate-x-[2px]"
           }`}
         />
       </button>
