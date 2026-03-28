@@ -162,7 +162,7 @@ export default function StrategyConfigPage() {
   function handleRestore() {
     setMisc(DEFAULT_MISC);
     setGlobalSettings(DEFAULT_GLOBAL_SETTINGS);
-    saveLocal({ ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS });
+    saveLocal({ ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS, thresholdPct: 5 });
     toast.success("Restored default config");
   }
 
