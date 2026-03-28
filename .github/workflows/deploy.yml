@@ -96,34 +96,15 @@ jobs:
             # Remove leading whitespace from heredoc
             sed -i 's/^            //' "$APP_DIR/.env"
 
-            # Stop ALL project containers and orphans (preserve volumes for MongoDB data)
-            docker compose down --remove-orphans 2>/dev/null || true
-
-            # Kill any leftover containers binding our ports (from previous deployments)
-            for PORT in 80 27017 3001; do
-              CID=$(docker ps -q --filter "publish=$PORT" 2>/dev/null)
-              if [ -n "$CID" ]; then
-                docker stop $CID 2>/dev/null || true
-                docker rm $CID 2>/dev/null || true
-              fi
-            done
-
-            # Kill any non-Docker process on required ports
-            for PORT in 3001 27017; do
-              sudo fuser -k $PORT/tcp 2>/dev/null || true
-            done
-
-            # Restart Docker daemon to release stale docker-proxy port bindings
-            sudo systemctl restart docker || true
-            sleep 5
-
-            # Force-recreate all containers
+            # Build new images while old containers keep running (no downtime during build)
             docker compose build
-            docker compose up -d --force-recreate --wait --wait-timeout 180
 
-            # Show service status and logs for debugging
+            # Rolling restart — only recreates containers with new images (~30s swap)
+            docker compose up -d --wait --wait-timeout 180
+
+            # Cleanup old images
+            docker image prune -f 2>/dev/null || true
+
+            # Show status
             docker compose ps
-            docker compose logs --tail=30 backend
-            docker compose logs --tail=10 mongodb
-
             echo "Deploy complete!"
