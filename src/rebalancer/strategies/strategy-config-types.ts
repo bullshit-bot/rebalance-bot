@@ -76,6 +76,11 @@ export const GlobalSettingsSchema = z.object({
   dcaRebalanceEnabled: z.boolean().default(false),
   // Hard rebalance threshold: full rebalance only fires when drift exceeds this
   hardRebalanceThreshold: z.number().min(5).max(50).default(15),
+  // Trend filter: MA-based bear market protection
+  trendFilterEnabled: z.boolean().default(false),
+  trendFilterMA: z.number().min(20).max(365).default(100),
+  bearCashPct: z.number().min(30).max(95).default(70),
+  trendFilterBuffer: z.number().min(0).max(10).default(2),
 })
 
 // ─── Full config input schema ────────────────────────────────────────────────

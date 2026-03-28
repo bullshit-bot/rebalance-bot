@@ -3,6 +3,7 @@ import { usePortfolio, usePortfolioHistory } from "@/hooks/use-portfolio-queries
 import { useTrades } from "@/hooks/use-trade-queries";
 import { useRebalancePreview } from "@/hooks/use-rebalance-queries";
 import { useStrategyConfig } from "@/hooks/use-strategy-config-queries";
+import { useHealth } from "@/hooks/use-health-queries";
 import { DollarSign, TrendingUp, Coins, Activity, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
 
@@ -37,6 +38,7 @@ export default function OverviewPage() {
   const tradesQuery = useTrades(5);
   const previewQuery = useRebalancePreview();
   const strategyQuery = useStrategyConfig();
+  const healthQuery = useHealth();
 
   const isLoading =
     portfolioQuery.isLoading ||
@@ -125,6 +127,10 @@ export default function OverviewPage() {
   const pieData = assets.map((a) => ({ name: a.asset, value: a.currentPct }));
   const comparisonData = assets.map((a) => ({ asset: a.asset, current: a.currentPct, target: a.targetPct }));
 
+  // Trend filter state from health endpoint
+  const trendStatus = healthQuery.data?.trendStatus
+  const trendFilterActive = trendStatus?.enabled === true
+
   // Alerts derived from high-drift assets
   const driftAlerts = assets
     .filter((a) => Math.abs(a.driftPct) > 3)
@@ -153,7 +159,26 @@ export default function OverviewPage() {
 
   return (
     <div>
-      <PageTitle>Overview</PageTitle>
+      <div className="flex items-center gap-3 mb-1">
+        <PageTitle>Overview</PageTitle>
+        {trendFilterActive && trendStatus && (
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border-2 text-xs font-black uppercase tracking-wider ${
+              trendStatus.bullish
+                ? "border-green-500 bg-green-500/10 text-green-600"
+                : "border-red-500 bg-red-500/10 text-red-600"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${trendStatus.bullish ? "bg-green-500" : "bg-red-500"}`} />
+            {trendStatus.bullish ? "BULL" : "BEAR"}
+            {trendStatus.ma !== null && (
+              <span className="font-normal normal-case tracking-normal opacity-70 ml-1">
+                MA{trendStatus.dataPoints >= 100 ? "100" : `(${trendStatus.dataPoints}d)`}: ${trendStatus.ma.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
 
       {/* Hero stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">

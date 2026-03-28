@@ -75,6 +75,15 @@ export const STRATEGY_PRESETS = {
     params: { type: 'threshold', thresholdPct: 15, minTradeUsd: 10 },
     globalSettings: { cashReservePct: 20, dcaRebalanceEnabled: true, hardRebalanceThreshold: 15, feeAware: true, autoExecute: false },
   },
+  TrendProtected: {
+    description: 'MA100 trend filter — sells to 70% cash in bear, DCA routing in bull. Best 5yr: +141%',
+    params: { type: 'threshold', thresholdPct: 15, minTradeUsd: 10 },
+    globalSettings: {
+      cashReservePct: 10, dcaRebalanceEnabled: true, hardRebalanceThreshold: 15,
+      trendFilterEnabled: true, trendFilterMA: 100, bearCashPct: 70, trendFilterBuffer: 2,
+      feeAware: true, autoExecute: false,
+    },
+  },
 } as const
 
 export type PresetName = keyof typeof STRATEGY_PRESETS

@@ -1,6 +1,7 @@
 import { env } from '@config/app-config'
 import { eventBus } from '@events/event-bus'
 import { strategyManager } from '@rebalancer/strategy-manager'
+import { trendFilter } from '@rebalancer/trend-filter'
 import type { Portfolio } from '@/types/index'
 
 // ─── Dependency injection ─────────────────────────────────────────────────────
@@ -89,10 +90,41 @@ class DriftDetector {
   private handlePortfolioUpdate(portfolio: Portfolio): void {
     if (!this.canRebalance()) return
 
-    // Use hardRebalanceThreshold from active config when DCA routing is enabled,
-    // otherwise fall back to env.REBALANCE_THRESHOLD
     const activeConfig = strategyManager.getActiveConfig()
     const gs = activeConfig?.globalSettings as Record<string, unknown> | undefined
+
+    // Bear mode: trend filter takes priority over normal drift checking
+    if (gs?.trendFilterEnabled) {
+      const maPeriod = typeof gs.trendFilterMA === 'number' ? gs.trendFilterMA : 100
+      const buffer = typeof gs.trendFilterBuffer === 'number' ? gs.trendFilterBuffer : 2
+      const bearCashPct = typeof gs.bearCashPct === 'number' ? gs.bearCashPct : 70
+
+      if (!trendFilter.isBullish(maPeriod, buffer)) {
+        // Calculate current cash percentage
+        const stablecoins = new Set(['USDT', 'USDC', 'BUSD', 'TUSD', 'DAI', 'USD'])
+        const cashUsd = portfolio.assets
+          .filter((a) => stablecoins.has(a.asset))
+          .reduce((sum, a) => sum + a.valueUsd, 0)
+        const cashPct = portfolio.totalValueUsd > 0
+          ? (cashUsd / portfolio.totalValueUsd) * 100
+          : 0
+
+        if (cashPct < bearCashPct) {
+          console.info(
+            '[DriftDetector] Bear market — cash=%.1f%% < target=%.1f%%, triggering defensive rebalance',
+            cashPct,
+            bearCashPct,
+          )
+          this.lastRebalanceTime = Date.now()
+          this.deps.eventBus.emit('rebalance:trigger', { trigger: 'trend-filter-bear' })
+        }
+        // Skip normal drift check in bear mode
+        return
+      }
+    }
+
+    // Use hardRebalanceThreshold from active config when DCA routing is enabled,
+    // otherwise fall back to env.REBALANCE_THRESHOLD
     const threshold = (gs?.dcaRebalanceEnabled && gs?.hardRebalanceThreshold)
       ? Number(gs.hardRebalanceThreshold)
       : env.REBALANCE_THRESHOLD

@@ -88,10 +88,19 @@ export interface AllocationInput {
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
+export interface TrendStatus {
+  enabled: boolean
+  bullish: boolean
+  ma: number | null
+  price: number
+  dataPoints: number
+}
+
 export interface HealthResponse {
   status: 'ok'
   uptimeSeconds: number
   exchanges: Record<string, 'connected' | 'disconnected'>
+  trendStatus?: TrendStatus
 }
 
 // ─── Backtesting ──────────────────────────────────────────────────────────────

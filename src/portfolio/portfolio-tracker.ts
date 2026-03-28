@@ -1,6 +1,7 @@
 import { AllocationModel } from '@db/database'
 import { eventBus } from '@events/event-bus'
 import { priceCache } from '@price/price-cache'
+import { trendFilter } from '@rebalancer/trend-filter'
 import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from '@/types/index'
 
 // ─── Local interface ───────────────────────────────────────────────────────────
@@ -256,6 +257,9 @@ class PortfolioTracker {
 
         if (price === undefined || price === 0) continue // skip assets with no price data
         valueUsd = amount * price
+
+        // Feed BTC price into trend filter for MA calculation
+        if (asset === 'BTC' && price > 0) trendFilter.recordPrice(price)
       }
 
       assetValues.set(asset, { amount, valueUsd, exchange })

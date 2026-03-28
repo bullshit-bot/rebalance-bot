@@ -11,6 +11,10 @@ export interface GlobalSettings {
   cashReservePct: number;
   dcaRebalanceEnabled: boolean;
   hardRebalanceThreshold: number;
+  trendFilterEnabled: boolean;
+  trendFilterMA: number;
+  bearCashPct: number;
+  trendFilterBuffer: number;
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -21,6 +25,10 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   cashReservePct: 0,
   dcaRebalanceEnabled: false,
   hardRebalanceThreshold: 15,
+  trendFilterEnabled: false,
+  trendFilterMA: 100,
+  bearCashPct: 70,
+  trendFilterBuffer: 2,
 };
 
 interface Props {
@@ -105,6 +113,74 @@ export function GlobalSettingsSection({ settings, onChange }: Props) {
           <p className="text-xs text-muted-foreground mt-1">
             Traditional sell+buy rebalance only fires above this drift
           </p>
+        </div>
+      )}
+
+      {/* Trend Filter toggle */}
+      <div className="border-b border-foreground/10 last:border-0">
+        <Toggle
+          label="Trend Filter (MA Bear Protection)"
+          value={settings.trendFilterEnabled}
+          onChange={(v) => onChange("trendFilterEnabled", v)}
+        />
+        <p className="text-xs text-muted-foreground -mt-1 pb-2">
+          Sell to cash in bear market (BTC below MA), DCA only in bull
+        </p>
+      </div>
+
+      {/* Trend filter params — only visible when enabled */}
+      {settings.trendFilterEnabled && (
+        <div className="space-y-3 pt-2">
+          <div>
+            <label className="stat-label">MA Period (days)</label>
+            <input
+              type="number"
+              min={20}
+              max={365}
+              step={1}
+              value={settings.trendFilterMA}
+              onChange={(e) => onChange("trendFilterMA", Number(e.target.value))}
+              className="brutal-input w-full mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              BTC simple moving average period (default: 100)
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium">Bear Cash Target</span>
+              <span className="text-sm font-bold tabular-nums">{settings.bearCashPct}%</span>
+            </div>
+            <input
+              type="range"
+              min={30}
+              max={95}
+              step={5}
+              value={settings.bearCashPct}
+              onChange={(e) => onChange("bearCashPct", Number(e.target.value))}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              % in stablecoins when bear mode triggers
+            </p>
+          </div>
+
+          <div>
+            <label className="stat-label">Buffer % (whipsaw guard)</label>
+            <input
+              type="number"
+              min={0}
+              max={10}
+              step={0.5}
+              value={settings.trendFilterBuffer}
+              onChange={(e) => onChange("trendFilterBuffer", Number(e.target.value))}
+              className="brutal-input w-full mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Still treat as bull if price is within this % below MA
+            </p>
+          </div>
         </div>
       )}
     </div>

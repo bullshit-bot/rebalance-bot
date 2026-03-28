@@ -2,6 +2,7 @@ import { env } from '@config/app-config'
 import { eventBus } from '@events/event-bus'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
 import { strategyManager } from '@rebalancer/strategy-manager'
+import { trendFilter } from '@rebalancer/trend-filter'
 import { calcProportionalDCA, calcSingleTargetDCA } from '@dca/dca-allocation-calculator'
 import type { Allocation, Portfolio, TradeOrder } from '@/types/index'
 
@@ -68,6 +69,18 @@ class DCAService {
     targets: Allocation[],
   ): TradeOrder[] {
     const minTradeUsd = env.MIN_TRADE_USD
+
+    // Bear mode guard: when trend filter is enabled and market is bearish,
+    // do not route DCA into crypto — hold deposit as cash
+    const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
+    if (gs?.trendFilterEnabled) {
+      const maPeriod = typeof gs.trendFilterMA === 'number' ? gs.trendFilterMA : 100
+      const buffer = typeof gs.trendFilterBuffer === 'number' ? gs.trendFilterBuffer : 2
+      if (!trendFilter.isBullish(maPeriod, buffer)) {
+        console.log('[DCAService] Bear market detected — DCA deposit held as cash, no crypto buys')
+        return []
+      }
+    }
 
     // DCA rebalance routing: concentrate full amount on most underweight asset
     const dcaTarget = strategyManager.getDCATarget(portfolio, targets)
