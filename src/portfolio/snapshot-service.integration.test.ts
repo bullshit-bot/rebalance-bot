@@ -198,6 +198,9 @@ describe('SnapshotService integration', () => {
 
     await snapshotService.saveSnapshot(portfolio1)
 
+    // Small delay to ensure distinct createdAt timestamps in MongoDB
+    await new Promise((r) => setTimeout(r, 10))
+
     const portfolio2: Portfolio = {
       totalValueUsd: 2000,
       assets: [
