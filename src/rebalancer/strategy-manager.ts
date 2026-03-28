@@ -1,4 +1,4 @@
-import type { Allocation } from "@/types/index";
+import type { Allocation, Portfolio } from "@/types/index";
 import { env } from "@config/app-config";
 import { momentumCalculator } from "@rebalancer/momentum-calculator";
 import { volatilityTracker } from "@rebalancer/volatility-tracker";
@@ -7,6 +7,7 @@ import { eventBus } from "@events/event-bus";
 import { meanReversionStrategy } from "@rebalancer/strategies/mean-reversion-strategy";
 import { volAdjustedStrategy } from "@rebalancer/strategies/vol-adjusted-strategy";
 import { momentumWeightedStrategy } from "@rebalancer/strategies/momentum-weighted-strategy";
+import { getDCATarget } from "@rebalancer/dca-target-resolver";
 import {
   MeanReversionParamsSchema,
   VolAdjustedParamsSchema,
@@ -113,12 +114,7 @@ class StrategyManager {
     }
   }
 
-  /**
-   * Returns true when the strategy allows a rebalance at this moment.
-   *
-   * @param maxDriftPct - largest absolute drift across all assets (%)
-   * @param drifts      - per-asset drift map (required for mean-reversion mode)
-   */
+  /** Returns true when the strategy permits a rebalance right now. */
   shouldRebalance(maxDriftPct: number, drifts?: Map<string, number>): boolean {
     if (this.mode === "mean-reversion") {
       if (!drifts) return false;
@@ -141,14 +137,7 @@ class StrategyManager {
     return maxDriftPct >= this.getDynamicThreshold();
   }
 
-  /**
-   * Returns the effective drift threshold (%) for the current strategy + vol regime.
-   *
-   * - threshold / equal-weight / momentum-tilt / mean-reversion / momentum-weighted:
-   *     always env.REBALANCE_THRESHOLD
-   * - vol-adjusted with DB params: continuous formula via volAdjustedStrategy
-   * - vol-adjusted without DB params: legacy binary high/low from env
-   */
+  /** Effective drift threshold (%) for the current strategy + vol regime. */
   getDynamicThreshold(): number {
     if (this.mode !== "vol-adjusted") return env.REBALANCE_THRESHOLD;
 
@@ -170,6 +159,17 @@ class StrategyManager {
       volatility: volatilityTracker.getVolatility(),
       momentumScores: momentumCalculator.getAllMomentumScores(),
     };
+  }
+
+  /**
+   * Returns the single asset DCA should concentrate on next.
+   * Returns null when dcaRebalanceEnabled=false or portfolio is fully balanced.
+   * Delegates drift calculation to dca-target-resolver.
+   */
+  getDCATarget(portfolio: Portfolio, allocations: Allocation[]): string | null {
+    const gs = this.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
+    if (!gs?.dcaRebalanceEnabled) return null
+    return getDCATarget(portfolio, allocations)
   }
 
   /** Hot-swap the strategy mode at runtime (e.g. from an API endpoint). */

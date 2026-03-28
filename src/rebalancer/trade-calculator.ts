@@ -2,6 +2,14 @@ import { env } from '@config/app-config'
 import { priceCache } from '@price/price-cache'
 import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/index'
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Stablecoin symbols treated as cash reserve (not traded as crypto positions). */
+const STABLECOINS = new Set(['USDT', 'USDC', 'BUSD'])
+
+/** Returns true if the asset symbol is a recognized stablecoin / cash asset. */
+const isStablecoin = (asset: string): boolean => STABLECOINS.has(asset)
+
 // ─── calculateTrades ──────────────────────────────────────────────────────────
 
 /**
@@ -14,20 +22,42 @@ import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/in
  *  3. Sort by absolute delta descending (largest drift first).
  *  4. Emit one TradeOrder per asset — buy if under-allocated, sell if over.
  *
+ * Cash reserve (cashReservePct > 0):
+ *  - crypto targets are computed against cryptoPoolUsd = totalUsd * (1 - cashReservePct/100)
+ *  - if stablecoin balance < targetCashUsd: sell overweight crypto to replenish
+ *  - cashReservePct=0 (default) = identical to previous behaviour
+ *
  * All pairs use the canonical "ASSET/USDT" format.
- * USDT itself is the rebalancing currency and is never traded.
+ * USDT itself is the rebalancing currency and is never traded directly.
  */
-export function calculateTrades(portfolio: Portfolio, targets: Allocation[], priceOverrides?: Record<string, number>): TradeOrder[] {
+export function calculateTrades(
+  portfolio: Portfolio,
+  targets: Allocation[],
+  priceOverrides?: Record<string, number>,
+  cashReservePct?: number,
+): TradeOrder[] {
   const totalUsd = portfolio.totalValueUsd
   if (totalUsd <= 0) return []
 
-  // Build a target lookup: asset → targetPct
+  // ─── Cash reserve setup ─────────────────────────────────────────────────────
+
+  const reservePct = cashReservePct ?? 0
+  const targetCashUsd = totalUsd * (reservePct / 100)
+  // USD value of all stablecoins currently held
+  const cashValueUsd = portfolio.assets
+    .filter((a) => isStablecoin(a.asset))
+    .reduce((sum, a) => sum + a.valueUsd, 0)
+
+  // Crypto pool is total minus cash reserve target
+  const cryptoPoolUsd = totalUsd - targetCashUsd
+
+  // ─── Target / exchange lookups ──────────────────────────────────────────────
+
   const targetMap = new Map<string, Allocation>()
   for (const alloc of targets) {
     targetMap.set(alloc.asset, alloc)
   }
 
-  // Collect the primary exchange for each held asset (fallback to 'binance')
   const exchangeMap = new Map<string, ExchangeName>()
   for (const held of portfolio.assets) {
     exchangeMap.set(held.asset, held.exchange)
@@ -44,17 +74,17 @@ export function calculateTrades(portfolio: Portfolio, targets: Allocation[], pri
 
   const deltas: AssetDelta[] = []
 
-  // Assets that are currently held
+  // Assets that are currently held (non-stablecoin)
   for (const held of portfolio.assets) {
-    if (held.asset === 'USDT' || held.asset === 'USDC' || held.asset === 'BUSD') continue
+    if (isStablecoin(held.asset)) continue
 
     const alloc = targetMap.get(held.asset)
     const targetPct = alloc?.targetPct ?? 0
-    const targetUsd = (targetPct / 100) * totalUsd
+    // Targets are percentage of cryptoPoolUsd, not totalUsd
+    const targetUsd = (targetPct / 100) * cryptoPoolUsd
     const currentUsd = held.valueUsd
     const deltaUsd = targetUsd - currentUsd
 
-    // Use allocation-level min if provided, else fall back to env
     const minTrade = alloc?.minTradeUsd ?? env.MIN_TRADE_USD
 
     if (Math.abs(deltaUsd) < minTrade) continue
@@ -63,18 +93,46 @@ export function calculateTrades(portfolio: Portfolio, targets: Allocation[], pri
     deltas.push({ asset: held.asset, exchange, deltaUsd, absDeltaUsd: Math.abs(deltaUsd) })
   }
 
-  // Assets in targets that are NOT yet held (pure buys)
+  // Assets in targets not yet held (pure buys)
   for (const alloc of targets) {
-    if (alloc.asset === 'USDT' || alloc.asset === 'USDC' || alloc.asset === 'BUSD') continue
+    if (isStablecoin(alloc.asset)) continue
     if (exchangeMap.has(alloc.asset)) continue // already processed above
 
-    const targetUsd = (alloc.targetPct / 100) * totalUsd
+    const targetUsd = (alloc.targetPct / 100) * cryptoPoolUsd
     const minTrade = alloc.minTradeUsd ?? env.MIN_TRADE_USD
 
     if (targetUsd < minTrade) continue
 
     const exchange = alloc.exchange ?? 'binance'
     deltas.push({ asset: alloc.asset, exchange, deltaUsd: targetUsd, absDeltaUsd: targetUsd })
+  }
+
+  // ─── Cash deficit: sell overweight crypto to replenish reserve ──────────────
+
+  if (reservePct > 0 && cashValueUsd < targetCashUsd) {
+    const cashDeficit = targetCashUsd - cashValueUsd
+    // Find assets with positive deltaUsd (overweight) and reduce them to fund cash
+    let remaining = cashDeficit
+    for (const d of deltas) {
+      if (remaining <= 0) break
+      if (d.deltaUsd > 0) continue // underweight — skip (it's already a buy)
+      // d.deltaUsd < 0 means overweight; increase sell amount by cashDeficit share
+      const extra = Math.min(remaining, d.absDeltaUsd)
+      d.deltaUsd -= extra
+      d.absDeltaUsd += extra
+      remaining -= extra
+    }
+    // If cash deficit still unmet, add sells on any overweight (positive deltaUsd) assets
+    if (remaining > 0) {
+      for (const d of deltas) {
+        if (remaining <= 0) break
+        if (d.deltaUsd <= 0) continue // already a sell
+        const sellExtra = Math.min(remaining, d.deltaUsd)
+        d.deltaUsd -= sellExtra
+        d.absDeltaUsd = Math.abs(d.deltaUsd)
+        remaining -= sellExtra
+      }
+    }
   }
 
   // Sort largest absolute drift first
@@ -85,9 +143,11 @@ export function calculateTrades(portfolio: Portfolio, targets: Allocation[], pri
   const orders: TradeOrder[] = []
 
   for (const d of deltas) {
+    // Skip if delta collapsed to zero after cash deficit adjustment
+    if (d.absDeltaUsd < (env.MIN_TRADE_USD / 2)) continue
+
     const pair = `${d.asset}/USDT`
 
-    // Resolve current price — use overrides (backtest) or live price cache
     const price =
       priceOverrides?.[pair] ??
       priceCache.getBestPrice(pair) ??
@@ -95,12 +155,10 @@ export function calculateTrades(portfolio: Portfolio, targets: Allocation[], pri
       priceCache.getBestPrice(`${d.asset}/USDC`)
 
     if (!price || price <= 0) {
-      // Skip asset if we have no price — can't determine base quantity
       console.warn(`[TradeCalculator] No price for ${pair}, skipping trade`)
       continue
     }
 
-    // amount is base quantity (e.g. 0.005 BTC), not USD value
     const baseQty = d.absDeltaUsd / price
 
     orders.push({

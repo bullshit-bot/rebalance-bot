@@ -65,6 +65,16 @@ export const STRATEGY_PRESETS = {
     params: { type: 'vol-adjusted', minTradeUsd: 15, baseThresholdPct: 5, volLookbackDays: 30, minThresholdPct: 3, maxThresholdPct: 20 },
     globalSettings: { partialFactor: 0.75, cooldownHours: 4, dynamicThreshold: true, feeAware: true, autoExecute: false },
   },
+  CashAwareBalanced: {
+    description: 'Balanced with 20% USDT cash reserve — crypto targets scaled to 80% of portfolio',
+    params: { type: 'equal-weight', thresholdPct: 5, minTradeUsd: 10 },
+    globalSettings: { cashReservePct: 20, partialFactor: 0.75, cooldownHours: 4, feeAware: true, autoExecute: false },
+  },
+  DCARebalance: {
+    description: 'DCA routes to underweight assets, hard rebalance at 15% drift only',
+    params: { type: 'threshold', thresholdPct: 15, minTradeUsd: 10 },
+    globalSettings: { cashReservePct: 20, dcaRebalanceEnabled: true, hardRebalanceThreshold: 15, feeAware: true, autoExecute: false },
+  },
 } as const
 
 export type PresetName = keyof typeof STRATEGY_PRESETS

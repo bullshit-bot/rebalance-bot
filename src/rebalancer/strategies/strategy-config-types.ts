@@ -70,6 +70,12 @@ export const GlobalSettingsSchema = z.object({
   trendAware: z.boolean().default(false),
   feeAware: z.boolean().default(true),
   autoExecute: z.boolean().default(false),
+  // Cash reserve: % of portfolio held in stablecoins, never traded
+  cashReservePct: z.number().min(0).max(50).default(0),
+  // DCA routing: when true, DCA buys target only the most underweight asset
+  dcaRebalanceEnabled: z.boolean().default(false),
+  // Hard rebalance threshold: full rebalance only fires when drift exceeds this
+  hardRebalanceThreshold: z.number().min(5).max(50).default(15),
 })
 
 // ─── Full config input schema ────────────────────────────────────────────────
