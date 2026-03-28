@@ -63,6 +63,13 @@ jobs:
             # Stop old containers (preserve volumes to keep MongoDB data)
             docker compose down --remove-orphans 2>/dev/null || true
 
+            # Kill any leftover container binding port 27017 (from previous compose projects)
+            MONGO_CID=$(docker ps -q --filter "publish=27017" 2>/dev/null)
+            if [ -n "$MONGO_CID" ]; then
+              docker stop "$MONGO_CID" 2>/dev/null || true
+              docker rm "$MONGO_CID" 2>/dev/null || true
+            fi
+
             # Build and deploy with Docker Compose
             docker compose build
             docker compose up -d --wait --wait-timeout 180
