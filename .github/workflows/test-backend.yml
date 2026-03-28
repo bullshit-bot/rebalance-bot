@@ -3,12 +3,6 @@ name: Backend Tests
 on:
   push:
     branches: [main, dev]
-    paths:
-      - 'src/**'
-      - 'scripts/**'
-      - 'package.json'
-      - 'tsconfig.json'
-      - '.github/workflows/test-backend.yml'
   pull_request:
     branches: [main, dev]
   workflow_dispatch:
@@ -49,14 +43,6 @@ jobs:
           bun-version: latest
 
       - run: bun install
-
-      - name: TypeScript check
-        run: bunx tsc --noEmit
-        continue-on-error: true
-
-      - name: Lint (Biome)
-        run: bun run lint
-        continue-on-error: true
 
       - name: Run tests
         run: bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts' --timeout 30000

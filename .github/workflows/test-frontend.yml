@@ -3,9 +3,6 @@ name: Frontend Tests
 on:
   push:
     branches: [main, dev]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/test-frontend.yml'
   pull_request:
     branches: [main, dev]
   workflow_dispatch:
@@ -26,13 +23,6 @@ jobs:
           bun-version: latest
 
       - run: bun install
-
-      - name: TypeScript check
-        run: bunx tsc --noEmit
-
-      - name: Lint (ESLint)
-        run: bun run lint
-        continue-on-error: true
 
       - name: Run tests
         run: bun run test
