@@ -72,6 +72,9 @@ jobs:
               fi
             done
 
+            # Kill any non-Docker process on port 80 (e.g. nginx from previous setup)
+            sudo fuser -k 80/tcp 2>/dev/null || true
+
             # Build and deploy with Docker Compose
             docker compose build
             docker compose up -d --wait --wait-timeout 180
