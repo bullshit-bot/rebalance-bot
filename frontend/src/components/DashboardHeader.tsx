@@ -1,16 +1,51 @@
 import { Play, Pause, LogOut } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { usePortfolio } from "@/hooks/use-portfolio-queries";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export function DashboardHeader() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const { data: portfolio } = usePortfolio();
+  const [paused, setPaused] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
+  };
+
+  const handleDryRun = async () => {
+    try {
+      const preview = await api.getRebalancePreview();
+      const trades = preview.trades?.length ?? 0;
+      if (trades === 0) {
+        toast.info("Dry Run: No trades needed — portfolio is within threshold");
+      } else {
+        toast.success(`Dry Run: ${trades} trades proposed. Check Rebalance Plan page.`);
+        navigate("/rebalance-plan");
+      }
+    } catch {
+      toast.error("Dry Run failed — check backend connection");
+    }
+  };
+
+  const handlePauseToggle = async () => {
+    try {
+      if (paused) {
+        await api.resumeBot();
+        setPaused(false);
+        toast.success("Bot resumed — drift detection active");
+      } else {
+        await api.pauseBot();
+        setPaused(true);
+        toast.warning("Bot paused — no automatic rebalancing");
+      }
+    } catch {
+      toast.error("Failed to toggle pause state");
+    }
   };
 
   const portfolioValue = portfolio?.totalValueUsd ?? 0;
@@ -54,11 +89,11 @@ export function DashboardHeader() {
         </div>
 
         <div className="flex gap-2 ml-2">
-          <button className="brutal-btn-secondary text-xs flex items-center gap-1.5">
+          <button onClick={handleDryRun} className="brutal-btn-secondary text-xs flex items-center gap-1.5">
             <Play size={13} /> Dry Run
           </button>
-          <button className="brutal-btn-warning text-xs flex items-center gap-1.5">
-            <Pause size={13} /> Pause
+          <button onClick={handlePauseToggle} className={`text-xs flex items-center gap-1.5 ${paused ? "brutal-btn-primary" : "brutal-btn-warning"}`}>
+            {paused ? <><Play size={13} /> Resume</> : <><Pause size={13} /> Pause</>}
           </button>
           <button
             onClick={handleLogout}

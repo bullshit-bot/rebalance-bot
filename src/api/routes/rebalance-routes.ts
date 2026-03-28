@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { RebalanceModel } from '@db/database'
 import { rebalanceEngine } from '@rebalancer/rebalance-engine'
+import { driftDetector } from '@rebalancer/drift-detector'
 
 const rebalanceRoutes = new Hono()
 
@@ -56,6 +57,20 @@ rebalanceRoutes.get('/history', async (c) => {
     const message = err instanceof Error ? err.message : String(err)
     return c.json({ error: message }, 500)
   }
+})
+
+/** POST /api/rebalance/pause — stop drift detector + rebalance engine */
+rebalanceRoutes.post('/pause', (c) => {
+  driftDetector.stop()
+  rebalanceEngine.stop()
+  return c.json({ status: 'paused' })
+})
+
+/** POST /api/rebalance/resume — restart drift detector + rebalance engine */
+rebalanceRoutes.post('/resume', (c) => {
+  driftDetector.start()
+  rebalanceEngine.start()
+  return c.json({ status: 'running' })
 })
 
 export { rebalanceRoutes }

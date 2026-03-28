@@ -64,6 +64,8 @@ export const api = {
   getRebalancePreview: () => apiFetch<RebalancePreview>('/rebalance/preview'),
   getRebalanceHistory: (limit?: number) =>
     apiFetch<RebalanceEvent[]>(`/rebalance/history${qs({ limit })}`),
+  pauseBot: () => apiFetch<{ status: string }>('/rebalance/pause', { method: 'POST' }),
+  resumeBot: () => apiFetch<{ status: string }>('/rebalance/resume', { method: 'POST' }),
 
   // Config / Allocations
   getAllocations: () => apiFetch<Allocation[]>('/config/allocations'),
