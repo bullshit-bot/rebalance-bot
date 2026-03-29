@@ -28,7 +28,7 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
                               ↓                                                    ↓
                         RebalanceEngine ←──────────────────────────────────────────┘
                               ↓
-                     Telegram Alerts + Dashboard
+                     GoClaw (Telegram) + Dashboard
 ```
 
 ## Core Features
@@ -77,27 +77,38 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
 | MA100 + SOL 20% | $37,500 | $98,725 | +$61,225 | +163% | -33.7% |
 | 6Y MA100 filter | $42,120 | $356,660 | +$314,540 | +747% | -32.7% |
 
-## MCP Tools Available
+## MCP Tools Available (28 tools)
 
-| Tool | Description |
-|------|-------------|
-| get_health | System health check |
-| get_portfolio | Current holdings, weights, total value |
-| get_allocations | Target allocation percentages |
-| set_allocations | Set all target allocations (full replace) |
-| delete_allocation | Remove an asset allocation |
-| trigger_rebalance | Execute rebalance |
-| get_rebalance_history | Past rebalance events |
-| list_trades | Recent executed trades |
-| get_strategy_config | Active strategy config + list |
-| list_strategy_presets | Built-in strategy presets |
-| activate_strategy | Switch active strategy |
-| update_strategy_config | Update strategy parameters |
-| run_backtest | Run backtest simulation |
-| list_backtests | Previous backtest results |
-| get_ai_suggestions | AI allocation recommendations |
-| approve_suggestion | Approve AI suggestion |
-| reject_suggestion | Reject AI suggestion |
+| Group | Tool | Description |
+|-------|------|-------------|
+| Health | get_health | System health check |
+| Portfolio | get_portfolio | Current holdings, weights, total value |
+| Portfolio | list_allocations | Target allocation percentages |
+| Portfolio | set_allocations | Set all target allocations (full replace) |
+| Portfolio | delete_allocation | Remove an asset allocation |
+| Rebalance | trigger_rebalance | Execute rebalance |
+| Rebalance | get_rebalance_history | Past rebalance events |
+| Trading | list_trades | Recent executed trades |
+| Strategy | get_strategy_config | Active strategy config + list |
+| Strategy | list_strategy_presets | Built-in strategy presets |
+| Strategy | activate_strategy | Switch active strategy |
+| Strategy | update_strategy_config | Update strategy parameters |
+| Backtest | run_backtest | Run backtest simulation |
+| Backtest | list_backtests | Previous backtest results |
+| AI | get_ai_suggestions | AI allocation recommendations |
+| AI | approve_suggestion | Approve AI suggestion |
+| AI | reject_suggestion | Reject AI suggestion |
+| AI | update_ai_config | Set autoApprove flag and maxShiftPct |
+| Copy Trading | list_copy_sources | Copy trading sources being tracked |
+| Copy Trading | create_copy_source | Add new copy trading source |
+| Copy Trading | delete_copy_source | Remove copy source by ID |
+| Grid Trading | create_grid_bot | Create grid trading bot (normal/reverse) |
+| Grid Trading | list_grid_bots | Active and stopped grid bots with PnL |
+| Grid Trading | stop_grid_bot | Stop running grid bot |
+| Smart Orders | create_smart_order | TWAP/VWAP order execution |
+| Smart Orders | list_smart_orders | Active smart orders with progress |
+| Smart Orders | cancel_smart_order | Cancel pending/running smart order |
+| Config | get_config | System configuration |
 
 ## Available GoClaw Skills
 
