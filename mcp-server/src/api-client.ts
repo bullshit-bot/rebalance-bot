@@ -1,5 +1,6 @@
 // HTTP client for backend REST API
 const BASE_URL = process.env.BACKEND_API_URL ?? "http://backend:3001";
+const API_KEY = process.env.BACKEND_API_KEY ?? "";
 
 type JsonBody = Record<string, unknown>;
 
@@ -9,9 +10,11 @@ async function request<T>(
   body?: JsonBody
 ): Promise<T> {
   const url = `${BASE_URL}${path}`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
   const init: RequestInit = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers,
   };
   if (body !== undefined) {
     init.body = JSON.stringify(body);

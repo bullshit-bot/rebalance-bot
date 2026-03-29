@@ -104,6 +104,7 @@ services:
     restart: unless-stopped
     environment:
       BACKEND_API_URL: http://backend:3001
+      BACKEND_API_KEY: ${API_KEY}
       MCP_TRANSPORT: sse
       MCP_PORT: "3100"
     depends_on:
