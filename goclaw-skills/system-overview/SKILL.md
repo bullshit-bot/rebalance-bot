@@ -56,26 +56,24 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
 - Metrics: return %, annualized %, Sharpe ratio, max drawdown, fees
 - Benchmark: compares strategy vs buy-and-hold
 
-## Optimal Configuration (Backtest Validated)
+## Optimal Configuration (672-combo Grid Search, 2026-03-30)
 
 | Parameter | Value | Reason |
 |-----------|-------|--------|
-| Allocation | BTC 40% / ETH 25% / BNB 15% / SOL 20% | Blue-chip heavy, SOL for upside |
-| Strategy | threshold (5%) | Simple, effective |
-| Trend filter | MA100, Bear 90% cash | 3x return improvement |
-| Cooldown | 3 days | Prevents whipsaw |
-| Cash reserve | 10% | Buffer for opportunities |
-| DCA rebalance | enabled | Reduces trading fees |
-| DCA amount | $20/day | Steady accumulation |
+| Allocation | BTC 40% / ETH 25% / SOL 20% / BNB 15% | Blue-chip heavy, SOL for upside |
+| Strategy | threshold (**8%**) | Less trades, let profit run |
+| Trend filter | **MA110**, Bear **95%** cash | Smoother signal, full cash protection |
+| Cooldown | **1 day** | Fast trend response |
+| Cash reserve | 0% | Trend filter handles protection |
+| DCA rebalance | disabled | Simplicity |
 
 ### Backtest Results (2021-2026, $1000 + $20/day DCA)
 
-| Config | Invested | Final | Profit | Return | Max DD |
-|--------|----------|-------|--------|--------|--------|
-| No filter | $37,500 | $55,430 | +$17,930 | +48% | -62.5% |
-| MA100 filter | $37,500 | $93,733 | +$56,233 | +150% | -34.7% |
-| MA100 + SOL 20% | $37,500 | $98,725 | +$61,225 | +163% | -33.7% |
-| 6Y MA100 filter | $42,120 | $356,660 | +$314,540 | +747% | -32.7% |
+| Config | Return | Annualized | Sharpe | Max DD |
+|--------|--------|-----------|--------|--------|
+| Old (MA100/TH5/CD3/Bear90) | +133.9% | +18.5% | 2.01 | -43.2% |
+| **New (MA110/TH8/CD1/Bear95)** | **+242.8%** | **+28.0%** | **2.23** | **-39.4%** |
+| No filter (no DCA) | +387% | - | 0.80 | -85% |
 
 ## MCP Tools Available (28 tools)
 
