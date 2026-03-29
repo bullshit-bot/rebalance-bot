@@ -296,12 +296,14 @@ class PortfolioTracker {
           targetMap.set(alloc.asset, alloc.targetPct)
         }
 
-        // Only include assets that have a target allocation — non-target assets
-        // (e.g. DAI stuck on testnet) inflate totalValueUsd and distort drift %
+        // Include assets with a target allocation OR quote stablecoins (USDT/USDC)
+        // that represent cash holdings. Exclude non-target, non-quote assets
+        // (e.g. DAI stuck on testnet) that inflate totalValueUsd and distort drift %
+        const quoteAssets = new Set(['USDT', 'USDC'])
         const targetAssetValues = new Map<string, { amount: number; valueUsd: number; exchange: ExchangeName }>()
         let targetTotalUsd = 0
         for (const [asset, data] of assetValues) {
-          if (targetMap.has(asset)) {
+          if (targetMap.has(asset) || quoteAssets.has(asset)) {
             targetAssetValues.set(asset, data)
             targetTotalUsd += data.valueUsd
           }
