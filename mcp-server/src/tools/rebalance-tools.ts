@@ -21,7 +21,7 @@ export function registerRebalanceTools(server: McpServer) {
     },
     async ({ limit }) => {
       const qs = limit !== undefined ? `?limit=${limit}` : "";
-      const result = await apiClient.get(`/api/rebalances${qs}`);
+      const result = await apiClient.get(`/api/rebalance/history${qs}`);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
   );

@@ -13,6 +13,7 @@ import { registerGridTools } from "./tools/grid-tools.js";
 import { registerSmartOrderTools } from "./tools/smart-order-tools.js";
 import { registerAiTools } from "./tools/ai-tools.js";
 import { registerCopyTradingTools } from "./tools/copy-trading-tools.js";
+import { registerStrategyConfigTools } from "./tools/strategy-config-tools.js";
 
 const server = new McpServer({
   name: "rebalance-bot-mcp",
@@ -31,6 +32,7 @@ registerGridTools(server);
 registerSmartOrderTools(server);
 registerAiTools(server);
 registerCopyTradingTools(server);
+registerStrategyConfigTools(server);
 
 const mode = process.env.MCP_TRANSPORT ?? "stdio";
 
