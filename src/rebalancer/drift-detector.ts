@@ -7,6 +7,9 @@ import type { Portfolio } from '@/types/index'
 /** Default bear market cash target — shared with RebalanceEngine */
 export const DEFAULT_BEAR_CASH_PCT = 70
 
+/** Sentinel value indicating no previous trend state recorded */
+const TREND_STATE_UNKNOWN = null
+
 // ─── Dependency injection ─────────────────────────────────────────────────────
 
 export interface IEventBusDepDD {
@@ -41,6 +44,9 @@ class DriftDetector {
 
   /** Whether the detector is actively listening */
   private active = false
+
+  /** Last observed trend-filter bull/bear state — null until first evaluation */
+  private lastTrendBullish: boolean | null = TREND_STATE_UNKNOWN
 
   /** Bound listener reference — stored so we can remove it cleanly in stop() */
   private readonly portfolioListener = (portfolio: Portfolio): void => {
@@ -101,8 +107,14 @@ class DriftDetector {
       const maPeriod = typeof gs.trendFilterMA === 'number' ? gs.trendFilterMA : 100
       const buffer = typeof gs.trendFilterBuffer === 'number' ? gs.trendFilterBuffer : 2
       const bearCashPct = typeof gs.bearCashPct === 'number' ? gs.bearCashPct : DEFAULT_BEAR_CASH_PCT
+      const cooldownDays = typeof gs.trendFilterCooldownDays === 'number' ? gs.trendFilterCooldownDays : 3
 
-      if (!trendFilter.isBullish(maPeriod, buffer)) {
+      const isBull = trendFilter.isBullishWithCooldown(maPeriod, buffer, cooldownDays)
+
+      if (!isBull) {
+        // Track trend state for bull recovery detection on next flip
+        this.lastTrendBullish = false
+
         // Calculate current cash percentage
         const stablecoins = new Set(['USDT', 'USDC', 'BUSD', 'TUSD', 'DAI', 'USD'])
         const cashUsd = portfolio.assets
@@ -124,6 +136,18 @@ class DriftDetector {
         // Skip normal drift check in bear mode
         return
       }
+
+      // Bull recovery: trend just flipped from bear → bull
+      if (this.lastTrendBullish === false) {
+        console.info('[DriftDetector] Bull recovery — triggering re-entry rebalance')
+        this.lastTrendBullish = true
+        this.lastRebalanceTime = Date.now()
+        this.deps.eventBus.emit('rebalance:trigger', { trigger: 'trend-filter-bull-recovery' })
+        return
+      }
+
+      // First evaluation or continuing bull — record state and fall through to normal drift check
+      this.lastTrendBullish = true
     }
 
     // Use hardRebalanceThreshold from active config when DCA routing is enabled,

@@ -15,6 +15,9 @@ class TrendFilter {
   /** Previous bull/bear state — null until first evaluation (avoids false flip on startup) */
   private lastBullish: boolean | null = null
 
+  /** Epoch ms of last bull/bear flip — 0 means never flipped */
+  private lastFlipTimestamp = 0
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   /**
@@ -39,7 +42,18 @@ class TrendFilter {
 
       this.dailyCloses = candles.map((c) => c.close)
       this.lastRecordedDay = Math.floor(candles[candles.length - 1]!.timestamp / 86_400_000)
-      console.info('[TrendFilter] Loaded %d data points from DB', candles.length)
+
+      // Restore lastFlipTimestamp from the metadata candle (volume field used as slot)
+      const metaCandle = await OhlcvCandleModel.findOne({
+        exchange: 'trend-filter-meta',
+        pair: 'BTC/USDT',
+        timeframe: '1d',
+      }).lean()
+      if (metaCandle && metaCandle.volume > 0) {
+        this.lastFlipTimestamp = metaCandle.volume
+      }
+
+      console.info('[TrendFilter] Loaded %d data points from DB (lastFlip=%d)', candles.length, this.lastFlipTimestamp)
     } catch (err) {
       console.error('[TrendFilter] Failed to load from DB — starting fresh:', err)
     }
@@ -71,6 +85,47 @@ class TrendFilter {
         console.error('[TrendFilter] Failed to persist daily close:', err)
       })
     }
+  }
+
+  /**
+   * Whipsaw-protected bull/bear signal.
+   * Suppresses flips that occur within `cooldownDays` of the previous flip.
+   * Returns the raw signal when cooldown has elapsed or has never been set.
+   *
+   * This is the recommended method for production use in DriftDetector.
+   *
+   * @param maPeriod     Days to average (default 100)
+   * @param bufferPct    % below MA still treated as bull (default 2)
+   * @param cooldownDays Min days between flips (default 3; 0 = no cooldown)
+   */
+  isBullishWithCooldown(maPeriod = 100, bufferPct = 2, cooldownDays = 3): boolean {
+    // Capture previous state BEFORE isBullish() mutates it
+    const previousBullish = this.lastBullish
+    const rawBullish = this.isBullish(maPeriod, bufferPct)
+
+    // No previous state means first evaluation — use raw signal as-is
+    if (previousBullish === null) return rawBullish
+
+    // State is identical — no flip candidate, cooldown irrelevant
+    if (rawBullish === previousBullish) return rawBullish
+
+    // Flip candidate detected — check cooldown
+    if (cooldownDays > 0 && this.lastFlipTimestamp > 0) {
+      const elapsed = (Date.now() - this.lastFlipTimestamp) / 86_400_000
+      if (elapsed < cooldownDays) {
+        // Suppress the flip — revert lastBullish to previous value
+        this.lastBullish = previousBullish
+        return previousBullish
+      }
+    }
+
+    // Allow the flip — record timestamp and persist (fire-and-forget)
+    this.lastFlipTimestamp = Date.now()
+    this.persistFlipTimestamp().catch((err) => {
+      console.error('[TrendFilter] Failed to persist flip timestamp:', err)
+    })
+
+    return rawBullish
   }
 
   /**
@@ -122,6 +177,11 @@ class TrendFilter {
     return this.dailyCloses.length
   }
 
+  /** Epoch ms of the last bull/bear flip (0 = never flipped). */
+  getLastFlipTimestamp(): number {
+    return this.lastFlipTimestamp
+  }
+
   /**
    * Persist the current day's latest close to MongoDB.
    * Call during graceful shutdown to avoid losing intra-day price updates.
@@ -144,6 +204,18 @@ class TrendFilter {
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Persist lastFlipTimestamp to MongoDB using a dedicated meta candle.
+   * Volume field is repurposed as timestamp storage (integer ms).
+   */
+  private async persistFlipTimestamp(): Promise<void> {
+    await OhlcvCandleModel.updateOne(
+      { exchange: 'trend-filter-meta', pair: 'BTC/USDT', timeframe: '1d', timestamp: 0 },
+      { $set: { open: 0, high: 0, low: 0, close: 0, volume: this.lastFlipTimestamp } },
+      { upsert: true },
+    )
+  }
 
   /** Simple Moving Average over the last `period` closes. Null if insufficient data. */
   private sma(period: number): number | null {

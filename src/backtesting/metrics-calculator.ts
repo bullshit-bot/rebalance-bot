@@ -13,6 +13,8 @@ export interface BacktestMetrics {
   totalFeesPaid: number
   avgTradeSize: number
   volatility: number        // annualized std deviation of daily returns
+  /** Total DCA injected during simulation (USD). Only set when dcaAmountUsd > 0. */
+  totalDcaInjected?: number
 }
 
 export interface SimulatedTrade {
@@ -41,6 +43,16 @@ export interface BacktestConfig {
   cashReservePct?: number
   /** Route pending buys through DCA slices instead of immediate execution. Requires cashReservePct > 0. */
   dcaRebalanceEnabled?: boolean
+  /** DCA amount in USD injected per interval. Default: 0 (disabled). */
+  dcaAmountUsd?: number
+  /** DCA injection interval in candles. Default: 1 (every candle). */
+  dcaIntervalCandles?: number
+  /** Trend filter: BTC MA period for bull/bear detection. Default: 0 (disabled). */
+  trendFilterMaPeriod?: number
+  /** Trend filter: % of portfolio to move to cash in bear mode (0–100). Default: 90. */
+  trendFilterBearCashPct?: number
+  /** Trend filter: cooldown in candles before allowing bull→bear or bear→bull flip. Default: 3. */
+  trendFilterCooldownCandles?: number
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────
@@ -55,21 +67,27 @@ class MetricsCalculator {
   /**
    * Derives daily-resolution returns from an equity curve (which may be
    * higher-frequency), then computes all metrics.
+   *
+   * @param totalDcaInjected - total USD injected via DCA during simulation.
+   *   When provided, totalReturnPct uses (final - totalInvested) / totalInvested
+   *   where totalInvested = config.initialBalance + totalDcaInjected.
    */
   calculate(
     equityCurve: { timestamp: number; value: number }[],
     trades: SimulatedTrade[],
     config: BacktestConfig,
+    totalDcaInjected = 0,
   ): BacktestMetrics {
     if (equityCurve.length < 2) {
       return this._zeroMetrics(trades, config)
     }
 
-    const initial = equityCurve[0]!.value
     const final = equityCurve[equityCurve.length - 1]!.value
 
-    // ── Total return ──────────────────────────────────────────────────────────
-    const totalReturnPct = ((final - initial) / initial) * 100
+    // ── Total return (accounts for DCA injections as additional cost basis) ──
+    // When DCA is disabled, totalDcaInjected=0 and this equals (final - initialBalance) / initialBalance
+    const totalInvested = config.initialBalance + totalDcaInjected
+    const totalReturnPct = ((final - totalInvested) / totalInvested) * 100
 
     // ── Duration in days ─────────────────────────────────────────────────────
     const msPerDay = 86_400_000
@@ -103,7 +121,7 @@ class MetricsCalculator {
     // ── Win rate: rebalance batches where portfolio value increased afterwards ──
     const winRate = this._calcWinRate(equityCurve, trades)
 
-    return {
+    const metrics: BacktestMetrics = {
       totalReturnPct,
       annualizedReturnPct,
       sharpeRatio,
@@ -114,6 +132,8 @@ class MetricsCalculator {
       avgTradeSize,
       volatility,
     }
+    if (totalDcaInjected > 0) metrics.totalDcaInjected = totalDcaInjected
+    return metrics
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

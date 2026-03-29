@@ -3,7 +3,7 @@
 export type ExchangeName = 'binance' | 'okx' | 'bybit'
 export type OrderSide = 'buy' | 'sell'
 export type OrderType = 'limit' | 'market'
-export type RebalanceTrigger = 'threshold' | 'periodic' | 'manual' | 'trend-filter-bear'
+export type RebalanceTrigger = 'threshold' | 'periodic' | 'manual' | 'trend-filter-bear' | 'trend-filter-bull-recovery'
 export type RebalanceStatus = 'pending' | 'executing' | 'completed' | 'failed'
 
 // ─── Market data ──────────────────────────────────────────────────────────────

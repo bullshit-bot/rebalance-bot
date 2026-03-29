@@ -104,11 +104,18 @@ class RebalanceEngine {
 
     // ── Step 3: calculate trades ──────────────────────────────────────────────
     // Bear trigger: override cash reserve to bearCashPct (sell to safety)
+    // Bull recovery: use normal cashReservePct (buy crypto with excess cash)
     let cashReservePct: number | undefined
     if (trigger === 'trend-filter-bear') {
       const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
       cashReservePct = typeof gs?.bearCashPct === 'number' ? gs.bearCashPct : DEFAULT_BEAR_CASH_PCT
       console.info('[RebalanceEngine] Bear trigger — targeting %d%% cash reserve', cashReservePct)
+    } else if (trigger === 'trend-filter-bull-recovery') {
+      const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
+      // Use the normal cash reserve — trade calculator will buy back crypto with excess cash
+      cashReservePct = typeof gs?.cashReservePct === 'number' ? gs.cashReservePct : undefined
+      console.info('[RebalanceEngine] Bull recovery trigger — re-entering crypto positions (cashReserve=%s%%)',
+        cashReservePct ?? 'default')
     }
     const orders = calculateTrades(beforeState, targets, undefined, cashReservePct)
 

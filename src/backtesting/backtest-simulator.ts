@@ -70,6 +70,30 @@ class BacktestSimulator {
     const trades: SimulatedTrade[] = []
     const equityCurve: { timestamp: number; value: number }[] = []
 
+    // ── DCA + Trend filter state ──────────────────────────────────────────────
+    const dcaAmountUsd = config.dcaAmountUsd ?? 0
+    const dcaIntervalCandles = config.dcaIntervalCandles ?? 1
+    const trendMaPeriod = config.trendFilterMaPeriod ?? 0
+    const trendBearCashPct = config.trendFilterBearCashPct ?? 90
+    const trendCooldown = config.trendFilterCooldownCandles ?? 3
+    const cashReservePct = config.cashReservePct ?? 0
+
+    // BTC close prices accumulated for SMA calculation
+    const btcCloses: number[] = []
+    const btcPair = 'BTC/USDT'
+
+    // Bear mode state: inBearMode = true when BTC < MA; cooldownRemaining prevents whipsaw
+    let inBearMode = false
+    let trendCooldownRemaining = 0
+
+    // Cash balance: used for cash reserve + bear mode proceeds
+    let cashUsd = 0
+
+    // Total DCA injected (sum of all DCA deposits, excluding initial balance)
+    let totalDcaInjected = 0
+
+    let candleIndex = 0
+
     // ── 4. Iterate through candles ────────────────────────────────────────────
     for (const ts of timeline) {
       const prices = this._pricesAtTimestamp(ohlcvData, ts)
@@ -80,7 +104,96 @@ class BacktestSimulator {
         if (price !== undefined) state.valueUsd = state.amount * price
       }
 
-      const totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0)
+      // Accumulate BTC close for trend filter SMA
+      if (trendMaPeriod > 0) {
+        const btcClose = prices[btcPair]
+        if (btcClose !== undefined) btcCloses.push(btcClose)
+      }
+
+      let totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+
+      // ── DCA injection (skip candle 0 = initial buy-in) ───────────────────
+      if (candleIndex > 0 && dcaAmountUsd > 0 && candleIndex % dcaIntervalCandles === 0) {
+        if (inBearMode) {
+          // In bear mode: DCA goes to cash reserve
+          cashUsd += dcaAmountUsd
+        } else {
+          // In bull mode: buy most underweight asset
+          this._dcaInjectBullMode(
+            holdings,
+            config.allocations,
+            prices,
+            dcaAmountUsd,
+            cashReservePct,
+            totalValueUsd,
+          )
+        }
+        totalDcaInjected += dcaAmountUsd
+        totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+      }
+
+      // ── Trend filter: detect bull/bear transition ─────────────────────────
+      if (trendMaPeriod > 0 && btcCloses.length >= trendMaPeriod) {
+        const ma = btcCloses.slice(-trendMaPeriod).reduce((s, v) => s + v, 0) / trendMaPeriod
+        const btcCurrentPrice = btcCloses[btcCloses.length - 1]!
+        const nowBear = btcCurrentPrice < ma
+
+        if (trendCooldownRemaining > 0) {
+          trendCooldownRemaining--
+        } else if (nowBear !== inBearMode) {
+          // State flip; apply cooldown before accepting next flip
+          inBearMode = nowBear
+          trendCooldownRemaining = trendCooldown
+
+          if (inBearMode) {
+            // Transition to bear: sell holdings down to (100 - trendBearCashPct)% crypto
+            const targetCashPct = trendBearCashPct / 100
+            const targetCashUsd = totalValueUsd * targetCashPct
+            const cryptoValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0)
+            if (cashUsd < targetCashUsd && cryptoValueUsd > 0) {
+              const sellRatio = Math.min(1, (targetCashUsd - cashUsd) / cryptoValueUsd)
+              for (const [pair, holding] of Object.entries(holdings)) {
+                const price = prices[pair]
+                if (!price || price <= 0 || holding.amount <= 0) continue
+                const sellQty = holding.amount * sellRatio
+                const proceeds = sellQty * price
+                const fee = proceeds * config.feePct
+                holding.amount -= sellQty
+                holding.valueUsd = holding.amount * price
+                cashUsd += proceeds - fee
+                trades.push({
+                  timestamp: ts,
+                  pair,
+                  side: 'sell',
+                  amount: sellQty,
+                  price,
+                  costUsd: proceeds,
+                  fee,
+                })
+              }
+              totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+            }
+          } else {
+            // Transition to bull: re-deploy excess cash above cashReservePct
+            const normalCashUsd = totalValueUsd * (cashReservePct / 100)
+            const excessCash = cashUsd - normalCashUsd
+            if (excessCash > 0) {
+              this._deployCash(
+                holdings,
+                config.allocations,
+                prices,
+                excessCash,
+                config.feePct,
+                totalValueUsd,
+                trades,
+                ts,
+              )
+              cashUsd -= excessCash
+              totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+            }
+          }
+        }
+      }
 
       // Maintain rolling return window for volatility calculation
       if (prevTotalValue !== null && prevTotalValue > 0) {
@@ -93,55 +206,60 @@ class BacktestSimulator {
       // Compute current annualised volatility from recent returns
       const currentVol = this._annualisedVol(recentReturns)
 
-      // Feed strategy state and check rebalance trigger
+      // ── Rebalance check (skipped in bear mode when trend filter active) ───
       let shouldRebalance: boolean
       let effectiveAllocations: Allocation[] = config.allocations
 
-      if (adapter) {
-        // Build drifts map (asset → drift %) for state update
-        const drifts = new Map<string, number>()
-        for (const alloc of config.allocations) {
-          const pair = `${alloc.asset}/USDT`
-          const currentPct = totalValueUsd > 0
-            ? ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100
-            : 0
-          drifts.set(alloc.asset, currentPct - alloc.targetPct)
+      const skipRebalanceInBear = trendMaPeriod > 0 && inBearMode
+
+      if (!skipRebalanceInBear) {
+        if (adapter) {
+          // Build drifts map (asset → drift %) for state update
+          const drifts = new Map<string, number>()
+          for (const alloc of config.allocations) {
+            const pair = `${alloc.asset}/USDT`
+            const currentPct = totalValueUsd > 0
+              ? ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100
+              : 0
+            drifts.set(alloc.asset, currentPct - alloc.targetPct)
+          }
+
+          adapter.updateState(drifts, currentVol, prices)
+          shouldRebalance = adapter.needsRebalance(
+            holdings,
+            config.allocations,
+            totalValueUsd,
+            config.threshold,
+          )
+          if (shouldRebalance) {
+            effectiveAllocations = adapter.getEffectiveAllocations(config.allocations)
+          }
+        } else {
+          shouldRebalance = this._needsRebalance(
+            holdings,
+            config.allocations,
+            totalValueUsd,
+            config.threshold,
+          )
         }
 
-        adapter.updateState(drifts, currentVol, prices)
-        shouldRebalance = adapter.needsRebalance(
-          holdings,
-          config.allocations,
-          totalValueUsd,
-          config.threshold,
-        )
         if (shouldRebalance) {
-          effectiveAllocations = adapter.getEffectiveAllocations(config.allocations)
+          const rebalanceTrades = this._simulateRebalance(
+            holdings,
+            config,
+            prices,
+            totalValueUsd,
+            ts,
+            effectiveAllocations,
+          )
+          trades.push(...rebalanceTrades)
         }
-      } else {
-        shouldRebalance = this._needsRebalance(
-          holdings,
-          config.allocations,
-          totalValueUsd,
-          config.threshold,
-        )
       }
 
-      if (shouldRebalance) {
-        const rebalanceTrades = this._simulateRebalance(
-          holdings,
-          config,
-          prices,
-          totalValueUsd,
-          ts,
-          effectiveAllocations,
-        )
-        trades.push(...rebalanceTrades)
-      }
-
-      // Record equity after any rebalance
-      const equity = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0)
+      // Record equity after any rebalance (crypto holdings + cash)
+      const equity = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
       equityCurve.push({ timestamp: ts, value: equity })
+      candleIndex++
     }
 
     // ── 5. Build final portfolio snapshot ────────────────────────────────────
@@ -149,9 +267,13 @@ class BacktestSimulator {
     for (const [pair, state] of Object.entries(holdings)) {
       finalPortfolio[pair] = { amount: state.amount, valueUsd: state.valueUsd }
     }
+    // Include cash position if non-zero
+    if (cashUsd > 0) {
+      finalPortfolio['USDT'] = { amount: cashUsd, valueUsd: cashUsd }
+    }
 
     // ── 6. Compute metrics ────────────────────────────────────────────────────
-    const metrics = metricsCalculator.calculate(equityCurve, trades, config)
+    const metrics = metricsCalculator.calculate(equityCurve, trades, config, totalDcaInjected)
 
     // ── 7. Benchmark comparison ───────────────────────────────────────────────
     const benchmark = benchmarkComparator.compare(
@@ -383,6 +505,111 @@ class BacktestSimulator {
     }
 
     return simTrades
+  }
+
+  /**
+   * DCA injection in bull mode: buy the most underweight asset.
+   * Mirrors the logic from scripts/run-backtest.ts simulateTrendScenarios.
+   *
+   * @param totalValueUsd - current total portfolio value including cash
+   */
+  private _dcaInjectBullMode(
+    holdings: Record<string, HoldingState>,
+    allocations: Allocation[],
+    prices: Record<string, number>,
+    dcaAmountUsd: number,
+    cashReservePct: number,
+    totalValueUsd: number,
+  ): void {
+    // Investable pool excludes cash reserve
+    const cryptoPool = totalValueUsd * (1 - cashReservePct / 100)
+
+    let maxDrift = -Infinity
+    let targetAsset: string | null = null
+
+    for (const alloc of allocations) {
+      const pair = `${alloc.asset}/USDT`
+      const heldUsd = holdings[pair]?.valueUsd ?? 0
+      const targetUsd = alloc.targetPct / 100 * (cryptoPool > 0 ? cryptoPool : totalValueUsd)
+      const drift = targetUsd - heldUsd
+      if (drift > maxDrift) {
+        maxDrift = drift
+        targetAsset = pair
+      }
+    }
+
+    if (targetAsset && maxDrift > 0) {
+      const price = prices[targetAsset]
+      if (price && price > 0) {
+        const holding = holdings[targetAsset]
+        if (holding) {
+          holding.amount += dcaAmountUsd / price
+          holding.valueUsd += dcaAmountUsd
+        } else {
+          holdings[targetAsset] = {
+            amount: dcaAmountUsd / price,
+            valueUsd: dcaAmountUsd,
+          }
+        }
+      }
+    }
+    // If no suitable target, the dcaAmountUsd effectively becomes cash (absorbed into cashUsd by caller if needed)
+  }
+
+  /**
+   * Re-deploy excess cash into the most underweight asset (bull transition).
+   * Records trades for audit trail.
+   */
+  private _deployCash(
+    holdings: Record<string, HoldingState>,
+    allocations: Allocation[],
+    prices: Record<string, number>,
+    excessCash: number,
+    feePct: number,
+    totalValueUsd: number,
+    trades: SimulatedTrade[],
+    ts: number,
+  ): void {
+    let maxDrift = -Infinity
+    let targetAsset: string | null = null
+
+    for (const alloc of allocations) {
+      const pair = `${alloc.asset}/USDT`
+      const heldUsd = holdings[pair]?.valueUsd ?? 0
+      const targetUsd = (alloc.targetPct / 100) * totalValueUsd
+      const drift = targetUsd - heldUsd
+      if (drift > maxDrift) {
+        maxDrift = drift
+        targetAsset = pair
+      }
+    }
+
+    if (!targetAsset || maxDrift <= 0) return
+
+    const price = prices[targetAsset]
+    if (!price || price <= 0) return
+
+    const buyAmount = Math.min(excessCash, maxDrift)
+    const fee = buyAmount * feePct
+    const assetQty = (buyAmount - fee) / price
+
+    const holding = holdings[targetAsset]
+    if (holding) {
+      holding.amount += assetQty
+      holding.valueUsd += buyAmount - fee
+    } else {
+      holdings[targetAsset] = { amount: assetQty, valueUsd: buyAmount - fee }
+    }
+
+    trades.push({
+      timestamp: ts,
+      pair: targetAsset,
+      side: 'buy',
+      amount: assetQty,
+      price,
+      costUsd: buyAmount,
+      fee,
+    })
   }
 
   /** Serialises and persists a completed backtest result to the DB. */

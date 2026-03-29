@@ -174,4 +174,118 @@ describe('TrendFilter', () => {
       expect(filter.getDataPoints()).toBe(400)
     })
   })
+
+  // ─── isBullishWithCooldown ─────────────────────────────────────────────────
+
+  describe('isBullishWithCooldown', () => {
+    /** Seed 100 closes at `basePrice` then set last close to `lastPrice` */
+    function seedPrices(f: TrendFilter, basePrice: number, lastPrice: number): void {
+      for (let i = 0; i < 100; i++) {
+        ;(f as any).dailyCloses.push(basePrice)
+      }
+      ;(f as any).dailyCloses[99] = lastPrice
+      ;(f as any).lastRecordedDay = Math.floor(Date.now() / 86_400_000)
+    }
+
+    test('first call returns raw signal regardless of cooldown', () => {
+      seedPrices(filter, 50000, 55000)
+      // Price above MA → raw = bull
+      const result = filter.isBullishWithCooldown(100, 2, 3)
+      expect(result).toBe(true)
+    })
+
+    test('suppresses flip within cooldown period', () => {
+      seedPrices(filter, 50000, 55000)
+
+      // First call: bull, sets lastBullish=true
+      filter.isBullishWithCooldown(100, 2, 3)
+
+      // Record a flip timestamp just now (simulates a recent flip)
+      ;(filter as any).lastFlipTimestamp = Date.now()
+
+      // Drop price below MA — raw = bear, but cooldown active
+      ;(filter as any).dailyCloses[99] = 40000
+
+      const result = filter.isBullishWithCooldown(100, 2, 3)
+      // Flip suppressed — still reports bull
+      expect(result).toBe(true)
+    })
+
+    test('allows flip after cooldown elapses', () => {
+      seedPrices(filter, 50000, 55000)
+
+      // First call: bull
+      filter.isBullishWithCooldown(100, 2, 3)
+
+      // Simulate flip timestamp 5 days ago (past 3-day cooldown)
+      const fiveDaysAgo = Date.now() - 5 * 86_400_000
+      ;(filter as any).lastFlipTimestamp = fiveDaysAgo
+
+      // Drop price below MA → raw = bear, cooldown elapsed → allow flip
+      ;(filter as any).dailyCloses[99] = 40000
+
+      const result = filter.isBullishWithCooldown(100, 2, 3)
+      expect(result).toBe(false)
+      // lastFlipTimestamp should be updated to now
+      expect(filter.getLastFlipTimestamp()).toBeGreaterThan(fiveDaysAgo)
+    })
+
+    test('cooldown=0 behaves like no cooldown (immediate flip allowed)', () => {
+      seedPrices(filter, 50000, 55000)
+
+      // First call: bull
+      filter.isBullishWithCooldown(100, 2, 0)
+
+      // Record a recent flip timestamp
+      ;(filter as any).lastFlipTimestamp = Date.now()
+
+      // Drop price — with cooldown=0 the flip should happen immediately
+      ;(filter as any).dailyCloses[99] = 40000
+
+      const result = filter.isBullishWithCooldown(100, 2, 0)
+      expect(result).toBe(false)
+    })
+
+    test('multiple rapid crossovers within cooldown keep previous state', () => {
+      seedPrices(filter, 50000, 55000)
+
+      // Establish bull state
+      filter.isBullishWithCooldown(100, 2, 3)
+
+      // Set flip timestamp to just now
+      ;(filter as any).lastFlipTimestamp = Date.now()
+
+      // Oscillate price across MA multiple times within cooldown
+      ;(filter as any).dailyCloses[99] = 40000
+      const result1 = filter.isBullishWithCooldown(100, 2, 3) // suppressed → bull
+
+      ;(filter as any).dailyCloses[99] = 55000
+      const result2 = filter.isBullishWithCooldown(100, 2, 3) // same as current state → bull
+
+      ;(filter as any).dailyCloses[99] = 40000
+      const result3 = filter.isBullishWithCooldown(100, 2, 3) // suppressed → bull
+
+      expect(result1).toBe(true)
+      expect(result2).toBe(true)
+      expect(result3).toBe(true)
+    })
+
+    test('getLastFlipTimestamp returns 0 before any flip', () => {
+      expect(filter.getLastFlipTimestamp()).toBe(0)
+    })
+
+    test('getLastFlipTimestamp updates after allowed flip', () => {
+      seedPrices(filter, 50000, 55000)
+      filter.isBullishWithCooldown(100, 2, 3) // establish bull
+
+      // Simulate old flip (past cooldown)
+      ;(filter as any).lastFlipTimestamp = Date.now() - 10 * 86_400_000
+
+      ;(filter as any).dailyCloses[99] = 40000
+      filter.isBullishWithCooldown(100, 2, 3)
+
+      // Timestamp should be updated to now (within last second)
+      expect(Date.now() - filter.getLastFlipTimestamp()).toBeLessThan(1000)
+    })
+  })
 })

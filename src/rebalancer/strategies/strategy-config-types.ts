@@ -81,6 +81,8 @@ export const GlobalSettingsSchema = z.object({
   trendFilterMA: z.number().min(20).max(365).default(100),
   bearCashPct: z.number().min(30).max(95).default(70),
   trendFilterBuffer: z.number().min(0).max(10).default(2),
+  // Cooldown between bull/bear flips to prevent whipsaw trades
+  trendFilterCooldownDays: z.number().min(0).max(14).default(3),
 })
 
 // ─── Full config input schema ────────────────────────────────────────────────
