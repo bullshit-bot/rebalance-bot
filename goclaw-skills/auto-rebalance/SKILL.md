@@ -15,9 +15,9 @@ Full rebalancing cycle with pre-flight safety checks.
 
 ## Workflow
 
-1. Run `mcporter call rebalance-bot.get_config` — check strategy config, trend filter status.
+1. Run `mcporter call rebalance-bot.get_strategy_config` — check strategy config, trend filter status.
 2. Run `mcporter call rebalance-bot.get_portfolio` — current holdings, weights, total value.
-3. Run `mcporter call rebalance-bot.list_allocations` — target allocations.
+3. Run `mcporter call rebalance-bot.get_allocations` — target allocations.
 4. **Trend filter check**: If trendFilterEnabled=true, check market state.
    - Bear mode (BTC < MA100) → "Bear market detected. Portfolio should be 90% cash. Skip rebalance."
    - Bull mode → proceed normally.

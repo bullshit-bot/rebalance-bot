@@ -16,9 +16,9 @@ Observe portfolio drift and surface alerts.
 ## Workflow
 
 1. Run `mcporter call rebalance-bot.get_health` — verify connectivity. Stop if unhealthy.
-2. Run `mcporter call rebalance-bot.get_config` — check strategy config, trend filter, cash reserve.
+2. Run `mcporter call rebalance-bot.get_strategy_config` — check strategy config, trend filter, cash reserve.
 3. Run `mcporter call rebalance-bot.get_portfolio` — current holdings, weights, total value.
-4. Run `mcporter call rebalance-bot.list_allocations` — target percentages.
+4. Run `mcporter call rebalance-bot.get_allocations` — target percentages.
 5. Compute drift per asset: `drift = current% - target%`.
 6. Classify: Critical (>15%), Warning (>8%), Info (>3%), OK (<3%).
 7. **Trend filter status**: If trendFilterEnabled:

@@ -56,7 +56,7 @@ Run and analyze backtesting results across different strategies and configuratio
 
 ## Workflow
 
-1. Run `mcporter call rebalance-bot.get_config` — check current strategy config.
+1. Run `mcporter call rebalance-bot.get_strategy_config` — check current strategy config.
 2. Run `mcporter call rebalance-bot.run_backtest` with parameters:
    - strategy: current or requested strategy type
    - startDate/endDate: requested period

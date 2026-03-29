@@ -50,11 +50,11 @@ View and manage rebalancing strategy configurations.
 
 ## Workflow
 
-1. Run `mcporter call rebalance-bot.get_config` — current active strategy and global settings.
+1. Run `mcporter call rebalance-bot.get_strategy_config` — current active strategy and global settings.
 2. Display: strategy type, key parameters, global settings (cash reserve, trend filter, DCA).
 3. If user wants to change strategy:
    - Validate requested strategy type exists.
-   - Run `mcporter call rebalance-bot.update_config` with new settings.
+   - Run `mcporter call rebalance-bot.update_strategy_config` with new settings.
 4. If user asks "what's best":
    - Recommend threshold + MA100 trend filter based on backtest data.
    - Show backtest comparison: no filter (+48%) vs MA100 (+150%).

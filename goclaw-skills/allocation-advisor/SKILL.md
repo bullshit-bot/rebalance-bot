@@ -16,7 +16,7 @@ Analyse portfolio and suggest allocation changes.
 ## Workflow
 
 1. Run `mcporter call rebalance-bot.get_portfolio` — fetch current holdings, values, drift.
-2. Run `mcporter call rebalance-bot.list_allocations` — get target allocation percentages.
+2. Run `mcporter call rebalance-bot.get_allocations` — get target allocation percentages.
 3. Run `mcporter call rebalance-bot.get_ai_suggestions` — check latest AI suggestions.
 4. Compare current vs target weights. Identify assets with drift > 5%.
 5. If AI suggestions available, evaluate: accept if they reduce drift, flag if concentration > 80%.

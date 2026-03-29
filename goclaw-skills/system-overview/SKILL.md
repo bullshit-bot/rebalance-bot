@@ -83,16 +83,21 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
 |------|-------------|
 | get_health | System health check |
 | get_portfolio | Current holdings, weights, total value |
-| list_allocations | Target allocation percentages |
-| update_allocation | Set asset target % |
+| get_allocations | Target allocation percentages |
+| set_allocations | Set all target allocations (full replace) |
+| delete_allocation | Remove an asset allocation |
 | trigger_rebalance | Execute rebalance |
 | get_rebalance_history | Past rebalance events |
 | list_trades | Recent executed trades |
-| get_config | Current bot configuration |
-| update_config | Change configuration |
+| get_strategy_config | Active strategy config + list |
+| list_strategy_presets | Built-in strategy presets |
+| activate_strategy | Switch active strategy |
+| update_strategy_config | Update strategy parameters |
 | run_backtest | Run backtest simulation |
 | list_backtests | Previous backtest results |
 | get_ai_suggestions | AI allocation recommendations |
+| approve_suggestion | Approve AI suggestion |
+| reject_suggestion | Reject AI suggestion |
 
 ## Available GoClaw Skills
 
