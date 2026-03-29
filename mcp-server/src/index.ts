@@ -59,13 +59,7 @@ if (mode === "sse") {
         res.end("Session not found");
         return;
       }
-      let body = "";
-      req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
-      req.on("end", async () => {
-        await transport.handlePostMessage(body);
-        res.writeHead(200);
-        res.end("OK");
-      });
+      await transport.handlePostMessage(req, res);
       return;
     }
 
