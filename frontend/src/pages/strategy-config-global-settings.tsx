@@ -52,11 +52,6 @@ export function GlobalSettingsSection({ settings, onChange }: Props) {
         onChange={(v) => onChange("dynamicThreshold", v)}
       />
       <Toggle
-        label="Trend-Aware Mode"
-        value={settings.trendAware}
-        onChange={(v) => onChange("trendAware", v)}
-      />
-      <Toggle
         label="Fee-Aware Execution"
         value={settings.feeAware}
         onChange={(v) => onChange("feeAware", v)}
