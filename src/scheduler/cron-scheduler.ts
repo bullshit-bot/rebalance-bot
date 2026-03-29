@@ -18,8 +18,10 @@ export interface CronSchedulerDeps {
   onPriceCacheClean: () => void
   /** Called every 4h to sync copy trading. */
   onCopySync: () => void
-  /** Called daily at 08:00 UTC to generate and send market summary. */
+  /** Called daily at 01:00 UTC (08:00 VN) to send daily digest. */
   onDailySummary: () => void
+  /** Called Sunday 01:00 UTC (08:00 VN) to send weekly report. */
+  onWeeklySummary: () => void
 }
 
 // ─── CronScheduler ────────────────────────────────────────────────────────────
@@ -31,10 +33,11 @@ export interface CronSchedulerDeps {
  *  - Every 4 hours  → emit rebalance:trigger with trigger='periodic'
  *  - Every 5 minutes → save portfolio snapshot to database
  *  - Every 60 seconds → clear stale price cache entries
+ *  - Every 4 hours → sync copy trading sources
+ *  - Daily 01:00 UTC → daily portfolio digest via Telegram
+ *  - Sunday 01:00 UTC → weekly performance report via Telegram
  *
  * Call start() once at boot and stop() during graceful shutdown.
- *
- * Accepts optional deps for dependency injection in tests.
  */
 class CronScheduler {
   private jobs: Cron[] = []
@@ -66,10 +69,18 @@ class CronScheduler {
       }),
       onDailySummary: deps?.onDailySummary ?? (() => {
         marketSummaryService
-          .generateSummary()
+          .generateDailySummary()
           .then((summary) => telegramNotifier.sendMessage(summary))
           .catch((err: unknown) => {
             console.error('[CronScheduler] Daily summary failed:', err)
+          })
+      }),
+      onWeeklySummary: deps?.onWeeklySummary ?? (() => {
+        marketSummaryService
+          .generateWeeklySummary()
+          .then((summary) => telegramNotifier.sendMessage(summary))
+          .catch((err: unknown) => {
+            console.error('[CronScheduler] Weekly summary failed:', err)
           })
       }),
     }
@@ -95,7 +106,6 @@ class CronScheduler {
     })
 
     // Every 60 seconds — evict stale price entries from in-memory cache
-    // '* * * * *' fires once per minute (60-second granularity)
     const priceCacheClean = new Cron('* * * * *', () => {
       this.deps.onPriceCacheClean()
     })
@@ -105,14 +115,19 @@ class CronScheduler {
       this.deps.onCopySync()
     })
 
-    // Daily at 08:00 UTC — generate and send market summary via Telegram
-    const dailySummaryJob = new Cron('0 8 * * *', () => {
+    // Daily at 01:00 UTC (08:00 VN) — send daily portfolio digest
+    const dailySummaryJob = new Cron('0 1 * * *', () => {
       this.deps.onDailySummary()
     })
 
-    this.jobs = [periodicRebalance, snapshotJob, priceCacheClean, copySyncJob, dailySummaryJob]
+    // Sunday at 01:00 UTC (08:00 VN) — send weekly performance report
+    const weeklySummaryJob = new Cron('0 1 * * 0', () => {
+      this.deps.onWeeklySummary()
+    })
 
-    console.log('[CronScheduler] Started — 5 jobs scheduled')
+    this.jobs = [periodicRebalance, snapshotJob, priceCacheClean, copySyncJob, dailySummaryJob, weeklySummaryJob]
+
+    console.log('[CronScheduler] Started — 6 jobs scheduled')
   }
 
   /**
