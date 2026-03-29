@@ -139,7 +139,7 @@ test.describe('Navigation & Sidebar', () => {
       await strategyLink.click()
       await page.waitForURL('**/strategy', { timeout: 5000 })
 
-      const title = page.locator('h2:has-text("Strategy")')
+      const title = page.getByRole('heading', { name: 'Strategy Config' })
       await expect(title).toBeVisible({ timeout: 10000 })
     }
   })

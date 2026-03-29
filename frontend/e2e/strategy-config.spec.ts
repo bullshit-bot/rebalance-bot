@@ -9,7 +9,7 @@ test.describe('Strategy Config Page', () => {
   test('renders page title', async ({ page }) => {
     await page.goto('/strategy')
 
-    const title = page.locator('h2:has-text("Strategy")')
+    const title = page.getByRole('heading', { name: 'Strategy Config' })
     await expect(title).toBeVisible({ timeout: 10000 })
   })
 
@@ -114,12 +114,12 @@ test.describe('Strategy Config Page', () => {
     // Desktop
     await page.setViewportSize({ width: 1920, height: 1080 })
     await page.goto('/strategy')
-    await expect(page.locator('h2:has-text("Strategy")')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Strategy Config' })).toBeVisible({ timeout: 10000 })
 
     // Mobile
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/strategy')
-    await expect(page.locator('h2:has-text("Strategy")')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Strategy Config' })).toBeVisible({ timeout: 10000 })
   })
 
   test('no console errors', async ({ page }) => {
