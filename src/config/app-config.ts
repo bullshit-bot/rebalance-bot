@@ -46,6 +46,10 @@ export const env = createEnv({
     // Database
     DATABASE_URL: z.string().default('file:./data/bot.db'),
 
+    // GoClaw AI agent (for scheduled reports and autonomous actions)
+    GOCLAW_URL: z.string().url().optional(),
+    GOCLAW_GATEWAY_TOKEN: z.string().optional(),
+
     // Advanced strategy settings
     STRATEGY_MODE: z.enum(['threshold', 'equal-weight', 'momentum-tilt', 'vol-adjusted']).default('threshold'),
     MOMENTUM_WINDOW_DAYS: z.coerce.number().int().positive().default(30),
@@ -93,6 +97,9 @@ export const env = createEnv({
     VOLATILITY_THRESHOLD: process.env['VOLATILITY_THRESHOLD'],
     DYNAMIC_THRESHOLD_LOW: process.env['DYNAMIC_THRESHOLD_LOW'],
     DYNAMIC_THRESHOLD_HIGH: process.env['DYNAMIC_THRESHOLD_HIGH'],
+
+    GOCLAW_URL: process.env['GOCLAW_URL'],
+    GOCLAW_GATEWAY_TOKEN: process.env['GOCLAW_GATEWAY_TOKEN'],
   },
 
   // Skip validation during tests to avoid needing real env vars

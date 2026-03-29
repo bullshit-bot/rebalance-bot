@@ -6,6 +6,7 @@ import { snapshotService } from '@portfolio/snapshot-service'
 import { copySyncEngine } from '@/copy-trading/copy-sync-engine'
 import { marketSummaryService } from '@/ai/market-summary-service'
 import { telegramNotifier } from '@/notifier/telegram-notifier'
+import { goClawClient } from '@/ai/goclaw-client'
 
 // ─── Dependency injection interfaces ─────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface CronSchedulerDeps {
   onDailySummary: () => void
   /** Called Sunday 01:00 UTC (08:00 VN) to send weekly report. */
   onWeeklySummary: () => void
+  /** Called every 12h — GoClaw AI market insights via Telegram. */
+  onAiInsights: () => void
 }
 
 // ─── CronScheduler ────────────────────────────────────────────────────────────
@@ -83,6 +86,30 @@ class CronScheduler {
             console.error('[CronScheduler] Weekly summary failed:', err)
           })
       }),
+      onAiInsights: deps?.onAiInsights ?? (() => {
+        // GoClaw analyzes portfolio using MCP tools and sends insights via Telegram
+        const portfolio = portfolioTracker.getPortfolio()
+        if (!portfolio) return
+
+        const assets = portfolio.assets
+          .map((a) => `${a.asset}: $${a.valueUsd.toFixed(0)} (${a.currentPct.toFixed(1)}%, drift ${a.driftPct >= 0 ? '+' : ''}${a.driftPct.toFixed(1)}%)`)
+          .join('\n')
+
+        const prompt = [
+          `Phân tích portfolio crypto hiện tại và gửi nhận xét ngắn gọn bằng tiếng Việt cho chủ sở hữu:`,
+          ``,
+          `Tổng giá trị: $${portfolio.totalValueUsd.toFixed(0)}`,
+          assets,
+          ``,
+          `Hãy dùng tool get_portfolio và list_trades để lấy thêm dữ liệu nếu cần.`,
+          `Đưa ra: 1) Đánh giá tình hình, 2) Rủi ro cần chú ý, 3) Đề xuất hành động (nếu có).`,
+          `Viết ngắn gọn, tối đa 200 từ.`,
+        ].join('\n')
+
+        goClawClient.chat(prompt, 500).catch((err: unknown) => {
+          console.error('[CronScheduler] AI insights failed:', err)
+        })
+      }),
     }
   }
 
@@ -125,9 +152,14 @@ class CronScheduler {
       this.deps.onWeeklySummary()
     })
 
-    this.jobs = [periodicRebalance, snapshotJob, priceCacheClean, copySyncJob, dailySummaryJob, weeklySummaryJob]
+    // Every 12 hours (07:00 + 19:00 UTC = 14:00 + 02:00 VN) — GoClaw AI insights
+    const aiInsightsJob = new Cron('0 7,19 * * *', () => {
+      this.deps.onAiInsights()
+    })
 
-    console.log('[CronScheduler] Started — 6 jobs scheduled')
+    this.jobs = [periodicRebalance, snapshotJob, priceCacheClean, copySyncJob, dailySummaryJob, weeklySummaryJob, aiInsightsJob]
+
+    console.log('[CronScheduler] Started — 7 jobs scheduled')
   }
 
   /**
