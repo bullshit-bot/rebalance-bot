@@ -81,16 +81,22 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
 
   const result = mutation.data;
   const metrics = result?.metrics ?? {};
-  const totalReturn = typeof metrics.totalReturn === "number" ? metrics.totalReturn : null;
-  const annualized = typeof metrics.annualized === "number" ? metrics.annualized : null;
-  const sharpe = typeof metrics.sharpe === "number" ? metrics.sharpe : null;
-  const maxDrawdown = typeof metrics.maxDrawdown === "number" ? metrics.maxDrawdown : null;
-  const totalTrades = typeof metrics.trades === "number" ? metrics.trades : (result?.trades?.length ?? null);
-  const totalFees = typeof metrics.fees === "number" ? metrics.fees : null;
+  // Map API field names (totalReturnPct, sharpeRatio, etc.) to display values
+  const totalReturn = typeof metrics.totalReturnPct === "number" ? Number(metrics.totalReturnPct.toFixed(1)) : null;
+  const annualized = typeof metrics.annualizedReturnPct === "number" ? Number(metrics.annualizedReturnPct.toFixed(1)) : null;
+  const sharpe = typeof metrics.sharpeRatio === "number" ? Number(metrics.sharpeRatio.toFixed(2)) : null;
+  const maxDrawdown = typeof metrics.maxDrawdownPct === "number" ? Number(metrics.maxDrawdownPct.toFixed(1)) : null;
+  const totalTrades = typeof metrics.totalTrades === "number" ? metrics.totalTrades : (result?.trades?.length ?? null);
+  const totalFees = typeof metrics.totalFeesPaid === "number" ? Number(metrics.totalFeesPaid.toFixed(2)) : null;
   const trades = (result?.trades ?? []) as BacktestTrade[];
-  const equityCurve = Array.isArray(metrics.equityCurve)
-    ? (metrics.equityCurve as Array<{ date: string; strategy: number; benchmark?: number }>)
-    : [];
+  // Build equity curve from result.equityCurve (array of {timestamp, value})
+  const rawEquity = Array.isArray(result?.equityCurve) ? result.equityCurve : [];
+  const rawBenchmark = result?.benchmark?.buyAndHold;
+  const equityCurve = rawEquity.map((pt: { timestamp: number; value: number }) => ({
+    date: new Date(pt.timestamp).toISOString().slice(0, 10),
+    strategy: Math.round(pt.value),
+    benchmark: rawBenchmark ? Math.round(rawBenchmark.finalValue * (pt.value / (rawEquity[rawEquity.length - 1]?.value || 1))) : undefined,
+  })).filter((_: unknown, i: number) => i % Math.max(1, Math.floor(rawEquity.length / 100)) === 0);
 
   return (
     <div>
@@ -203,21 +209,19 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
               <table className="brutal-table">
                 <thead>
                   <tr>
-                    <th>Date</th><th>Pair</th><th>Side</th><th>Qty</th><th>Price</th><th>Fee</th><th>PnL</th>
+                    <th>Date</th><th>Pair</th><th>Side</th><th>Amount</th><th>Price</th><th>Fee</th><th>Cost</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {trades.map((t, i) => (
+                  {trades.slice(0, 50).map((t, i) => (
                     <tr key={i}>
-                      <td className="tabular-nums text-xs">{t.date ?? "—"}</td>
+                      <td className="tabular-nums text-xs">{t.timestamp ? new Date(t.timestamp as number).toISOString().slice(0, 10) : (t.date ?? "—")}</td>
                       <td className="font-bold text-sm">{t.pair ?? "—"}</td>
                       <td>{t.side ? <ActionBadge action={t.side.toLowerCase()} /> : <span>—</span>}</td>
-                      <td className="tabular-nums">{t.qty ?? "—"}</td>
+                      <td className="tabular-nums">{t.amount !== undefined ? Number(t.amount).toFixed(4) : (t.qty ?? "—")}</td>
                       <td className="tabular-nums">{t.price !== undefined ? `$${Number(t.price).toLocaleString()}` : "—"}</td>
-                      <td className="tabular-nums text-muted-foreground">{t.fee !== undefined ? `$${t.fee}` : "—"}</td>
-                      <td className={`tabular-nums font-bold ${t.pnl !== undefined ? (t.pnl >= 0 ? "text-success" : "text-destructive") : ""}`}>
-                        {t.pnl !== undefined ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl}` : "—"}
-                      </td>
+                      <td className="tabular-nums text-muted-foreground">{t.fee !== undefined ? `$${Number(t.fee).toFixed(2)}` : "—"}</td>
+                      <td className="tabular-nums">{t.costUsd !== undefined ? `$${Number(t.costUsd).toFixed(0)}` : (t.pnl !== undefined ? `$${t.pnl}` : "—")}</td>
                     </tr>
                   ))}
                   {trades.length === 0 && (
