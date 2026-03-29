@@ -135,8 +135,8 @@ export class TelegramNotifier {
       : 'N/A'
     return [
       `Trigger: ${event.trigger}`,
-      `Số lệnh: ${event.trades.length}`,
-      `Tổng phí: $${event.totalFeesUsd.toFixed(2)}`,
+      `Số lệnh: ${event.trades?.length ?? 0}`,
+      `Tổng phí: $${(event.totalFeesUsd ?? 0).toFixed(2)}`,
       `Thời gian: ${duration}`,
     ].join('\n')
   }
