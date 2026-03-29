@@ -54,9 +54,9 @@ describe('CronScheduler', () => {
       expect(secondJobCount).toBe(firstJobCount)
     })
 
-    it('should initialize with 7 jobs', () => {
+    it('should initialize with 8 jobs', () => {
       scheduler.start()
-      expect(scheduler['jobs'].length).toBe(7)
+      expect(scheduler['jobs'].length).toBe(8)
     })
 
     it('should register rebalance trigger job', () => {
@@ -81,7 +81,7 @@ describe('CronScheduler', () => {
 
     it('should register daily summary job', () => {
       scheduler.start()
-      expect(scheduler['jobs'].length).toBe(7)
+      expect(scheduler['jobs'].length).toBe(8)
     })
   })
 
@@ -239,6 +239,7 @@ describe('CronScheduler - DI callbacks', () => {
     onDailySummary: () => { calls.push('dailySummary') },
     onWeeklySummary: () => { calls.push('weeklySummary') },
     onAiInsights: () => { calls.push('aiInsights') },
+    onScheduledDCA: () => { calls.push('scheduledDCA') },
   })
 
   beforeEach(() => {
@@ -293,7 +294,7 @@ describe('CronScheduler - DI callbacks', () => {
     expect(calls).toContain('aiInsights')
   })
 
-  it('all 7 callbacks are accessible via deps', () => {
+  it('all 8 callbacks are accessible via deps', () => {
     scheduler.start()
     const depKeys = Object.keys((scheduler as any).deps)
     expect(depKeys).toContain('onPeriodicRebalance')
@@ -303,13 +304,14 @@ describe('CronScheduler - DI callbacks', () => {
     expect(depKeys).toContain('onDailySummary')
     expect(depKeys).toContain('onWeeklySummary')
     expect(depKeys).toContain('onAiInsights')
+    expect(depKeys).toContain('onScheduledDCA')
   })
 
   it('CronScheduler instantiates without any deps (uses defaults)', () => {
     const defaultScheduler = new CronScheduler()
     expect(defaultScheduler).toBeDefined()
     defaultScheduler.start()
-    expect(defaultScheduler['jobs'].length).toBe(7)
+    expect(defaultScheduler['jobs'].length).toBe(8)
     defaultScheduler.stop()
   })
 

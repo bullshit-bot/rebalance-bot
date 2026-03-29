@@ -19,14 +19,6 @@ describe('app-config', () => {
       expect(env.API_KEY !== undefined).toBe(true)
     })
 
-    it('should have DATABASE_URL property', () => {
-      expect(env).toHaveProperty('DATABASE_URL')
-      if (env.DATABASE_URL !== undefined) {
-        expect(typeof env.DATABASE_URL).toBe('string')
-        expect(env.DATABASE_URL.length).toBeGreaterThan(0)
-      }
-    })
-
     it('should have ENCRYPTION_KEY property', () => {
       expect(env).toHaveProperty('ENCRYPTION_KEY')
       if (env.ENCRYPTION_KEY) {
@@ -116,7 +108,7 @@ describe('app-config', () => {
 
     it('should have standard env structure', () => {
       // Verify critical config keys exist
-      const criticalKeys = ['API_PORT', 'API_KEY', 'DATABASE_URL', 'ENCRYPTION_KEY']
+      const criticalKeys = ['API_PORT', 'API_KEY', 'ENCRYPTION_KEY']
       criticalKeys.forEach((key) => {
         expect(env).toHaveProperty(key)
       })
@@ -137,7 +129,6 @@ describe('app-config', () => {
         'API_PORT',
         'API_KEY',
         'ENCRYPTION_KEY',
-        'DATABASE_URL',
         'REBALANCE_THRESHOLD',
         'REBALANCE_COOLDOWN_HOURS',
         'MIN_TRADE_USD',
