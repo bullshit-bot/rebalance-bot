@@ -15,6 +15,7 @@ export interface GlobalSettings {
   trendFilterMA: number;
   bearCashPct: number;
   trendFilterBuffer: number;
+  trendFilterCooldownDays: number;
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -29,6 +30,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   trendFilterMA: 100,
   bearCashPct: 70,
   trendFilterBuffer: 2,
+  trendFilterCooldownDays: 3,
 };
 
 interface Props {
@@ -163,6 +165,22 @@ export function GlobalSettingsSection({ settings, onChange }: Props) {
             />
             <p className="text-xs text-muted-foreground mt-1">
               % in stablecoins when bear mode triggers
+            </p>
+          </div>
+
+          <div>
+            <label className="stat-label">Cooldown (days)</label>
+            <input
+              type="number"
+              min={1}
+              max={14}
+              step={1}
+              value={settings.trendFilterCooldownDays}
+              onChange={(e) => onChange("trendFilterCooldownDays", Number(e.target.value))}
+              className="brutal-input w-full mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Min days between bull/bear state changes (prevents whipsaw)
             </p>
           </div>
 
