@@ -160,11 +160,11 @@ export default function OverviewPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-1">
+      <div className="flex items-baseline gap-3 mb-1">
         <PageTitle>Overview</PageTitle>
         {trendFilterActive && trendStatus && (
           <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border-2 text-xs font-black uppercase tracking-wider ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border-2 text-xs font-black uppercase tracking-wider ${
               trendStatus.bullish
                 ? "border-green-500 bg-green-500/10 text-green-600"
                 : "border-red-500 bg-red-500/10 text-red-600"
