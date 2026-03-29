@@ -1,111 +1,49 @@
-import { PageTitle, SectionTitle } from "@/components/ui-brutal";
-import { Save, RotateCcw, Zap } from "lucide-react";
+import { PageTitle } from "@/components/ui-brutal";
+import { Save } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import {
-  StrategyTypeFields,
-  STRATEGY_TYPES,
-  type StrategyType,
-  getDefaultParams,
-} from "./strategy-config-type-fields";
-import { StrategyPresetsPanel } from "./strategy-config-presets-panel";
+import type { StrategyType } from "./strategy-config-type-fields";
 import { GlobalSettingsSection, DEFAULT_GLOBAL_SETTINGS, type GlobalSettings } from "./strategy-config-global-settings";
 import {
   useStrategyConfig,
   useUpdateStrategyConfig,
-  useActivateStrategy,
 } from "@/hooks/use-strategy-config-queries";
 
-// --- local-storage helpers (kept for test compatibility) ---
-const LS_KEY = "rb_strategy_config";
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-const DEFAULT_MISC = {
-  baseAsset: "USDT",
-  maxDailyVolume: 50000,
-  partialFactor: 0.75,
-  cooldownHours: 4,
-};
-
-type MiscConfig = typeof DEFAULT_MISC;
-
-function loadLocal(): MiscConfig & GlobalSettings {
-  try {
-    const s = localStorage.getItem(LS_KEY);
-    return s ? { ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS, ...JSON.parse(s) } : { ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS };
-  } catch {
-    return { ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS };
-  }
+interface CoreParams {
+  strategyType: StrategyType;
+  thresholdPct: number;
+  minTradeUsd: number;
 }
 
-function saveLocal(c: MiscConfig & GlobalSettings & { thresholdPct?: number }) {
-  localStorage.setItem(LS_KEY, JSON.stringify(c));
-}
-
-// Fallback preset values for local-only mode
-const FALLBACK_PRESET_VALUES: Record<string, { misc: Partial<MiscConfig>; global?: Partial<GlobalSettings>; params: Record<string, number> }> = {
-  Conservative: { misc: { partialFactor: 0.5, cooldownHours: 8 },   params: { thresholdPct: 8,  minTradeUsd: 15 } },
-  Balanced:     { misc: { partialFactor: 0.75, cooldownHours: 4 },  params: { thresholdPct: 5,  minTradeUsd: 15 } },
-  Aggressive:   { misc: { partialFactor: 1.0, cooldownHours: 1 },   params: { thresholdPct: 2,  minTradeUsd: 15 } },
-  CashAwareBalanced: {
-    misc: { partialFactor: 0.75, cooldownHours: 4 },
-    global: { cashReservePct: 10, dcaRebalanceEnabled: false, hardRebalanceThreshold: 15 },
-    params: { thresholdPct: 5, minTradeUsd: 15 },
-  },
-  DCARebalance: {
-    misc: { partialFactor: 0.75, cooldownHours: 4 },
-    global: { cashReservePct: 5, dcaRebalanceEnabled: true, hardRebalanceThreshold: 20 },
-    params: { thresholdPct: 5, minTradeUsd: 15 },
-  },
-};
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function StrategyConfigPage() {
-  const [misc, setMisc] = useState<MiscConfig>(() => {
-    const l = loadLocal();
-    return { baseAsset: l.baseAsset, maxDailyVolume: l.maxDailyVolume, partialFactor: l.partialFactor, cooldownHours: l.cooldownHours };
+  const [core, setCore] = useState<CoreParams>({
+    strategyType: "threshold",
+    thresholdPct: 8,
+    minTradeUsd: 10,
   });
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
-    const l = loadLocal();
-    return {
-      dynamicThreshold: l.dynamicThreshold,
-      trendAware: l.trendAware,
-      feeAware: l.feeAware,
-      autoExecute: l.autoExecute,
-      cashReservePct: l.cashReservePct ?? 0,
-      dcaRebalanceEnabled: l.dcaRebalanceEnabled ?? false,
-      hardRebalanceThreshold: l.hardRebalanceThreshold ?? 15,
-      trendFilterEnabled: (l as any).trendFilterEnabled ?? false,
-      trendFilterMA: (l as any).trendFilterMA ?? 100,
-      bearCashPct: (l as any).bearCashPct ?? 70,
-      trendFilterBuffer: (l as any).trendFilterBuffer ?? 2,
-      trendFilterCooldownDays: (l as any).trendFilterCooldownDays ?? 3,
-    };
-  });
-  const [activePreset, setActivePreset] = useState("Balanced");
-  const [strategyType, setStrategyType] = useState<StrategyType>("threshold");
-  const [typeParams, setTypeParams] = useState<Record<string, number>>(() => {
-    const stored = loadLocal();
-    const defaults = getDefaultParams("threshold");
-    return { ...defaults, thresholdPct: (stored as any).thresholdPct ?? defaults.thresholdPct };
-  });
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
 
-  // API hooks
   const { data: apiData } = useStrategyConfig();
   const updateConfig = useUpdateStrategyConfig();
-  const activateStrategy = useActivateStrategy();
-
   const activeName = apiData?.active?.name ?? "default";
 
-  // Sync form from API active config on first load
+  // Sync from API on load
   useEffect(() => {
     const active = apiData?.active;
     if (!active) return;
     const p = active.params ?? {};
     const g = active.globalSettings ?? {};
-    setMisc((prev) => ({
-      ...prev,
-      partialFactor: g.partialFactor ?? prev.partialFactor,
-      cooldownHours: g.cooldownHours ?? prev.cooldownHours,
-    }));
+
+    setCore({
+      strategyType: (active.strategyType ?? p.type ?? "threshold") as StrategyType,
+      thresholdPct: p.thresholdPct ?? 8,
+      minTradeUsd: p.minTradeUsd ?? 10,
+    });
+
     setGlobalSettings((prev) => ({
       ...prev,
       dynamicThreshold: g.dynamicThreshold ?? prev.dynamicThreshold,
@@ -121,179 +59,145 @@ export default function StrategyConfigPage() {
       trendFilterBuffer: g.trendFilterBuffer ?? prev.trendFilterBuffer,
       trendFilterCooldownDays: g.trendFilterCooldownDays ?? prev.trendFilterCooldownDays,
     }));
-    setTypeParams((prev) => ({ ...prev, ...p }));
-    if (active.strategyType) setStrategyType(active.strategyType as StrategyType);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiData?.active?.name]);
 
-  function handleGlobalChange<K extends keyof GlobalSettings>(key: K, value: GlobalSettings[K]) {
-    setGlobalSettings((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function handleStrategyTypeChange(t: StrategyType) {
-    setStrategyType(t);
-    setTypeParams(getDefaultParams(t));
-  }
-
   function handleSave() {
-    const snapshot = { ...misc, ...globalSettings, thresholdPct: typeParams.thresholdPct };
-    saveLocal(snapshot);
     const payload = {
-      strategyType,
-      params: typeParams,
-      baseAsset: misc.baseAsset,
-      maxDailyVolume: misc.maxDailyVolume,
-      partialFactor: misc.partialFactor,
-      cooldownHours: misc.cooldownHours,
-      dynamicThreshold: globalSettings.dynamicThreshold,
-      trendAware: globalSettings.trendAware,
-      feeAware: globalSettings.feeAware,
-      autoExecute: globalSettings.autoExecute,
-      cashReservePct: globalSettings.cashReservePct,
-      dcaRebalanceEnabled: globalSettings.dcaRebalanceEnabled,
-      hardRebalanceThreshold: globalSettings.hardRebalanceThreshold,
-      trendFilterEnabled: globalSettings.trendFilterEnabled,
-      trendFilterMA: globalSettings.trendFilterMA,
-      bearCashPct: globalSettings.bearCashPct,
-      trendFilterBuffer: globalSettings.trendFilterBuffer,
-      trendFilterCooldownDays: globalSettings.trendFilterCooldownDays,
+      strategyType: core.strategyType,
+      params: { type: core.strategyType, thresholdPct: core.thresholdPct, minTradeUsd: core.minTradeUsd },
+      ...globalSettings,
     };
     updateConfig.mutate(
       { name: activeName, data: payload },
       {
-        onSuccess: () => toast.success("Strategy config saved"),
-        onError: () => toast.success("Strategy config saved"),
+        onSuccess: () => toast.success("Config saved"),
+        onError: () => toast.error("Failed to save config"),
       }
     );
   }
-
-  function handleActivate() {
-    activateStrategy.mutate(activeName, {
-      onSuccess: () => toast.success(`Activated: ${activeName}`),
-      onError: (e: any) => toast.error(e.message || "Failed to activate"),
-    });
-  }
-
-  function handleRestore() {
-    setMisc(DEFAULT_MISC);
-    setGlobalSettings(DEFAULT_GLOBAL_SETTINGS);
-    saveLocal({ ...DEFAULT_MISC, ...DEFAULT_GLOBAL_SETTINGS, thresholdPct: 5 });
-    toast.success("Restored default config");
-  }
-
-  function handleFallbackPreset(name: string) {
-    setActivePreset(name);
-    const preset = FALLBACK_PRESET_VALUES[name];
-    if (preset) {
-      if (preset.misc) setMisc((prev) => ({ ...prev, ...preset.misc }));
-      if (preset.global) setGlobalSettings((prev) => ({ ...prev, ...preset.global }));
-      setTypeParams((prev) => ({ ...prev, ...preset.params }));
-    }
-  }
-
-  const globalNumericFields: Array<{ label: string; key: keyof MiscConfig; step?: number }> = [
-    { label: "Partial Factor", key: "partialFactor", step: 0.05 },
-    { label: "Cooldown (hours)", key: "cooldownHours" },
-    { label: "Max Daily Volume", key: "maxDailyVolume" },
-  ];
 
   return (
     <div>
       <PageTitle>Strategy Config</PageTitle>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left column: parameters */}
+        {/* Left: strategy + global settings */}
         <div className="lg:col-span-7 space-y-4">
+          {/* Core strategy params */}
           <div className="brutal-card">
-            <SectionTitle>Parameters</SectionTitle>
-
-            <div className="mb-4">
-              <label className="stat-label mb-1 block">Strategy Type</label>
-              <select
-                className="brutal-input w-full text-sm"
-                value={strategyType}
-                onChange={(e) => handleStrategyTypeChange(e.target.value as StrategyType)}
-              >
-                {STRATEGY_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <StrategyTypeFields
-                strategyType={strategyType}
-                params={typeParams}
-                onChange={(key, val) => setTypeParams((prev) => ({ ...prev, [key]: val }))}
-              />
-
-              {globalNumericFields.map((f) => (
-                <div key={f.key}>
-                  <label className="stat-label mb-1 block">{f.label}</label>
-                  <input
-                    className="brutal-input w-full text-sm"
-                    type="number"
-                    step={f.step ?? 1}
-                    value={misc[f.key] as number}
-                    onChange={(e) => setMisc((prev) => ({ ...prev, [f.key]: Number(e.target.value) }))}
-                  />
-                </div>
-              ))}
-
+            <h2 className="text-sm font-black uppercase tracking-wider mb-3 pb-2 border-b-2 border-foreground">
+              Strategy
+            </h2>
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="stat-label mb-1 block">Base Asset</label>
+                <label className="stat-label mb-1 block">Strategy Type</label>
+                <select
+                  className="brutal-input w-full text-sm"
+                  value={core.strategyType}
+                  onChange={(e) => setCore((prev) => ({ ...prev, strategyType: e.target.value as StrategyType }))}
+                >
+                  <option value="threshold">threshold</option>
+                  <option value="equal-weight">equal-weight</option>
+                  <option value="momentum-tilt">momentum-tilt</option>
+                  <option value="vol-adjusted">vol-adjusted</option>
+                  <option value="mean-reversion">mean-reversion</option>
+                  <option value="momentum-weighted">momentum-weighted</option>
+                </select>
+              </div>
+              <div>
+                <label className="stat-label mb-1 block">Threshold %</label>
                 <input
                   className="brutal-input w-full text-sm"
-                  value={misc.baseAsset}
-                  onChange={(e) => setMisc((prev) => ({ ...prev, baseAsset: e.target.value }))}
+                  type="number"
+                  min={1}
+                  max={30}
+                  step={1}
+                  value={core.thresholdPct}
+                  onChange={(e) => setCore((prev) => ({ ...prev, thresholdPct: Number(e.target.value) }))}
+                />
+              </div>
+              <div>
+                <label className="stat-label mb-1 block">Min Trade (USD)</label>
+                <input
+                  className="brutal-input w-full text-sm"
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={core.minTradeUsd}
+                  onChange={(e) => setCore((prev) => ({ ...prev, minTradeUsd: Number(e.target.value) }))}
                 />
               </div>
             </div>
           </div>
 
-          <GlobalSettingsSection settings={globalSettings} onChange={handleGlobalChange} />
-
-          <div className="flex gap-3 flex-wrap">
-            <button
-              className="brutal-btn-primary flex items-center gap-1.5"
-              onClick={handleSave}
-              disabled={updateConfig.isPending}
-            >
-              <Save size={15} /> Save Config
-            </button>
-            <button
-              className="brutal-btn-primary flex items-center gap-1.5"
-              onClick={handleActivate}
-              disabled={activateStrategy.isPending}
-            >
-              <Zap size={15} /> Activate
-            </button>
-            <button
-              className="brutal-btn-secondary flex items-center gap-1.5"
-              onClick={handleRestore}
-            >
-              <RotateCcw size={15} /> Restore Defaults
-            </button>
-          </div>
-        </div>
-
-        {/* Right column: presets + info */}
-        <div className="lg:col-span-5 space-y-4">
-          <StrategyPresetsPanel
-            activePreset={activePreset}
-            onApplyFallback={handleFallbackPreset}
+          {/* Global settings */}
+          <GlobalSettingsSection
+            settings={globalSettings}
+            onChange={(key, value) => setGlobalSettings((prev) => ({ ...prev, [key]: value }))}
           />
 
-          <div className="brutal-card bg-secondary/30">
-            <SectionTitle>How It Works</SectionTitle>
-            <div className="text-xs text-muted-foreground space-y-2">
-              <p><strong>Threshold:</strong> Minimum drift % before rebalancing triggers.</p>
-              <p><strong>Partial Factor:</strong> 1.0 = full rebalance, 0.5 = half correction per cycle.</p>
-              <p><strong>Cooldown:</strong> Minimum wait between rebalance executions.</p>
-              <p><strong>Dynamic Threshold:</strong> Adjusts threshold based on market volatility.</p>
-              <p><strong>Fee-Aware:</strong> Skips trades where fee exceeds expected drift benefit.</p>
-              <p><strong>Cash Reserve:</strong> Keeps a % of portfolio in USDT as buffer before rebalancing.</p>
-              <p><strong>DCA Routing:</strong> New deposits go to the most underweight asset automatically.</p>
+          <button
+            className="brutal-btn-primary flex items-center gap-1.5"
+            onClick={handleSave}
+            disabled={updateConfig.isPending}
+          >
+            <Save size={15} /> Save Config
+          </button>
+        </div>
+
+        {/* Right: info panel */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="brutal-card">
+            <h2 className="text-sm font-black uppercase tracking-wider mb-3 pb-2 border-b-2 border-foreground">
+              Settings Guide
+            </h2>
+            <div className="text-xs text-muted-foreground space-y-3">
+              <div>
+                <p className="font-bold text-foreground">Strategy Type</p>
+                <p>Rebalancing algorithm. <code>threshold</code> is simplest and most tested.</p>
+              </div>
+              <div>
+                <p className="font-bold text-foreground">Threshold %</p>
+                <p>Min drift before rebalance triggers. Higher = fewer trades, lower fees. Optimal: 8%.</p>
+              </div>
+              <div>
+                <p className="font-bold text-foreground">Trend Filter (MA Bear Protection)</p>
+                <p>When BTC drops below MA, sells to cash. <strong>Most impactful setting</strong> — 3x return improvement in backtests. MA110 + Cooldown 1 day is optimal.</p>
+              </div>
+              <div>
+                <p className="font-bold text-foreground">Bear Cash Target</p>
+                <p>% to sell when bear mode triggers. 100% = sell everything to USDT.</p>
+              </div>
+              <div>
+                <p className="font-bold text-foreground">DCA Routing</p>
+                <p>New deposits automatically buy the most underweight asset instead of spreading equally.</p>
+              </div>
+              <div>
+                <p className="font-bold text-foreground">Hard Rebalance Threshold</p>
+                <p>When DCA is on, full rebalance only fires above this drift % (default 15%).</p>
+              </div>
+              <div>
+                <p className="font-bold text-foreground">Cash Reserve</p>
+                <p>% of portfolio kept in USDT as buffer. 0% is optimal with trend filter on.</p>
+              </div>
+              <div>
+                <p className="font-bold text-foreground">Fee-Aware</p>
+                <p>Skips trades where fee exceeds expected drift correction benefit.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Current config summary */}
+          <div className="brutal-card bg-green-500/5 border-green-500">
+            <h2 className="text-sm font-black uppercase tracking-wider mb-2 text-green-700">
+              Active Config
+            </h2>
+            <div className="text-xs space-y-1">
+              <p>Strategy: <code className="font-bold">{core.strategyType}</code> | Threshold: <code className="font-bold">{core.thresholdPct}%</code></p>
+              <p>Trend Filter: <code className="font-bold">{globalSettings.trendFilterEnabled ? `ON (MA${globalSettings.trendFilterMA}, Bear ${globalSettings.bearCashPct}%, CD ${globalSettings.trendFilterCooldownDays}d)` : "OFF"}</code></p>
+              <p>DCA: <code className="font-bold">{globalSettings.dcaRebalanceEnabled ? `ON (hard ${globalSettings.hardRebalanceThreshold}%)` : "OFF"}</code> | Cash Reserve: <code className="font-bold">{globalSettings.cashReservePct}%</code></p>
             </div>
           </div>
         </div>
