@@ -120,7 +120,7 @@ export default function OverviewPage() {
 
   // Chart data
   const chartData = history.map((s) => ({
-    date: new Date(s.createdAt * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    date: new Date(s.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
     value: s.totalValueUsd,
   }));
 

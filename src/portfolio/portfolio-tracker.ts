@@ -296,10 +296,23 @@ class PortfolioTracker {
           targetMap.set(alloc.asset, alloc.targetPct)
         }
 
+        // Only include assets that have a target allocation — non-target assets
+        // (e.g. DAI stuck on testnet) inflate totalValueUsd and distort drift %
+        const targetAssetValues = new Map<string, { amount: number; valueUsd: number; exchange: ExchangeName }>()
+        let targetTotalUsd = 0
+        for (const [asset, data] of assetValues) {
+          if (targetMap.has(asset)) {
+            targetAssetValues.set(asset, data)
+            targetTotalUsd += data.valueUsd
+          }
+        }
+
+        if (targetTotalUsd === 0) return
+
         const assets: PortfolioAsset[] = []
 
-        for (const [asset, { amount, valueUsd, exchange }] of assetValues) {
-          const currentPct = (valueUsd / totalValueUsd) * 100
+        for (const [asset, { amount, valueUsd, exchange }] of targetAssetValues) {
+          const currentPct = (valueUsd / targetTotalUsd) * 100
           const targetPct = targetMap.get(asset) ?? 0
           const driftPct = currentPct - targetPct
 
@@ -307,7 +320,7 @@ class PortfolioTracker {
         }
 
         const portfolio: Portfolio = {
-          totalValueUsd,
+          totalValueUsd: targetTotalUsd,
           assets,
           updatedAt: Date.now(),
         }
