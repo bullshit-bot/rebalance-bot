@@ -2,7 +2,7 @@
 name: crypto_news
 description: Correlate AI suggestions with portfolio context using mcporter to call rebalance bot MCP tools.
 metadata:
-  openclaw:
+  goclaw:
     emoji: 📰
     requires:
       bins:

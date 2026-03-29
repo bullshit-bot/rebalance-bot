@@ -79,7 +79,7 @@ All four major phases complete. System is production-ready with 14 features impl
 | Docker Compose | ✅ | 5 | - |
 | MongoDB Migration | ✅ | 5 | 420 |
 | MCP Server | ✅ | 5 | 200 |
-| OpenClaw AI + ChromaDB | ✅ | 5 | 150 |
+| GoClaw AI + ChromaDB | ✅ | 5 | 150 |
 | Trend Filter (MA-based) | ✅ | 6 | 280 |
 | Bear Market Protection | ✅ | 6 | - |
 | Health Endpoint (enhanced) | ✅ | 6 | 50 |
@@ -102,13 +102,13 @@ All four major phases complete. System is production-ready with 14 features impl
 - ✅ SQLite → MongoDB 7 with Mongoose
 - ✅ Drizzle ORM → Mongoose models (14 schemas)
 - ✅ MCP server REST wrapper (Claude integration)
-- ✅ OpenClaw AI agent + ChromaDB knowledge base
+- ✅ GoClaw AI agent + ChromaDB knowledge base
 - ✅ GitHub Actions CI/CD + Docker auto-deploy
 - ✅ Semantic-release integration
 - Database migration tooling complete
 
 **January 2026**:
-- AI suggestions module (OpenClaw integration)
+- AI suggestions module (GoClaw integration)
 - Copy trading enhancements
 - Analytics dashboard improvements
 

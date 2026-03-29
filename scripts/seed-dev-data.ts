@@ -114,7 +114,7 @@ async function run() {
   ]
   await AISuggestionModel.insertMany(suggestions.map(s => ({
     _id: s._id,
-    source: 'openclaw',
+    source: 'goclaw',
     suggestedAllocations: s.suggestedAllocations,
     reasoning: s.reasoning,
     status: s.status,

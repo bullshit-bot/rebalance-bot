@@ -95,8 +95,8 @@ Frontend at `http://your-vps-ip:80`
    - Wraps backend REST API for MCP clients
    - Memory: 256M
 
-5. **openclaw** (Profile: full)
-   - OpenClaw AI agent
+5. **goclaw** (Profile: full)
+   - GoClaw AI agent
    - Requires chromadb
    - Memory: 256M
 
@@ -142,7 +142,7 @@ CCXT_RATE_LIMIT=100             # Exchange rate limit
 ```bash
 MONGODB_URI=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/rebalance?authSource=admin
 BACKEND_API_URL=http://backend:3001  # For mcp-server
-CHROMADB_URL=http://chromadb:8000    # For openclaw
+CHROMADB_URL=http://chromadb:8000    # For goclaw
 ```
 
 ## Health Checks

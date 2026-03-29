@@ -37,9 +37,9 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 │         ↑
 │         │ (Profiles: full)
 │  ┌──────────────────────────────────────────────────────────────┐
-│  │       Optional: OpenClaw AI + ChromaDB                        │
+│  │       Optional: GoClaw AI + ChromaDB                        │
 │  │  ┌────────────┐    ┌──────────────┐   ┌──────────────┐       │
-│  │  │ OpenClaw   │    │ MCP Server   │   │ ChromaDB     │       │
+│  │  │ GoClaw   │    │ MCP Server   │   │ ChromaDB     │       │
 │  │  │ AI Agent   │←──→│ (REST wrap)  │   │ (Knowledge)  │       │
 │  │  └────────────┘    └──────────────┘   └──────────────┘       │
 │  └─────────────────────────────────────────────────────────────┘
@@ -70,7 +70,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - **Validation**: Zod 3.24+ (Type-safe schemas)
 - **Linter**: Biome 1.9+ (Fast linting)
 - **MCP Server**: REST wrapper for Claude/Agent integration
-- **AI Framework**: OpenClaw with ChromaDB knowledge base
+- **AI Framework**: GoClaw with ChromaDB knowledge base
 
 ## Service Modules
 
@@ -332,7 +332,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 2. **backend** (Bun) - Hono API, port 3001
 3. **mongodb** - Data persistence, port 27017
 4. **mcp-server** - MCP wrapper for Claude integration (internal)
-5. **openclaw** - OpenClaw AI agent (profile: full)
+5. **goclaw** - GoClaw AI agent (profile: full)
 6. **chromadb** - Vector knowledge base (profile: full)
 
 **Startup**: `docker compose up -d` (basic) or `docker compose --profile full up -d` (with AI)
@@ -342,7 +342,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - backend: 512M (limit), 128M (reservation)
 - mongodb: 512M (limit)
 - mcp-server: 256M
-- openclaw: 256M (with profile)
+- goclaw: 256M (with profile)
 - chromadb: 512M (with profile)
 - **Total**: ~1.7GB basic, ~2.5GB with AI
 

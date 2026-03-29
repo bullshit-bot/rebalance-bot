@@ -2,7 +2,7 @@
 name: market_analysis
 description: Analyse recent trades and portfolio performance using mcporter to call rebalance bot MCP tools.
 metadata:
-  openclaw:
+  goclaw:
     emoji: 📈
     requires:
       bins:

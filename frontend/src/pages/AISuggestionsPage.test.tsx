@@ -40,7 +40,7 @@ function renderWithProviders(ui: ReactNode) {
 describe('AISuggestionsPage', () => {
   const mockPendingSuggestion = {
     id: 'ai1',
-    source: 'openclaw',
+    source: 'goclaw',
     suggestedAllocations: '[{"asset":"BTC","targetPct":40}]',
     reasoning: 'BTC momentum strong',
     sentimentData: null,
@@ -51,7 +51,7 @@ describe('AISuggestionsPage', () => {
 
   const mockApprovedSuggestion = {
     id: 'ai2',
-    source: 'openclaw',
+    source: 'goclaw',
     suggestedAllocations: '[{"asset":"ETH","targetPct":30}]',
     reasoning: 'ETH underweight',
     sentimentData: null,
@@ -62,7 +62,7 @@ describe('AISuggestionsPage', () => {
 
   const mockRejectedSuggestion = {
     id: 'ai3',
-    source: 'openclaw',
+    source: 'goclaw',
     suggestedAllocations: '[{"asset":"SOL","targetPct":20}]',
     reasoning: 'SOL high volatility',
     sentimentData: null,
@@ -144,7 +144,7 @@ describe('AISuggestionsPage', () => {
 
     it('displays suggestion source', () => {
       renderWithProviders(<AISuggestionsPage />)
-      expect(screen.getByText('openclaw')).toBeInTheDocument()
+      expect(screen.getByText('goclaw')).toBeInTheDocument()
     })
 
     it('displays suggested allocations table', () => {

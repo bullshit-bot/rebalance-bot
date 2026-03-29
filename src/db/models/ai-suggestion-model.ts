@@ -13,7 +13,7 @@ export interface IAISuggestion {
 
 const aiSuggestionSchema = new Schema<IAISuggestion>({
   _id: { type: String, required: true },
-  source: { type: String, required: true, default: 'openclaw' },
+  source: { type: String, required: true, default: 'goclaw' },
   suggestedAllocations: { type: Schema.Types.Mixed, required: true },
   reasoning: { type: String, required: true },
   sentimentData: { type: Schema.Types.Mixed, default: null },

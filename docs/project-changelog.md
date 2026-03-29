@@ -122,10 +122,10 @@ All four major phases complete. System production-ready with 14 core features.
 - Grid trading with customizable intervals
 - Copy trading (mirror from other portfolios)
 - Analytics dashboard (returns, volatility, Sharpe ratio, win rate)
-- AI suggestions (ML-powered recommendations via OpenClaw)
+- AI suggestions (ML-powered recommendations via GoClaw)
 
 **Phase 5: Infrastructure & Deployment**
-- Docker Compose (6-service stack: frontend, backend, MongoDB, OpenClaw, ChromaDB, autoheal)
+- Docker Compose (6-service stack: frontend, backend, MongoDB, GoClaw, ChromaDB, autoheal)
 - Mongoose ODM (SQLite → MongoDB 7 migration complete)
 - 14 MongoDB collections (trades, snapshots, allocations, OHLCV, etc.)
 - MCP Server (Claude AI integration via REST wrapper)

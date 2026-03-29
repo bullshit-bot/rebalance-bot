@@ -3,10 +3,10 @@ import { aiConfig } from './ai-config'
 
 describe('ai-config (integration)', () => {
   describe('Config parsing with env vars', () => {
-    it('should parse OPENCLAW_URL correctly', () => {
+    it('should parse GOCLAW_URL correctly', () => {
       const config = aiConfig
-      expect(config).toHaveProperty('openclawUrl')
-      expect(typeof config.openclawUrl).toBe('string')
+      expect(config).toHaveProperty('goclawUrl')
+      expect(typeof config.goclawUrl).toBe('string')
     })
 
     it('should parse AI_AUTO_APPROVE as boolean', () => {
@@ -21,12 +21,12 @@ describe('ai-config (integration)', () => {
       expect(config.maxAllocationShiftPct).toBeLessThanOrEqual(100)
     })
 
-    it('should have enabled flag matching OPENCLAW_URL presence', () => {
+    it('should have enabled flag matching GOCLAW_URL presence', () => {
       const config = aiConfig
       if (config.enabled) {
-        expect(config.openclawUrl.length).toBeGreaterThan(0)
+        expect(config.goclawUrl.length).toBeGreaterThan(0)
       } else {
-        expect(config.openclawUrl.length).toBe(0)
+        expect(config.goclawUrl.length).toBe(0)
       }
     })
   })
@@ -47,10 +47,10 @@ describe('ai-config (integration)', () => {
       }
     })
 
-    it('should handle empty OPENCLAW_URL gracefully', () => {
+    it('should handle empty GOCLAW_URL gracefully', () => {
       const config = aiConfig
       // When URL is empty, enabled should be false
-      if (config.openclawUrl.length === 0) {
+      if (config.goclawUrl.length === 0) {
         expect(config.enabled).toBe(false)
       }
     })
@@ -62,14 +62,14 @@ describe('ai-config (integration)', () => {
     })
 
     it('should have all required properties', () => {
-      expect(aiConfig).toHaveProperty('openclawUrl')
+      expect(aiConfig).toHaveProperty('goclawUrl')
       expect(aiConfig).toHaveProperty('autoApprove')
       expect(aiConfig).toHaveProperty('maxAllocationShiftPct')
       expect(aiConfig).toHaveProperty('enabled')
     })
 
     it('should have correct types for all properties', () => {
-      expect(typeof aiConfig.openclawUrl).toBe('string')
+      expect(typeof aiConfig.goclawUrl).toBe('string')
       expect(typeof aiConfig.autoApprove).toBe('boolean')
       expect(typeof aiConfig.maxAllocationShiftPct).toBe('number')
       expect(typeof aiConfig.enabled).toBe('boolean')

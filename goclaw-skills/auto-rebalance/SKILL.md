@@ -2,7 +2,7 @@
 name: auto_rebalance
 description: Automated rebalancing with safety checks using mcporter to call rebalance bot MCP tools.
 metadata:
-  openclaw:
+  goclaw:
     emoji: ⚖️
     requires:
       bins:

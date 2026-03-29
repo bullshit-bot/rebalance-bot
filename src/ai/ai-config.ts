@@ -3,19 +3,19 @@
  * Reads from env vars — gracefully disabled when not configured.
  *
  * Required env vars (all optional — AI features disabled if absent):
- *   OPENCLAW_URL        - Base URL of the OpenClaw instance
+ *   GOCLAW_URL        - Base URL of the GoClaw instance
  *   AI_AUTO_APPROVE     - 'true'/'1' to auto-apply suggestions without manual approval
  *   AI_MAX_SHIFT_PCT    - Max allowed % change per asset per suggestion (safety guard)
  */
 
 export interface AIConfig {
-  /** Base URL of OpenClaw instance, e.g. "http://localhost:8080" */
-  openclawUrl: string;
+  /** Base URL of GoClaw instance, e.g. "http://localhost:8080" */
+  goclawUrl: string;
   /** Auto-apply suggestions without manual approval step */
   autoApprove: boolean;
   /** Max allowed absolute % shift per asset in a single suggestion (default: 20) */
   maxAllocationShiftPct: number;
-  /** Whether AI features are enabled (false when OPENCLAW_URL is not set) */
+  /** Whether AI features are enabled (false when GOCLAW_URL is not set) */
   enabled: boolean;
 }
 
@@ -30,18 +30,18 @@ function parsePositiveNumber(value: string | undefined, fallback: number): numbe
 
 /**
  * Singleton AI configuration derived from environment variables.
- * All AI features are disabled (enabled=false) when OPENCLAW_URL is not set.
+ * All AI features are disabled (enabled=false) when GOCLAW_URL is not set.
  */
 export const aiConfig: AIConfig = (() => {
-  const openclawUrl = process.env.OPENCLAW_URL ?? "";
-  const enabled = openclawUrl.length > 0;
+  const goclawUrl = process.env.GOCLAW_URL ?? "";
+  const enabled = goclawUrl.length > 0;
 
   if (!enabled) {
-    console.info("[AIConfig] OPENCLAW_URL not set — AI suggestions disabled");
+    console.info("[AIConfig] GOCLAW_URL not set — AI suggestions disabled");
   }
 
   return {
-    openclawUrl,
+    goclawUrl,
     enabled,
     autoApprove: parseBoolean(process.env.AI_AUTO_APPROVE),
     maxAllocationShiftPct: parsePositiveNumber(process.env.AI_MAX_SHIFT_PCT, 20),

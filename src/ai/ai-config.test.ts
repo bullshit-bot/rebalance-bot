@@ -22,9 +22,9 @@ describe('ai-config', () => {
   })
 
   describe('AIConfig interface', () => {
-    it('should have openclawUrl property', () => {
-      expect(aiConfig).toHaveProperty('openclawUrl')
-      expect(typeof aiConfig.openclawUrl).toBe('string')
+    it('should have goclawUrl property', () => {
+      expect(aiConfig).toHaveProperty('goclawUrl')
+      expect(typeof aiConfig.goclawUrl).toBe('string')
     })
 
     it('should have autoApprove property', () => {
@@ -43,11 +43,11 @@ describe('ai-config', () => {
     })
   })
 
-  describe('when OPENCLAW_URL is not set', () => {
+  describe('when GOCLAW_URL is not set', () => {
     it('should disable AI features', () => {
       // Note: We can't re-execute the module, so we test the current aiConfig
-      // If OPENCLAW_URL is not set in current env, enabled should be false
-      if (!process.env.OPENCLAW_URL) {
+      // If GOCLAW_URL is not set in current env, enabled should be false
+      if (!process.env.GOCLAW_URL) {
         expect(aiConfig.enabled).toBe(false)
       }
     })
@@ -58,10 +58,10 @@ describe('ai-config', () => {
     })
   })
 
-  describe('when OPENCLAW_URL is set', () => {
+  describe('when GOCLAW_URL is set', () => {
     it('should enable AI features', () => {
-      // If OPENCLAW_URL is set in current env, enabled should be true
-      if (process.env.OPENCLAW_URL) {
+      // If GOCLAW_URL is set in current env, enabled should be true
+      if (process.env.GOCLAW_URL) {
         expect(aiConfig.enabled).toBe(true)
       }
     })
@@ -100,19 +100,19 @@ describe('ai-config', () => {
   })
 
   describe('configuration consistency', () => {
-    it('should have consistent enabled/openclawUrl relationship', () => {
-      // If enabled is true, openclawUrl should not be empty
+    it('should have consistent enabled/goclawUrl relationship', () => {
+      // If enabled is true, goclawUrl should not be empty
       if (aiConfig.enabled) {
-        expect(aiConfig.openclawUrl.length).toBeGreaterThan(0)
+        expect(aiConfig.goclawUrl.length).toBeGreaterThan(0)
       }
-      // If openclawUrl is empty, enabled should be false
-      if (aiConfig.openclawUrl.length === 0) {
+      // If goclawUrl is empty, enabled should be false
+      if (aiConfig.goclawUrl.length === 0) {
         expect(aiConfig.enabled).toBe(false)
       }
     })
 
     it('should have valid types for all properties', () => {
-      expect(typeof aiConfig.openclawUrl).toBe('string')
+      expect(typeof aiConfig.goclawUrl).toBe('string')
       expect(typeof aiConfig.autoApprove).toBe('boolean')
       expect(typeof aiConfig.maxAllocationShiftPct).toBe('number')
       expect(typeof aiConfig.enabled).toBe('boolean')
@@ -130,7 +130,7 @@ describe('ai-config', () => {
     })
 
     it('should have all required properties', () => {
-      const requiredProps = ['openclawUrl', 'autoApprove', 'maxAllocationShiftPct', 'enabled']
+      const requiredProps = ['goclawUrl', 'autoApprove', 'maxAllocationShiftPct', 'enabled']
       requiredProps.forEach((prop) => {
         expect(aiConfig).toHaveProperty(prop)
       })

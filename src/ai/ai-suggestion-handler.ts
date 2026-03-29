@@ -15,7 +15,7 @@ interface SuggestionInput {
 // ─── AISuggestionHandler ──────────────────────────────────────────────────────
 
 /**
- * Handles AI-generated portfolio allocation suggestions from OpenClaw.
+ * Handles AI-generated portfolio allocation suggestions from GoClaw.
  * Validates allocation safety constraints, persists to DB, and optionally
  * auto-applies or queues for manual approval.
  */
@@ -23,7 +23,7 @@ class AISuggestionHandler {
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   /**
-   * Receive a new suggestion from OpenClaw (called by the API route).
+   * Receive a new suggestion from GoClaw (called by the API route).
    * Validates the allocations sum ≈ 100% and each asset shift ≤ maxAllocationShiftPct,
    * then either auto-applies or saves as pending for manual approval.
    */
@@ -36,7 +36,7 @@ class AISuggestionHandler {
 
     await AISuggestionModel.create({
       _id: id,
-      source: "openclaw",
+      source: "goclaw",
       suggestedAllocations: data.allocations as unknown as Record<string, unknown>,
       reasoning: data.reasoning,
       sentimentData: (data.sentimentData ?? null) as Record<string, unknown> | null,

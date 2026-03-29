@@ -2,7 +2,7 @@
 name: allocation_advisor
 description: Analyse portfolio allocations and suggest rebalancing using mcporter to call rebalance bot MCP tools.
 metadata:
-  openclaw:
+  goclaw:
     emoji: 📊
     requires:
       bins:

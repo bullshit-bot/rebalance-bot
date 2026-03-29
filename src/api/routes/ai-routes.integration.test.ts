@@ -112,7 +112,7 @@ describe('ai-routes (integration)', () => {
       const id = randomUUID()
       await AISuggestionModel.create({
         _id: id,
-        source: 'openclaw',
+        source: 'goclaw',
         suggestedAllocations: [{ asset: 'BTC', targetPct: 60 }, { asset: 'ETH', targetPct: 40 }],
         reasoning: 'Approve test',
         status: 'pending',
@@ -138,7 +138,7 @@ describe('ai-routes (integration)', () => {
       const id = randomUUID()
       await AISuggestionModel.create({
         _id: id,
-        source: 'openclaw',
+        source: 'goclaw',
         suggestedAllocations: [{ asset: 'BTC', targetPct: 100 }],
         reasoning: 'Reject test',
         status: 'pending',

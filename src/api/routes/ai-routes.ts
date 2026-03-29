@@ -9,7 +9,7 @@ const aiRoutes = new Hono()
 
 /**
  * POST /api/ai/suggestion
- * Receive a new allocation suggestion from OpenClaw.
+ * Receive a new allocation suggestion from GoClaw.
  * Body: { allocations: [{asset, targetPct}], reasoning: string, sentimentData?: {} }
  */
 aiRoutes.post('/ai/suggestion', async (c) => {

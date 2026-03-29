@@ -2,7 +2,7 @@
 name: portfolio_monitor
 description: Monitor portfolio drift and alert on significant deviations using mcporter to call rebalance bot MCP tools.
 metadata:
-  openclaw:
+  goclaw:
     emoji: 👁️
     requires:
       bins:

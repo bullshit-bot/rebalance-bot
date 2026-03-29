@@ -31,7 +31,7 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 | db/ | 420 | Mongoose models + MongoDB connection |
 | price/ | 260 | Price aggregation, WebSocket feeds |
 | copy-trading/ | 510 | Trade replication from sources |
-| ai/ | 380 | ML suggestions (OpenClaw) |
+| ai/ | 380 | ML suggestions (GoClaw) |
 | dca/ | 235 | Dollar-cost averaging |
 | notifier/ | 210 | Telegram notifications |
 | scheduler/ | 145 | Cron job execution |
@@ -127,13 +127,13 @@ src/
 **Architecture**: Simple Node.js server → HTTP client → Backend Hono API
 **Port**: Internal only (routed through Docker network)
 
-## OpenClaw AI & ChromaDB
+## GoClaw AI & ChromaDB
 
-**Location**: `openclaw-skills/`
+**Location**: `goclaw-skills/`
 **Profile**: `full` (optional Docker profile)
 
 **Components**:
-1. **OpenClaw Agent** - LLM-powered assistant with skills
+1. **GoClaw Agent** - LLM-powered assistant with skills
 2. **ChromaDB** - Vector database for knowledge retrieval
 3. **Skills** (5 total):
    - `allocation-advisor` - Allocation recommendations
@@ -251,7 +251,7 @@ src/
 | CI/CD | GitHub Actions |
 | Deployment | Docker Compose (6 services) |
 | MCP Server | REST wrapper for Claude |
-| AI Framework | OpenClaw + ChromaDB |
+| AI Framework | GoClaw + ChromaDB |
 
 ## Bootstrap Sequence
 
@@ -376,7 +376,7 @@ WebSocket API (update frontend)
 - `src/index.ts` - Backend bootstrap
 - `frontend/src/main.tsx` - React app entry
 - `mcp-server/src/index.ts` - MCP server entry
-- `openclaw-skills/` - OpenClaw knowledge base
+- `goclaw-skills/` - GoClaw knowledge base
 - `docker-compose.yml` - 6-service orchestration
 
 **Configuration**:
