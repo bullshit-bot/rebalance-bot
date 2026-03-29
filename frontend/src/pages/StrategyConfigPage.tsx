@@ -73,6 +73,11 @@ export default function StrategyConfigPage() {
       cashReservePct: l.cashReservePct ?? 0,
       dcaRebalanceEnabled: l.dcaRebalanceEnabled ?? false,
       hardRebalanceThreshold: l.hardRebalanceThreshold ?? 15,
+      trendFilterEnabled: (l as any).trendFilterEnabled ?? false,
+      trendFilterMA: (l as any).trendFilterMA ?? 100,
+      bearCashPct: (l as any).bearCashPct ?? 70,
+      trendFilterBuffer: (l as any).trendFilterBuffer ?? 2,
+      trendFilterCooldownDays: (l as any).trendFilterCooldownDays ?? 3,
     };
   });
   const [activePreset, setActivePreset] = useState("Balanced");
@@ -110,6 +115,11 @@ export default function StrategyConfigPage() {
       cashReservePct: g.cashReservePct ?? prev.cashReservePct,
       dcaRebalanceEnabled: g.dcaRebalanceEnabled ?? prev.dcaRebalanceEnabled,
       hardRebalanceThreshold: g.hardRebalanceThreshold ?? prev.hardRebalanceThreshold,
+      trendFilterEnabled: g.trendFilterEnabled ?? prev.trendFilterEnabled,
+      trendFilterMA: g.trendFilterMA ?? prev.trendFilterMA,
+      bearCashPct: g.bearCashPct ?? prev.bearCashPct,
+      trendFilterBuffer: g.trendFilterBuffer ?? prev.trendFilterBuffer,
+      trendFilterCooldownDays: g.trendFilterCooldownDays ?? prev.trendFilterCooldownDays,
     }));
     setTypeParams((prev) => ({ ...prev, ...p }));
     if (active.strategyType) setStrategyType(active.strategyType as StrategyType);
@@ -142,6 +152,11 @@ export default function StrategyConfigPage() {
       cashReservePct: globalSettings.cashReservePct,
       dcaRebalanceEnabled: globalSettings.dcaRebalanceEnabled,
       hardRebalanceThreshold: globalSettings.hardRebalanceThreshold,
+      trendFilterEnabled: globalSettings.trendFilterEnabled,
+      trendFilterMA: globalSettings.trendFilterMA,
+      bearCashPct: globalSettings.bearCashPct,
+      trendFilterBuffer: globalSettings.trendFilterBuffer,
+      trendFilterCooldownDays: globalSettings.trendFilterCooldownDays,
     };
     updateConfig.mutate(
       { name: activeName, data: payload },
