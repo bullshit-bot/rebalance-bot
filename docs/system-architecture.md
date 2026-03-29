@@ -116,27 +116,40 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 
 ### 4. Rebalancer Service
 **Location**: `src/rebalancer/`
-**Responsibility**: Calculate portfolio rebalancing
-**Strategy Modes**:
+**Responsibility**: Calculate portfolio rebalancing with strategy orchestration
+**Strategy Modes** (6 types via StrategyManager):
 - **Threshold**: Trigger when deviation > threshold (e.g., 5%)
 - **Equal-Weight**: Maintain equal allocation across all assets
-- **Momentum-Tilt**: Adjust weights based on momentum indicators
-- **Vol-Adjusted**: Dynamic weights inversely proportional to volatility
+- **Momentum-Tilt**: Adjust weights based on momentum indicators (50/50 blend with base)
+- **Vol-Adjusted**: Dynamic thresholds inversely proportional to volatility
+- **Mean-Reversion**: Bollinger band-based rebalancing (lookback days, band width, drift trigger)
+- **Momentum-Weighted**: Momentum scores weighted into allocations with threshold drift check
 
-**Key Functions**:
-- Monitor allocation drift continuously
-- Calculate optimal trade quantities
-- Generate rebalance plans
-- Estimate total fees
-- Trigger executor on approval
+**Key Sub-modules**:
+- **StrategyManager** (`src/rebalancer/strategy-manager.ts`): Central strategy selector with hot-reload from DB config (strategy:config-changed event), loads active config on startup
+- **DriftDetector** (`src/rebalancer/drift-detector.ts`): Allocation monitoring, hard-rebalance threshold support, bear trigger routing
+- **TrendFilter** (`src/rebalancer/trend-filter.ts`): MA-based trend detection (BTC daily closes, default MA100), mongo persistence for restart resilience, 3-day cooldown to prevent whipsaw
+- **TradeCalculator** (`src/rebalancer/trade-calculator.ts`): Cash-aware trade optimization (skips cash if reserve is active), handles DCA routing
+- **DCATargetResolver** (`src/rebalancer/dca-target-resolver.ts`): Finds most-underweight asset for DCA concentration
 
-**Trend Filter Sub-module** (`src/rebalancer/trend-filter.ts`):
-- MA-based trend detection (BTC daily closes, default MA100)
-- Persists historical candles to MongoDB for restart resilience
-- Emits `trend:changed` event on bull↔bear flip
+**Trading Flow**:
+1. Price update → Portfolio recalculation
+2. Drift detector checks allocation deviation + trend status
+3. If drift > threshold: Strategy manager calculates effective target allocations
+4. Trade calculator applies cash-aware logic + DCA routing
+5. Executor submits orders
+6. Database persists trades + snapshots
+
+**Trend Filter Behavior**:
+- Tracks BTC daily closes in rolling 400-day window
+- Emits `trend:changed` event on bull↔bear flip (with 3-day cooldown)
+- If bearish: auto-override allocations to 70% cash (configurable via `bearCashPct`)
 - Provides read-only query API (`isBullishReadOnly()`) for healthchecks
-- Triggers `trend-filter-bear` rebalance when trend turns bearish
-- Default bear mode: override allocations to 70% cash (configurable via `bearCashPct`)
+
+**Cash-Aware DCA**:
+- Reserve 0-50% cash (configurable via strategy config)
+- New capital directed to most underweight asset (not proportional)
+- Hard rebalance threshold for traditional drift-based trades
 
 ### 5. Executor Service
 **Location**: `src/executor/`
@@ -219,8 +232,9 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 | `trades` | Individual trade records with fees and prices |
 | `rebalances` | Rebalance lifecycle (pending → executing → completed) |
 | `exchange_configs` | Encrypted exchange API credentials |
-| `ohlcv_candles` | Historical OHLCV data for backtesting |
+| `ohlcv_candles` | Historical OHLCV data for backtesting + trend filter persistence |
 | `backtest_results` | Strategy performance test results |
+| `strategy_configs` | Strategy configuration (polymorphic params, active/inactive, hot-reload) |
 | `smart_orders` | TWAP/VWAP order splitting records |
 | `grid_bots` | Grid trading bot configurations |
 | `grid_orders` | Individual grid orders |
@@ -236,13 +250,26 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 ## API Endpoints
 
 ### REST API (Hono)
+**Portfolio & Trading**:
 - `GET /api/portfolio` - Current holdings and allocations
 - `POST /api/rebalance` - Trigger manual rebalance
 - `GET /api/trades` - Historical trade records
 - `GET /api/allocations` - Target allocations
 - `POST /api/allocations/:asset` - Update target
+
+**Strategy Configuration** (new):
+- `GET /api/strategy-config/active` - Current active strategy config
+- `POST /api/strategy-config` - Create new strategy config
+- `PUT /api/strategy-config/:id` - Update existing config
+- `DELETE /api/strategy-config/:id` - Delete config
+- `PUT /api/strategy-config/:id/activate` - Set as active (triggers hot-reload)
+
+**Analytics & Backtesting**:
 - `GET /api/analytics` - Performance metrics
 - `GET /api/backtest/:strategyId/results` - Backtest performance
+- `POST /api/backtest/optimizer` - Run grid-search optimizer (4800+ combinations)
+
+**System**:
 - `GET /api/health` - System health (uptime, memory, version, trend status, last price update)
 
 ### WebSocket API
@@ -266,8 +293,10 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 | `rebalance:trigger` | Drift Detector | Rebalancer (for `trend-filter-bear` routing) |
 | `trade:executed` | Executor | Portfolio, Database, Notifier |
 | `strategy:signal` | Strategy Services | Executor, Notifier |
+| `strategy:config-changed` | API (config POST) | Strategy Manager (hot-reload) |
 | `alert:threshold` | Price Service | Notifier |
-| `trend:changed` | Trend Filter | Notifier (Telegram alerts) |
+| `trend:changed` | Trend Filter | Notifier (Telegram alerts), DriftDetector |
+| `trend-filter-bear` | Drift Detector | Rebalancer (special bear-protection routing) |
 
 ## Data Flow
 
@@ -306,10 +335,16 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - `PAPER_TRADING` - Boolean flag for simulation mode
 - `VITE_API_URL` - Frontend API URL (set to /api in Docker)
 
-**Strategy Configuration** (via `/api/strategy` endpoints):
-- `trendFilterEnabled` - Enable/disable MA-based trend filter (bool)
+**Strategy Configuration** (via database-driven config, hot-reload):
+- Strategy type: `threshold`, `equal-weight`, `momentum-tilt`, `vol-adjusted`, `mean-reversion`, `momentum-weighted`
+- Strategy-specific params: thresholdPct, bandWidthSigma, lookbackDays, etc. (type-safe via Zod)
+- `cashReservePct` - Hold 0-50% cash, DCA deposits to most-underweight asset (default: 0%)
+- `dcaRebalanceEnabled` - Route rebalance sells through DCA instead of immediate execution (default: false)
+- `hardRebalanceThreshold` - High-drift hard rebalance trigger (e.g., 20%, default: not set)
+- `trendFilterEnabled` - Enable MA-based trend filter (bool)
 - `trendFilterMA` - MA period for bull/bear detection (default: 100 days)
 - `trendFilterBuffer` - % buffer below MA still treated as bull (default: 2%)
+- `trendFilterCooldown` - Days between bear/bull flips to prevent whipsaw (default: 3 days)
 - `bearCashPct` - Cash override % when trend turns bearish (default: 70%)
 
 ## Security Model

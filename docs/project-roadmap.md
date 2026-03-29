@@ -8,55 +8,49 @@
 
 ## Current Status
 
-All four major phases complete. System is production-ready with 14 features implemented. Actively maintained, stable API, comprehensive test coverage.
+All eight major phases complete. System is production-deployed with 50+ features, 4 major infrastructure upgrades (Docker, MongoDB, MCP, GoClaw), 6 advanced strategies, cash-aware DCA, trend filter, and comprehensive test coverage (80+ test files). Actively maintained, stable API, production-ready.
 
 ## Completed Phases
 
-### Phase 1: Core Rebalancing (Complete)
-**Status**: ✅ Complete
-**Features**:
-- Multi-exchange connectivity (Binance, OKX, Bybit)
-- Portfolio fetch and allocation calculation
-- Threshold-based rebalancing (configurable drift %)
-- Paper trading mode (safe default)
-- Real-time balance tracking
-
+### Phase 1: Core Rebalancing (✅ Complete)
+**Status**: Production-stable
+**Features**: Multi-exchange (Binance, OKX, Bybit), portfolio fetch, threshold-based rebalancing, paper trading, real-time balance tracking
 **Metrics**: 3,400 LOC, 100+ test cases
 
-### Phase 2: Real-Time Monitoring (Complete)
-**Status**: ✅ Complete
-**Features**:
-- WebSocket price feeds (CCXT Pro)
-- REST API (11 endpoints)
-- React dashboard with charts
-- Telegram notifications
-- WebSocket API for frontend updates
-
+### Phase 2: Real-Time Monitoring (✅ Complete)
+**Status**: Production-stable
+**Features**: WebSocket price feeds (CCXT Pro), REST API (11 endpoints), React dashboard, Telegram alerts, WebSocket API
 **Metrics**: 4,200 LOC, 16 pages, 59 components
 
-### Phase 3: Strategy Variants (Complete)
-**Status**: ✅ Complete
-**Features**:
-- Equal-weight rebalancing
-- Momentum-tilt strategy (price momentum weighting)
-- Volatility-adjusted weighting (inverse vol)
-- Backtesting framework with Sharpe ratio
-- OHLCV candle data storage
+### Phase 3: Strategy Variants (✅ Complete)
+**Status**: Production-stable
+**Features**: Equal-weight, momentum-tilt, vol-adjusted weighting, backtesting with Sharpe ratio, OHLCV candles
+**Metrics**: 1,800 LOC, 50+ backtest scenarios
 
-**Metrics**: 1,800 LOC, 50+ backtest scenarios tested
-
-### Phase 4: Advanced Strategies (Complete)
-**Status**: ✅ Complete
-**Features**:
-- Trailing-stop loss automation
-- DCA (Dollar-cost averaging) with scheduling
-- TWAP/VWAP order splitting
-- Grid trading with customizable intervals
-- Copy trading (mirror from sources)
-- Analytics dashboard (returns, volatility, drawdown, win rate)
-- AI suggestions (ML-based recommendations)
-
+### Phase 4: Advanced Strategies (✅ Complete)
+**Status**: Production-stable
+**Features**: Trailing stops, DCA scheduling, TWAP/VWAP, grid trading, copy trading, analytics, AI suggestions
 **Metrics**: 3,500 LOC, all strategies tested in production
+
+### Phase 5: Production Infrastructure (✅ Complete)
+**Status**: Production-ready
+**Features**: Docker Compose (8 services), MongoDB 7, MCP server (SSE), GoClaw + PostgreSQL + pgvector, autoheal
+**Metrics**: 420 LOC (DB), 200 LOC (MCP), CI/CD automation
+
+### Phase 6: Production Readiness (✅ Complete)
+**Status**: Production-deployed
+**Features**: Trend filter MA-based detection, bear market protection (70% cash override), cooldown whipsaw protection, health endpoint enhancements, autoheal recovery
+**Metrics**: 280 LOC (trend filter), 50 LOC (health), 100% uptime in staging
+
+### Phase 7: Advanced Strategy System (✅ Complete)
+**Status**: Production-ready
+**Features**: 6 strategy types (threshold, equal-weight, momentum-tilt, vol-adjusted, mean-reversion, momentum-weighted), database-driven config with hot-reload (strategy:config-changed event), polymorphic Zod types, StrategyManager hot-reload
+**Metrics**: 670 LOC (strategies), 150 LOC (config system), strategy config API (5 endpoints), 62 strategy tests
+
+### Phase 8: Cash-Aware DCA + Backtest Optimizer (✅ Complete)
+**Status**: Production-ready
+**Features**: Cash reserve (0-50%), DCA routing to underweight assets, hard rebalance threshold, backtest optimizer (4800+ grid combinations), backtest cash/DCA simulation, trend filter cooldown (3-day), comprehensive tests (80+ new tests)
+**Metrics**: 450 LOC (cash+DCA), 250 LOC (optimizer), 200 LOC (backtest integration), 70+ test files
 
 ## Feature Matrix
 
@@ -79,13 +73,40 @@ All four major phases complete. System is production-ready with 14 features impl
 | Docker Compose | ✅ | 5 | - |
 | MongoDB Migration | ✅ | 5 | 420 |
 | MCP Server | ✅ | 5 | 200 |
-| GoClaw AI + ChromaDB | ✅ | 5 | 150 |
+| GoClaw AI + PostgreSQL | ✅ | 5 | 150 |
 | Trend Filter (MA-based) | ✅ | 6 | 280 |
 | Bear Market Protection | ✅ | 6 | - |
 | Health Endpoint (enhanced) | ✅ | 6 | 50 |
 | Docker Autoheal | ✅ | 6 | - |
+| Advanced Strategy System (6 types) | ✅ | 7 | 670 |
+| Database-Driven Config + Hot-Reload | ✅ | 7 | 150 |
+| Mean-Reversion Strategy | ✅ | 7 | 140 |
+| Volatility-Adjusted Strategy | ✅ | 7 | 120 |
+| Momentum-Weighted Strategy | ✅ | 7 | 130 |
+| Strategy Config API Endpoints | ✅ | 7 | 200 |
+| Strategy Frontend Integration | ✅ | 7 | 300 |
+| Cash-Aware Rebalancing | ✅ | 8 | 180 |
+| DCA Routing (to underweight assets) | ✅ | 8 | 120 |
+| Hard Rebalance Threshold | ✅ | 8 | 80 |
+| Cash Reserve Configuration | ✅ | 8 | 70 |
+| Backtest Optimizer (grid search) | ✅ | 8 | 250 |
+| Backtest Cash Reserve + DCA | ✅ | 8 | 200 |
+| Trend Filter Cooldown (whipsaw protection) | ✅ | 8 | 40 |
+| Comprehensive Test Suite | ✅ | 8 | 1,200 |
 
 ## Recent Updates (2026)
+
+**March 29, 2026 — Complete System Implementation**:
+- ✅ Advanced Strategy System: 6 strategy types (threshold, equal-weight, momentum-tilt, vol-adjusted, mean-reversion, momentum-weighted)
+- ✅ Database-Driven Config: StrategyConfigModel with polymorphic Zod types, hot-reload via strategy:config-changed event
+- ✅ Cash-Aware Rebalancing: 0-50% cash reserve, DCA routing to most-underweight asset
+- ✅ Hard Rebalance Threshold: Separate high-drift trigger for traditional rebalancing
+- ✅ Trend Filter Cooldown: 3-day whipsaw protection on bull/bear flips
+- ✅ Backtest Optimizer: Grid search across 4800+ parameter combinations
+- ✅ Backtest DCA + Cash Integration: Full simulation of cash reserve and DCA routing
+- ✅ Comprehensive Test Coverage: 62 strategy tests + 10 trend filter tests + 8 DCA tests
+- ✅ Strategy Config API: 5 endpoints for CRUD + activation with hot-reload
+- ✅ Complete Documentation: System architecture, codebase summary, roadmap updated
 
 **March 28, 2026 — Production Readiness**:
 - ✅ TrendFilter persistence to MongoDB (restart resilience)
@@ -98,19 +119,13 @@ All four major phases complete. System is production-ready with 14 features impl
 - ✅ Mainnet configuration guide
 
 **March 22, 2026 — v1.0.0 Production Release**:
-- ✅ Docker Compose migration (6-service stack)
-- ✅ SQLite → MongoDB 7 with Mongoose
-- ✅ Drizzle ORM → Mongoose models (14 schemas)
-- ✅ MCP server REST wrapper (Claude integration)
-- ✅ GoClaw AI agent + ChromaDB knowledge base
+- ✅ Docker Compose migration (8-service stack: frontend, backend, mongodb, mcp-server, goclaw, goclaw-ui, goclaw-postgres, autoheal)
+- ✅ SQLite → MongoDB 7 with Mongoose (15 schemas)
+- ✅ MCP server REST wrapper (Claude integration via SSE)
+- ✅ GoClaw AI agent + PostgreSQL + pgvector (replaces ChromaDB)
 - ✅ GitHub Actions CI/CD + Docker auto-deploy
 - ✅ Semantic-release integration
-- Database migration tooling complete
-
-**January 2026**:
-- AI suggestions module (GoClaw integration)
-- Copy trading enhancements
-- Analytics dashboard improvements
+- ✅ Database migration tooling complete
 
 ## Future Roadmap
 

@@ -1,12 +1,13 @@
 ---
 title: "Cash-Aware DCA Rebalancing + Optimal Allocation"
 description: "Add cash reserve, DCA-based rebalance routing, backtest new strategies, update frontend config"
-status: in_progress
+status: completed
 priority: P1
 effort: 12h
 branch: main
 tags: [rebalancing, dca, backtest, cash-reserve]
 created: 2026-03-28
+completed: 2026-03-29
 ---
 
 ## Overview
@@ -19,7 +20,7 @@ Replace expensive sell+buy rebalancing with cash reserve + DCA routing. New depo
 |---|-------|--------|
 | 1 | Cash Reserve System | ✅ Completed |
 | 2 | DCA-Based Rebalance Routing | ✅ Completed |
-| 3 | Backtest Cash Reserve + DCA Routing | Pending |
+| 3 | Backtest Cash Reserve + DCA Routing | ✅ Completed |
 | 4 | Frontend + Config Integration | ✅ Completed |
 
 ## Key Dependencies

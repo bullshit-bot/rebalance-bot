@@ -1,12 +1,13 @@
 ---
 title: "Advanced Strategy Config System"
 description: "Database-driven strategy config with mean-reversion bands, vol-adjusted thresholds, momentum weighting, and frontend integration"
-status: pending
+status: completed
 priority: P1
 effort: 12h
 branch: main
 tags: [strategy, config, backend, frontend, mongodb]
 created: 2026-03-28
+completed: 2026-03-29
 ---
 
 # Advanced Strategy Config System
@@ -34,11 +35,11 @@ Goal: database-driven strategy configuration with new strategy implementations (
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | [Strategy Config Backend](./phase-01-strategy-config-backend.md) | Pending |
-| 2 | [Mean-Reversion Bands Strategy](./phase-02-mean-reversion-bands.md) | Pending |
-| 3 | [Volatility-Adjusted Thresholds](./phase-03-volatility-adjusted-thresholds.md) | Pending |
+| 1 | [Strategy Config Backend](./phase-01-strategy-config-backend.md) | ✅ Completed |
+| 2 | [Mean-Reversion Bands Strategy](./phase-02-mean-reversion-bands.md) | ✅ Completed |
+| 3 | [Volatility-Adjusted Thresholds](./phase-03-volatility-adjusted-thresholds.md) | ✅ Completed |
 | 4 | [Frontend Strategy Config Integration](./phase-04-frontend-integration.md) | ✅ Completed |
-| 5 | [Momentum-Weighted Rebalancing](./phase-05-momentum-weighted-rebalancing.md) | Pending |
+| 5 | [Momentum-Weighted Rebalancing](./phase-05-momentum-weighted-rebalancing.md) | ✅ Completed |
 
 ## Dependencies
 

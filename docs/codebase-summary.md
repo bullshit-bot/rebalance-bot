@@ -15,29 +15,39 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 
 ## Backend Architecture (~10,800 LOC)
 
-### Core Service Modules (19 modules)
+### Core Service Modules (19 modules + advanced rebalancing)
 
 | Module | LOC | Responsibility |
 |--------|-----|-----------------|
-| api/ | 1,900 | REST API (11 routes + health) + WebSocket server |
-| backtesting/ | 1,015 | Historical simulation, metrics calculation |
-| rebalancer/ | 920 | Orchestration, drift detection, trend filter, bear triggers |
+| api/ | 1,950 | REST API (14 routes incl. strategy-config) + WebSocket |
+| backtesting/ | 1,200 | Simulator, metrics calc, parameter-grid optimizer (4800+ combos) |
+| rebalancer/ | 1,100 | Strategy mgr, drift detector, trend filter (MA + cooldown), DCA routing, cash-aware trades |
 | analytics/ | 880 | Performance metrics, reporting |
 | executor/ | 670 | Order execution (live & paper trading) |
 | grid/ | 710 | Grid trading strategy implementation |
 | twap-vwap/ | 620 | Smart order routing, slippage reduction |
 | exchange/ | 350 | Multi-exchange CCXT Pro abstraction |
 | portfolio/ | 385 | Real-time balance, allocation tracking |
-| db/ | 420 | Mongoose models + MongoDB connection |
+| db/ | 450 | Mongoose models (15 schemas) + MongoDB connection |
 | price/ | 260 | Price aggregation, WebSocket feeds |
 | copy-trading/ | 510 | Trade replication from sources |
 | ai/ | 380 | ML suggestions (GoClaw) |
-| dca/ | 235 | Dollar-cost averaging |
+| dca/ | 280 | Dollar-cost averaging + allocation calculator |
 | notifier/ | 210 | Telegram notifications |
 | scheduler/ | 145 | Cron job execution |
 | trailing-stop/ | 175 | Stop-loss management |
 | config/ | 110 | Environment validation (Zod) |
 | events/ | 110 | Typed event bus |
+
+**Advanced Strategies** (6 types implemented):
+| Strategy | LOC | Type |
+|----------|-----|------|
+| threshold | 80 | Fixed deviation trigger |
+| equal-weight | 90 | Equal allocation override |
+| momentum-tilt | 110 | 50/50 momentum blend |
+| vol-adjusted | 120 | Dynamic threshold based on volatility |
+| mean-reversion | 140 | Bollinger bands (lookback, sigma, drift) |
+| momentum-weighted | 130 | Momentum score allocation weighting |
 
 ### Directory Structure
 
@@ -49,7 +59,7 @@ src/
 │   ├── ws.ts               # WebSocket handlers
 │   └── middleware.ts       # Auth, validation
 ├── db/
-│   ├── models/             # 14 Mongoose schemas
+│   ├── models/             # 15 Mongoose schemas
 │   │   ├── allocation-model.ts
 │   │   ├── trade-model.ts
 │   │   ├── snapshot-model.ts
@@ -74,11 +84,21 @@ src/
 │   ├── portfolio-tracker.ts # Balance management
 │   └── allocation-calc.ts  # Target calculation
 ├── rebalancer/
-│   ├── drift-detector.ts   # Allocation monitoring, bear trigger
-│   ├── trend-filter.ts     # MA-based trend detection (BTC closes)
-│   ├── rebalance-engine.ts # Trigger routing, cash override logic
-│   ├── trade-planner.ts    # Trade optimization
-│   └── strategies/         # Strategy implementations
+│   ├── strategy-manager.ts         # Central strategy selector, hot-reload from DB config
+│   ├── drift-detector.ts           # Allocation monitoring, hard-rebalance trigger, bear routing
+│   ├── trend-filter.ts             # MA-based trend (BTC closes), 3-day cooldown, MongoDB persistence
+│   ├── trend-filter-service.ts     # (optional) Standalone trend service wrapper
+│   ├── rebalance-engine.ts         # Trigger routing, cash-override logic, DCA integration
+│   ├── trade-calculator.ts         # Cash-aware trade optimization
+│   ├── dca-target-resolver.ts      # Find most-underweight asset for DCA
+│   ├── strategies/                 # 6 strategy implementations
+│   │   ├── strategy-config-types.ts # Zod types for polymorphic params
+│   │   ├── threshold-strategy.ts
+│   │   ├── equal-weight-strategy.ts
+│   │   ├── momentum-tilt-strategy.ts
+│   │   ├── vol-adjusted-strategy.ts
+│   │   ├── mean-reversion-strategy.ts
+│   │   └── momentum-weighted-strategy.ts
 ├── executor/
 │   ├── executor.ts         # Execution orchestration
 │   └── trade-recorder.ts   # Database persistence
@@ -231,8 +251,9 @@ src/
 | trades | Individual trade records |
 | rebalances | Rebalance execution logs |
 | exchange_configs | Encrypted API credentials |
-| ohlcv_candles | Historical price data |
+| ohlcv_candles | Historical price data + trend filter persistence |
 | backtest_results | Strategy test results |
+| strategy_configs | Strategy config (polymorphic params, active/inactive, hot-reload) |
 | smart_orders | TWAP/VWAP split tracking |
 | grid_bots | Grid trading configurations |
 | grid_orders | Individual grid orders |
@@ -314,7 +335,7 @@ WebSocket API (update frontend)
 
 ## API Endpoints
 
-**REST** (11 routes):
+**REST** (14 routes + config):
 - `GET /health` - System health
 - `GET /api/portfolio` - Holdings & allocations
 - `GET /api/trades` - Trade history
@@ -324,6 +345,11 @@ WebSocket API (update frontend)
 - `GET /api/backtest/:id/results` - Backtest results
 - `GET /api/analytics` - Performance metrics
 - `POST /api/config` - Update settings
+- `GET /api/strategy-config/active` - Current active strategy
+- `POST /api/strategy-config` - Create new config
+- `PUT /api/strategy-config/:id` - Update config
+- `DELETE /api/strategy-config/:id` - Delete config
+- `PUT /api/strategy-config/:id/activate` - Activate config (hot-reload)
 
 **WebSocket** (`/ws`):
 - `portfolio:update` - Holdings changed
@@ -346,9 +372,20 @@ WebSocket API (update frontend)
 ## Testing
 
 **Test Framework**: Bun test runner
-**Coverage**: Unit + integration tests
-**Files**: `tests/unit/` + `tests/integration/`
+**Coverage**: Unit + integration + isolated tests (80%+ target)
+**Test Types**:
+- Unit tests: `.test.ts` (strategy logic, calculators, helpers)
+- Integration tests: `.integration.test.ts` (with DB, event bus)
+- Isolated tests: `.isolated.test.ts` (no external dependencies)
+
+**Recent Additions** (Phase 1):
+- 62 new strategy tests (all 6 strategy types)
+- 10 trend filter tests (bull/bear detection, cooldown, persistence)
+- 8 DCA resolver tests
+- Configuration API integration tests
+
 **Command**: `bun test` (also supports watch mode)
+**Coverage Report**: `bun test --coverage`
 
 ## Development Standards
 
@@ -425,18 +462,19 @@ WebSocket API (update frontend)
 
 | Metric | Value |
 |--------|-------|
-| Total LOC | ~24,500 |
-| Backend LOC | ~10,800 |
+| Total LOC | ~26,000 |
+| Backend LOC | ~11,500 |
 | Frontend LOC | ~13,500 |
 | MCP Server LOC | 200 |
-| Modules | 19 backend |
+| Modules | 19 backend + 6 strategies |
 | Pages | 16 frontend |
-| API Routes | 11 |
-| Database Collections | 13 (MongoDB) |
-| Mongoose Models | 14 |
-| Test Files | 50+ |
+| API Routes | 14 (incl. strategy config) |
+| Database Collections | 15 (MongoDB) |
+| Mongoose Models | 15 |
+| Test Files | 70+ (62 strategy tests + 10 trend filter) |
 | Type Coverage | ~95% |
 | Docker Services | 8 (frontend, backend, mongodb, mcp-server, goclaw, goclaw-ui, goclaw-postgres, autoheal) |
+| Backtest Combinations | 4800+ (grid search optimizer) |
 
 ## Project Status
 
