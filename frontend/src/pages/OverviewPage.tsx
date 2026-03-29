@@ -115,7 +115,8 @@ export default function OverviewPage() {
     const last = history[history.length - 1].totalValueUsd;
     const diff = last - first;
     const pct = first > 0 ? ((diff / first) * 100).toFixed(2) : "0.00";
-    pnlDisplay = `${diff >= 0 ? "+" : ""}$${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} (${diff >= 0 ? "+" : ""}${pct}%)`;
+    const sign = diff >= 0 ? "+" : "-";
+    pnlDisplay = `${sign}$${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} (${sign}${Math.abs(Number(pct)).toFixed(2)}%)`;
   }
 
   // Chart data
@@ -190,7 +191,7 @@ export default function OverviewPage() {
         <StatCard
           label="PnL (history)"
           value={pnlDisplay}
-          variant={pnlDisplay.startsWith("+") ? "success" : "default"}
+          variant={pnlDisplay.startsWith("+") ? "success" : pnlDisplay.startsWith("-") ? "destructive" : "default"}
           icon={<TrendingUp size={18} />}
         />
         {cashReservePct > 0 ? (
