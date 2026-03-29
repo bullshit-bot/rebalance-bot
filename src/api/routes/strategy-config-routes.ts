@@ -4,7 +4,6 @@ import { eventBus } from '@events/event-bus'
 import {
   CreateStrategyConfigSchema,
   UpdateStrategyConfigSchema,
-  StrategyParamsSchema,
 } from '@rebalancer/strategies/strategy-config-types'
 
 const strategyConfigRoutes = new Hono()

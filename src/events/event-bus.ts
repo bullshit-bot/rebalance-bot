@@ -7,6 +7,7 @@ import type {
   RebalanceTrigger,
   TradeResult,
 } from '@/types/index'
+import type { IStrategyConfig } from '@db/models/strategy-config-model'
 
 // ─── Typed event map ──────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ interface EventMap {
   'exchange:connected': ExchangeName
   'exchange:disconnected': ExchangeName
   'exchange:error': { exchange: ExchangeName; error: string }
+  'strategy:config-changed': IStrategyConfig
   error: Error
 }
 

@@ -9,8 +9,6 @@ import type { TradeOrder, TradeResult } from '@/types/index'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LIMIT_ORDER_WAIT_MS = 30_000
-const POLL_INTERVAL_MS = 2_000
 const MAX_RETRIES = 3
 
 // ─── Interface ────────────────────────────────────────────────────────────────
@@ -159,39 +157,6 @@ export class OrderExecutor implements IOrderExecutor {
     const result = this.mapCcxtOrderToResult(ccxtOrder, order, false)
     await this.persistAndEmit(result)
     return result
-  }
-
-  /**
-   * Polls until an order is fully filled or the timeout elapses.
-   * Returns the filled order object or null on timeout.
-   */
-  private async waitForFill(
-    exchange: { fetchOrder: (id: string, symbol: string) => Promise<unknown> },
-    pair: string,
-    orderId: string,
-    timeoutMs: number,
-  ): Promise<Record<string, unknown> | null> {
-    const deadline = Date.now() + timeoutMs
-
-    while (Date.now() < deadline) {
-      await sleep(POLL_INTERVAL_MS)
-
-      try {
-        const fetched = (await exchange.fetchOrder(orderId, pair)) as Record<string, unknown>
-        const status = String(fetched['status'] ?? '')
-
-        if (status === 'closed' || status === 'filled') {
-          return fetched
-        }
-        if (status === 'canceled' || status === 'expired' || status === 'rejected') {
-          return null
-        }
-      } catch {
-        // Transient fetch error — keep polling until deadline
-      }
-    }
-
-    return null
   }
 
   /**

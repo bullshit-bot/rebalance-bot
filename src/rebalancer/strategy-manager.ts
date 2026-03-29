@@ -52,8 +52,8 @@ class StrategyManager {
   constructor() {
     this.mode = env.STRATEGY_MODE as StrategyMode;
     // Listen for config changes via EventBus
-    eventBus.on('strategy:config-changed', (config: unknown) => {
-      this.applyConfig(config as IStrategyConfig);
+    eventBus.on('strategy:config-changed', (config) => {
+      this.applyConfig(config);
     });
   }
 

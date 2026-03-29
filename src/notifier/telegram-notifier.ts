@@ -155,7 +155,7 @@ export class TelegramNotifier {
     return [
       `Tín hiệu: ${signal}`,
       `Giá BTC: $${data.price.toFixed(2)}`,
-      `MA100: ${ma}`,
+      `MA: ${ma}`,
     ].join('\n')
   }
 }

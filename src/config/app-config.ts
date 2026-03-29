@@ -26,10 +26,6 @@ export const env = createEnv({
     // Security
     ENCRYPTION_KEY: z.string().length(32),
 
-    // Notifications (optional)
-    TELEGRAM_BOT_TOKEN: z.string().optional(),
-    TELEGRAM_CHAT_ID: z.string().optional(),
-
     // Rebalance strategy settings
     REBALANCE_THRESHOLD: z.coerce.number().positive().default(5),
     REBALANCE_COOLDOWN_HOURS: z.coerce.number().int().positive().default(1),
@@ -42,9 +38,6 @@ export const env = createEnv({
       .enum(['true', 'false', '1', '0'])
       .transform((v) => v === 'true' || v === '1')
       .default('true'),
-
-    // Database
-    DATABASE_URL: z.string().default('file:./data/bot.db'),
 
     // GoClaw AI agent (for scheduled reports and autonomous actions)
     GOCLAW_URL: z.string().url().optional(),
@@ -79,9 +72,6 @@ export const env = createEnv({
 
     ENCRYPTION_KEY: process.env['ENCRYPTION_KEY'],
 
-    TELEGRAM_BOT_TOKEN: process.env['TELEGRAM_BOT_TOKEN'],
-    TELEGRAM_CHAT_ID: process.env['TELEGRAM_CHAT_ID'],
-
     REBALANCE_THRESHOLD: process.env['REBALANCE_THRESHOLD'],
     REBALANCE_COOLDOWN_HOURS: process.env['REBALANCE_COOLDOWN_HOURS'],
     MIN_TRADE_USD: process.env['MIN_TRADE_USD'],
@@ -89,8 +79,6 @@ export const env = createEnv({
     DAILY_LOSS_LIMIT_PCT: process.env['DAILY_LOSS_LIMIT_PCT'],
 
     PAPER_TRADING: process.env['PAPER_TRADING'],
-
-    DATABASE_URL: process.env['DATABASE_URL'],
 
     STRATEGY_MODE: process.env['STRATEGY_MODE'],
     MOMENTUM_WINDOW_DAYS: process.env['MOMENTUM_WINDOW_DAYS'],

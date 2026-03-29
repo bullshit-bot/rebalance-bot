@@ -286,7 +286,7 @@ class PortfolioTracker {
    */
   private loadAndBuildPortfolio(
     assetValues: Map<string, { amount: number; valueUsd: number; exchange: ExchangeName }>,
-    totalValueUsd: number,
+    _totalValueUsd: number,
   ): void {
     // Run async DB fetch without blocking; result is handled in the callback
     this.getTargetAllocations()
