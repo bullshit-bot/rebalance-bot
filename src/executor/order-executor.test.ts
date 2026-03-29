@@ -296,16 +296,14 @@ describe('OrderExecutor - dependency injection', () => {
     expect(attempts).toBeGreaterThanOrEqual(2)
   }, 10_000)
 
-  test('execute() falls back to market order when limit order errors (non-network)', async () => {
-    let callCount = 0
+  test('execute() uses market order directly regardless of order type', async () => {
+    let orderType: string | undefined
     const deps = makeDeps()
 
     deps.exchangeManager = {
       getExchange: () => ({
         createOrder: async (_pair: string, type: string, _side: string, amount: number, price?: number) => {
-          callCount++
-          if (type === 'limit') throw new Error('Insufficient balance')  // non-network error
-          // market order succeeds
+          orderType = type
           return {
             id: 'mkt-order-001',
             status: 'closed',
@@ -329,14 +327,14 @@ describe('OrderExecutor - dependency injection', () => {
       exchange: 'binance',
       pair: 'BTC/USDT',
       side: 'buy',
-      type: 'limit',
+      type: 'limit',  // even if limit is requested, executor uses market
       amount: 0.1,
       price: 50000,
     }
 
     const result = await executor.execute(order)
     expect(result.orderId).toBe('mkt-order-001')
-    expect(callCount).toBeGreaterThanOrEqual(2) // limit tried, then market
+    expect(orderType).toBe('market')  // always market, no limit fallback
   })
 
   test('execute() falls back to market when limit times out (not filled)', async () => {

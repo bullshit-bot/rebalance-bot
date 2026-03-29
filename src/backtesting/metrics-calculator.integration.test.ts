@@ -287,7 +287,8 @@ describe('metrics-calculator', () => {
         { timestamp: 1000000, value: 0.01 },
         { timestamp: 2000000, value: 0.02 },
       ]
-      const metrics = metricsCalculator.calculate(equityCurve, [], baseConfig)
+      const smallConfig = { ...baseConfig, initialBalance: 0.01 }
+      const metrics = metricsCalculator.calculate(equityCurve, [], smallConfig)
 
       expect(metrics.totalReturnPct).toBe(100)
       expect(isFinite(metrics.volatility)).toBe(true)
@@ -298,7 +299,8 @@ describe('metrics-calculator', () => {
         { timestamp: 1000000, value: 1000000000 },
         { timestamp: 2000000, value: 1200000000 },
       ]
-      const metrics = metricsCalculator.calculate(equityCurve, [], baseConfig)
+      const largeConfig = { ...baseConfig, initialBalance: 1000000000 }
+      const metrics = metricsCalculator.calculate(equityCurve, [], largeConfig)
 
       expect(metrics.totalReturnPct).toBe(20)
       expect(isFinite(metrics.volatility)).toBe(true)
