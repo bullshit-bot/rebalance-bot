@@ -1,7 +1,7 @@
 # System Architecture
 
-**Last Updated**: 2026-03-26
-**Version**: 1.0.0
+**Last Updated**: 2026-03-29
+**Version**: 1.0.1
 **Project**: Crypto Rebalance Bot
 **Status**: Complete (4 phases + advanced strategies)
 
@@ -12,37 +12,45 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 ## High-Level Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Docker Compose Stack                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  Frontend (nginx)      Backend (Bun)      MongoDB 7              │
-│  ┌──────────────┐     ┌──────────────┐   ┌──────────────┐       │
-│  │ React        │     │ Hono API     │   │ Collections  │       │
-│  │ Dashboard    │────→│ + WebSocket  │←→ │ • trades     │       │
-│  │ Port: 80     │     │ Port: 3001   │   │ • snapshots  │       │
-│  └──────────────┘     └──────────────┘   │ • allocations│       │
-│         ↑                    ↑             │ + indexes    │       │
-│         └────────────┬───────┘             └──────────────┘       │
-│                      │                            ↑               │
-│                      ↓                            │               │
-│  ┌──────────────────────────────────────────────┘               │
-│  │              Services Layer                                   │
-│  ├─────────────────────────────────────────────────────────────┤
-│  │ Exchange Service │ Price Service │ Portfolio │ Rebalancer    │
-│  │ (CCXT Pro)       │ (WebSocket)    │ (State)   │ (Strategy)    │
-│  │                  │                │           │               │
-│  │ Executor │ Analytics │ Notifier │ Scheduler │ Copy Trading   │
-│  └─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                       Docker Compose Stack                        │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  Frontend (nginx)   Backend (Bun)   MongoDB 7    MCP Server      │
+│  ┌──────────────┐  ┌──────────────┐ ┌──────────┐ ┌────────────┐ │
+│  │ React        │  │ Hono API     │ │Collections│ │ MCP (SSE)  │ │
+│  │ Dashboard    │→ │ + WebSocket  │←│ • trades │ │ Port: 3100 │ │
+│  │ Port: 3000   │  │ Port: 3001   │ │ • trades │ └────────────┘ │
+│  └──────────────┘  └──────────────┘ └──────────┘        ↑        │
+│         ↑                  ↑                             │        │
+│         └────────────┬─────┘                            │        │
+│                      │                                  │        │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              Services Layer                              │  │
+│  ├───────────────────────────────────────────────────────────┤  │
+│  │ Exchange │ Price Service │ Portfolio │ Rebalancer         │  │
+│  │ (CCXT)   │ (WebSocket)    │ (State)   │ (Strategy)         │  │
+│  │          │                │           │                    │  │
+│  │ Executor │ Analytics │ Notifier │ Scheduler │ Copy Trading │  │
+│  └───────────────────────────────────────────────────────────┘  │
 │         ↑
-│         │ (Profiles: full)
+│         │
 │  ┌──────────────────────────────────────────────────────────────┐
-│  │       Optional: GoClaw AI + ChromaDB                        │
-│  │  ┌────────────┐    ┌──────────────┐   ┌──────────────┐       │
-│  │  │ GoClaw   │    │ MCP Server   │   │ ChromaDB     │       │
-│  │  │ AI Agent   │←──→│ (REST wrap)  │   │ (Knowledge)  │       │
-│  │  └────────────┘    └──────────────┘   └──────────────┘       │
-│  └─────────────────────────────────────────────────────────────┘
+│  │    GoClaw AI + PostgreSQL + Vector Store                    │
+│  │  ┌────────────────────┐  ┌──────────────────┐               │
+│  │  │ GoClaw Agent       │  │ goclaw-postgres  │               │
+│  │  │ (Go-based)         │  │ (PostgreSQL +    │               │
+│  │  │ Port: 18790        │←→│  pgvector)       │               │
+│  │  │ Skills: /skills/   │  │                  │               │
+│  │  └────────────────────┘  └──────────────────┘               │
+│  │                                                               │
+│  │  ┌─────────────────────────────────────────────────────┐   │
+│  │  │ GoClaw UI Dashboard (goclaw-web)                    │   │
+│  │  │ Port: 8081                                           │   │
+│  │  └─────────────────────────────────────────────────────┘   │
+│  └──────────────────────────────────────────────────────────────┘
+│
+│  + autoheal (container auto-restart on failure)
 │
 │  Exchange WS Feed (Binance/OKX/Bybit)
 │         ↓
@@ -69,8 +77,8 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - **Scheduler**: croner 9.0+ (Cron jobs)
 - **Validation**: Zod 3.24+ (Type-safe schemas)
 - **Linter**: Biome 1.9+ (Fast linting)
-- **MCP Server**: REST wrapper for Claude/Agent integration
-- **AI Framework**: GoClaw with ChromaDB knowledge base
+- **MCP Server**: SSE-based wrapper for Claude/Agent integration (port 3100)
+- **AI Framework**: GoClaw (Go) + PostgreSQL with pgvector
 
 ## Service Modules
 
@@ -327,28 +335,34 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 
 **Target Environment**: Docker Compose on VPS (8GB RAM)
 
-**6-Service Stack**:
-1. **frontend** (nginx) - React dashboard, port 80
-2. **backend** (Bun) - Hono API, port 3001
-3. **mongodb** - Data persistence, port 27017
-4. **mcp-server** - MCP wrapper for Claude integration (internal)
-5. **goclaw** - GoClaw AI agent (profile: full)
-6. **chromadb** - Vector knowledge base (profile: full)
+**8-Service Stack**:
+1. **frontend** (nginx) - React dashboard, port 3000
+2. **backend** (Bun) - Hono API, port 3001 (internal)
+3. **mongodb** - Data persistence, port 27017 (internal)
+4. **mcp-server** - MCP wrapper (SSE mode), port 3100 (internal)
+5. **goclaw** - GoClaw AI agent (Go-based), port 18790
+6. **goclaw-ui** - GoClaw dashboard, port 8081
+7. **goclaw-postgres** - PostgreSQL + pgvector, port 5432 (internal)
+8. **autoheal** - Auto-restart unhealthy containers
 
-**Startup**: `docker compose up -d` (basic) or `docker compose --profile full up -d` (with AI)
+**Startup**: `docker compose up -d` (includes all services by default)
 
 **Memory Allocation**:
 - frontend: 128M
 - backend: 512M (limit), 128M (reservation)
 - mongodb: 512M (limit)
 - mcp-server: 256M
-- goclaw: 256M (with profile)
-- chromadb: 512M (with profile)
-- **Total**: ~1.7GB basic, ~2.5GB with AI
+- goclaw: 1G (limit)
+- goclaw-ui: 128M (limit)
+- goclaw-postgres: 256M (limit)
+- autoheal: 32M (limit)
+- **Total**: ~3.7GB
 
 **Volumes**:
 - `mongodb_data:/data/db` - MongoDB persistence
-- `chromadb_data:/chroma/chroma` - Vector DB persistence
+- `goclaw_data:/app/data` - GoClaw workspace data
+- `goclaw_postgres_data:/var/lib/postgresql` - PostgreSQL persistence
+- `./goclaw-skills:/app/workspace/skills` - Bind mount for skills
 
 ## Performance Characteristics
 

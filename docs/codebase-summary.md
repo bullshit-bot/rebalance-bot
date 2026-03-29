@@ -1,7 +1,7 @@
 # Codebase Summary
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-26 (Docker + MongoDB migration)
+**Last Updated**: 2026-03-29 (GoClaw migration)
 **Version**: 1.0.0
 **Repository**: https://github.com/dungngo97/rebalance-bot
 **License**: MIT
@@ -115,7 +115,7 @@ src/
 ## MCP Server (~200 LOC)
 
 **Location**: `mcp-server/src/`
-**Purpose**: REST wrapper around backend API for Claude/Agent integration
+**Purpose**: SSE-based wrapper around backend API for Claude/Agent integration
 
 **Tools Exposed**:
 - Portfolio tools (get holdings, allocations)
@@ -124,32 +124,48 @@ src/
 - Configuration tools (update settings)
 - Health tools (system status)
 
-**Architecture**: Simple Node.js server → HTTP client → Backend Hono API
-**Port**: Internal only (routed through Docker network)
+**Architecture**: Node.js server (SSE transport) → HTTP client → Backend Hono API
+**Port**: 3100 (internal, accessed via Docker network)
+**Transport**: Server-Sent Events (SSE) for long-lived connections
 
-## GoClaw AI & ChromaDB
+## GoClaw AI Framework
 
 **Location**: `goclaw-skills/`
-**Profile**: `full` (optional Docker profile)
+**Type**: Go-based AI agent with PostgreSQL + vector embeddings
 
 **Components**:
-1. **GoClaw Agent** - LLM-powered assistant with skills
-2. **ChromaDB** - Vector database for knowledge retrieval
-3. **Skills** (5 total):
-   - `allocation-advisor` - Allocation recommendations
-   - `auto-rebalance` - Automated rebalancing
-   - `crypto-news` - Market news analysis
-   - `market-analysis` - Price & trend analysis
-   - `portfolio-monitor` - Real-time monitoring
+1. **GoClaw Agent** (port 18790)
+   - Go-based lightweight runtime
+   - Supports skills via workspace directory
+   - Vector embeddings via pgvector
 
-4. **Knowledge Base** (`knowledge/`):
-   - API reference documentation
-   - Portfolio strategies & guides
-   - Risk management best practices
+2. **goclaw-postgres** - PostgreSQL 18 + pgvector extension
+   - Replaces ChromaDB for vector storage
+   - Native SQL-based knowledge retrieval
+   - Scales better for large datasets
+
+3. **goclaw-ui** (port 8081)
+   - Web dashboard for agent management
+   - Built-in UI for skill management
+
+4. **Skills** (goclaw-skills/ directory):
+   - Skills mounted as bind volume
+   - Accessible to GoClaw at `/app/workspace/skills`
+   - Examples: allocation-advisor, auto-rebalance, portfolio-monitor
 
 **Environment**:
-- `BACKEND_API_URL=http://backend:3001`
-- `CHROMADB_URL=http://chromadb:8000`
+- `GOCLAW_GATEWAY_TOKEN` - Authentication token
+- `GOCLAW_ENCRYPTION_KEY` - Data encryption (32 chars)
+- `GOCLAW_POSTGRES_DSN=postgres://goclaw:${GOCLAW_DB_PASSWORD}@goclaw-postgres:5432/goclaw`
+- `ANTHROPIC_API_KEY` - Optional Claude API
+- `XAI_API_KEY` - xAI Grok model support
+- `BACKEND_API_URL=http://backend:3001` - Access to rebalance-bot API
+
+**Advantages over ChromaDB**:
+- Lighter memory footprint
+- Better security (Go-based, encrypted)
+- Native pgvector for embeddings
+- Single unified database (PostgreSQL)
 
 ## Frontend Architecture (~13,500 LOC)
 
@@ -249,9 +265,9 @@ src/
 | Linting | Biome 1.9+ |
 | Testing | Bun test runner |
 | CI/CD | GitHub Actions |
-| Deployment | Docker Compose (6 services) |
-| MCP Server | REST wrapper for Claude |
-| AI Framework | GoClaw + ChromaDB |
+| Deployment | Docker Compose (8 services) |
+| MCP Server | SSE-based wrapper for Claude (port 3100) |
+| AI Framework | GoClaw (Go) + PostgreSQL with pgvector |
 
 ## Bootstrap Sequence
 
@@ -364,11 +380,12 @@ WebSocket API (update frontend)
 
 ## Deployment
 
-**Target**: Docker on VPS (8GB RAM, Linux)
-**Process Manager**: systemd or Docker
-**Reverse Proxy**: nginx
-**Database**: SQLite (local) or Turso (cloud)
-**Configuration**: Environment variables
+**Target**: Docker on VPS (8GB+ RAM, Linux)
+**Container Orchestration**: Docker Compose (8 services)
+**Reverse Proxy**: nginx (optional, for TLS)
+**Databases**: MongoDB (trades) + PostgreSQL (GoClaw)
+**Configuration**: Environment variables (.env)
+**Auto-healing**: autoheal service monitors and restarts unhealthy containers
 
 ## Key Files to Know
 
@@ -419,6 +436,7 @@ WebSocket API (update frontend)
 | Mongoose Models | 14 |
 | Test Files | 50+ |
 | Type Coverage | ~95% |
+| Docker Services | 8 (frontend, backend, mongodb, mcp-server, goclaw, goclaw-ui, goclaw-postgres, autoheal) |
 
 ## Project Status
 

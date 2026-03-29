@@ -1,7 +1,7 @@
 # Deployment Guide
 
-**Last Updated**: 2026-03-26
-**Version**: 1.0.0
+**Last Updated**: 2026-03-29
+**Version**: 1.0.1
 **Project**: Crypto Rebalance Bot
 
 ## Overview
@@ -36,80 +36,104 @@ Edit `.env`:
 ```bash
 # Required
 MONGO_PASSWORD=your-strong-password-here
+GOCLAW_DB_PASSWORD=your-goclaw-password-here
 
 # Optional but recommended
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 REBALANCE_THRESHOLD=0.05
 MIN_TRADE_USD=10
 PAPER_TRADING=true
+
+# GoClaw AI (optional)
+GOCLAW_GATEWAY_TOKEN=your-gateway-token
+GOCLAW_ENCRYPTION_KEY=your-32-char-encryption-key
+ANTHROPIC_API_KEY=your-api-key
+XAI_API_KEY=your-xai-api-key
 ```
 
 Start:
 
 ```bash
-# Basic stack (frontend + backend + mongodb)
+# Full stack (frontend + backend + mongodb + goclaw + postgres)
 docker compose up -d
-
-# Full stack with AI features
-docker compose --profile full up -d
 ```
 
 **Verify**:
 
 ```bash
 docker compose ps
-curl http://localhost/health      # Frontend
-curl http://localhost/api/health  # Backend
+curl http://localhost:3000/health        # Frontend
+curl http://localhost/api/health         # Backend
+curl http://localhost:8081/health        # GoClaw UI
 ```
 
-Frontend at `http://your-vps-ip:80`
+Dashboards:
+- Frontend at `http://your-vps-ip:3000`
+- GoClaw UI at `http://your-vps-ip:8081`
 
 ## Service Configuration
 
 ### docker-compose.yml Structure
 
-**6 Services**:
+**8 Services**:
 
 1. **frontend** (nginx)
-   - Port: 80 (HTTP)
+   - Port: 3000 (HTTP)
    - Memory: 128M limit
    - Builds from `./frontend/Dockerfile`
    - Serves React app via nginx
    - Proxy to backend at `/api`
 
 2. **backend** (Bun)
-   - Port: 3001 (internal, routed via frontend)
+   - Port: 3001 (internal)
    - Memory: 512M limit, 128M reserved
    - Hono API server
    - Loads config from `.env`
    - Connects to MongoDB
 
 3. **mongodb** (MongoDB 7)
-   - Port: 27017 (internal)
+   - Port: 27017 (internal only, blocked by firewall)
    - Memory: 512M limit
    - Volume: `mongodb_data` persists at `/data/db`
    - Auth: `admin:${MONGO_PASSWORD}`
 
-4. **mcp-server** (Optional)
-   - Internal port (no public exposure)
+4. **mcp-server** (Node.js)
+   - Port: 3100 (internal)
+   - Memory: 256M
+   - SSE transport mode for Claude integration
    - Wraps backend REST API for MCP clients
-   - Memory: 256M
 
-5. **goclaw** (Profile: full)
-   - GoClaw AI agent
-   - Requires chromadb
-   - Memory: 256M
+5. **goclaw** (Go-based)
+   - Port: 18790 (public access)
+   - Memory: 1G limit
+   - GoClaw AI agent with skills directory
+   - Connects to goclaw-postgres
+   - Volume: bind-mount to `./goclaw-skills`
 
-6. **chromadb** (Profile: full)
-   - Vector knowledge base
-   - Volume: `chromadb_data`
-   - Memory: 512M
+6. **goclaw-ui** (Web)
+   - Port: 8081 (public access)
+   - Memory: 128M limit
+   - GoClaw dashboard UI
+   - Depends on goclaw service
+
+7. **goclaw-postgres** (PostgreSQL 18 + pgvector)
+   - Port: 5432 (internal only)
+   - Memory: 256M limit
+   - Volume: `goclaw_postgres_data` persists
+   - Auth: `goclaw:${GOCLAW_DB_PASSWORD}`
+
+8. **autoheal** (Docker auto-restart)
+   - No public port
+   - Memory: 32M
+   - Auto-restarts unhealthy containers
 
 **Volumes**:
 
 ```
-mongodb_data:        # MongoDB persistence
-chromadb_data:       # ChromaDB persistence
+mongodb_data:              # MongoDB persistence
+goclaw_data:               # GoClaw workspace data
+goclaw_postgres_data:      # PostgreSQL persistence
+./goclaw-skills:           # Bind mount for AI skills
 ```
 
 ## Environment Variables
@@ -118,6 +142,7 @@ chromadb_data:       # ChromaDB persistence
 
 ```bash
 MONGO_PASSWORD=<secure-password>
+GOCLAW_DB_PASSWORD=<secure-password>
 ```
 
 ### Recommended
@@ -127,6 +152,15 @@ TELEGRAM_BOT_TOKEN=<your-bot-token>
 REBALANCE_THRESHOLD=0.05        # 5% drift trigger
 MIN_TRADE_USD=10                # Min order size
 PAPER_TRADING=true              # Safe default
+```
+
+### GoClaw (Optional but included)
+
+```bash
+GOCLAW_GATEWAY_TOKEN=<secure-token>
+GOCLAW_ENCRYPTION_KEY=<32-char-key>
+ANTHROPIC_API_KEY=              # Claude API key (optional)
+XAI_API_KEY=                    # xAI Grok API key (optional)
 ```
 
 ### Optional
@@ -142,7 +176,9 @@ CCXT_RATE_LIMIT=100             # Exchange rate limit
 ```bash
 MONGODB_URI=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/rebalance?authSource=admin
 BACKEND_API_URL=http://backend:3001  # For mcp-server
-CHROMADB_URL=http://chromadb:8000    # For goclaw
+MCP_TRANSPORT=sse               # SSE mode for Claude
+MCP_PORT=3100                   # MCP server port
+GOCLAW_POSTGRES_DSN=postgres://goclaw:${GOCLAW_DB_PASSWORD}@goclaw-postgres:5432/goclaw
 ```
 
 ## Health Checks
@@ -151,15 +187,24 @@ Each service includes health checks:
 
 ```bash
 # Frontend
-curl http://localhost/health
+curl http://localhost:3000/health
 # → 200 OK if nginx running
 
 # Backend
 curl http://localhost/api/health
 # → { "status": "ok", "mongodb": true, "uptime": 123 }
 
+# GoClaw
+curl http://localhost:18790/health
+
+# GoClaw UI
+curl http://localhost:8081/health
+
 # MongoDB
 docker exec rebalance-mongodb mongosh --eval "db.adminCommand('ping')"
+
+# GoClaw PostgreSQL
+docker exec rebalance-goclaw-postgres pg_isready -U goclaw
 ```
 
 ## Logs
@@ -194,14 +239,22 @@ docker cp ./mongodb-backup rebalance-mongodb:/
 docker exec rebalance-mongodb mongorestore /mongodb-backup
 ```
 
-### ChromaDB Data (if using AI features)
+### GoClaw PostgreSQL Data
 
 ```bash
 # Backup
-docker cp rebalance-chromadb:/chroma/chroma ./chromadb-backup
+docker exec rebalance-goclaw-postgres pg_dump -U goclaw goclaw > ./goclaw-backup.sql
 
 # Restore
-docker cp ./chromadb-backup rebalance-chromadb:/chroma/chroma
+docker exec -i rebalance-goclaw-postgres psql -U goclaw goclaw < ./goclaw-backup.sql
+```
+
+### GoClaw Skills Data
+
+```bash
+# Skills are in ./goclaw-skills directory (bind mount)
+# Backup the directory manually or commit to version control
+cp -r ./goclaw-skills ./goclaw-skills-backup
 ```
 
 ## Updating
@@ -229,9 +282,13 @@ Mongoose handles schema migrations automatically on startup.
 
 1. **Firewall**
    ```bash
-   ufw allow 80/tcp      # Frontend HTTP
+   ufw allow 22/tcp      # SSH
+   ufw allow 3000/tcp    # Frontend (React)
+   ufw allow 8081/tcp    # GoClaw UI
+   ufw allow 18790/tcp   # GoClaw Agent
    ufw allow 443/tcp     # For reverse proxy with TLS
-   ufw deny 27017/tcp    # Block external MongoDB access
+   ufw deny 27017/tcp    # Block external MongoDB
+   ufw deny 5432/tcp     # Block external PostgreSQL
    ```
 
 2. **SSL/TLS**
