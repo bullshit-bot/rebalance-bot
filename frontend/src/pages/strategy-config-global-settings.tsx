@@ -45,21 +45,11 @@ export function GlobalSettingsSection({ settings, onChange }: Props) {
         Global Settings
       </h2>
 
-      {/* Standard toggles */}
-      <Toggle
-        label="Dynamic Threshold"
-        value={settings.dynamicThreshold}
-        onChange={(v) => onChange("dynamicThreshold", v)}
-      />
+      {/* Fee-Aware: only toggle that actually affects trade decisions */}
       <Toggle
         label="Fee-Aware Execution"
         value={settings.feeAware}
         onChange={(v) => onChange("feeAware", v)}
-      />
-      <Toggle
-        label="Auto Execute"
-        value={settings.autoExecute}
-        onChange={(v) => onChange("autoExecute", v)}
       />
 
       {/* Cash Reserve slider */}
