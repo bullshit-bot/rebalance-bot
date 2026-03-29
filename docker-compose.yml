@@ -139,6 +139,9 @@ services:
       GOCLAW_POSTGRES_DSN: postgres://goclaw:${GOCLAW_DB_PASSWORD:-goclaw}@goclaw-postgres:5432/goclaw?sslmode=disable
       GOCLAW_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOCLAW_XAI_API_KEY: ${XAI_API_KEY:-}
+      ENABLE_PYTHON: "true"
+      ENABLE_NODE: "true"
+      ENABLE_FULL_SKILLS: "true"
     volumes:
       - goclaw_data:/app/data
       - ./goclaw-skills:/app/workspace/skills
