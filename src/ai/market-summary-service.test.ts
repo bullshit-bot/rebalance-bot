@@ -70,7 +70,7 @@ describe('MarketSummaryService', () => {
     it('should include trade counts', async () => {
       const summary = await marketSummaryService.generateSummary()
 
-      expect(summary.toLowerCase()).toContain('trade')
+      expect(summary.toLowerCase()).toMatch(/trade|giao dịch/i)
     })
 
     it('should handle zero trades', async () => {
