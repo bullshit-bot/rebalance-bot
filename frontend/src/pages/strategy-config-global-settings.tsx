@@ -157,7 +157,7 @@ export function GlobalSettingsSection({ settings, onChange }: Props) {
             <input
               type="range"
               min={30}
-              max={95}
+              max={100}
               step={5}
               value={settings.bearCashPct}
               onChange={(e) => onChange("bearCashPct", Number(e.target.value))}
