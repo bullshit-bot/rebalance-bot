@@ -132,56 +132,27 @@ export class OrderExecutor implements IOrderExecutor {
       throw new Error(`[OrderExecutor] Blocked by execution guard: ${guard.reason}`)
     }
 
-    // Try limit order → fall back to market if unfilled
+    // Place market order directly (faster, avoids limit order lock issues on testnet)
     let ccxtOrder: Record<string, unknown>
 
     try {
-      console.log(`[OrderExecutor] Placing limit ${order.side} ${order.amount} ${order.pair} @ ${currentPrice}`)
-      const limitOrder = await exchange.createOrder(
-        order.pair,
-        'limit',
-        order.side,
-        order.amount,
-        currentPrice,
-      )
-
-      const orderId = String(limitOrder['id'])
-      const filled = await this.waitForFill(exchange, order.pair, orderId, LIMIT_ORDER_WAIT_MS)
-
-      if (!filled) {
-        console.log(`[OrderExecutor] Limit order not filled in ${LIMIT_ORDER_WAIT_MS}ms — cancelling, placing market`)
-        try {
-          await exchange.cancelOrder(orderId, order.pair)
-        } catch {
-          // Best-effort cancel — may already be partially filled
-        }
-
-        console.log(`[OrderExecutor] Placing market ${order.side} ${order.amount} ${order.pair}`)
-        ccxtOrder = (await exchange.createOrder(order.pair, 'market', order.side, order.amount)) as unknown as Record<string, unknown>
-      } else {
-        ccxtOrder = filled
-      }
+      console.log(`[OrderExecutor] Placing market ${order.side} ${order.amount} ${order.pair}`)
+      ccxtOrder = (await exchange.createOrder(order.pair, 'market', order.side, order.amount)) as unknown as Record<string, unknown>
     } catch (error) {
-      // Network/disconnect error during order placement — check if the order was
-      // actually placed before retrying to avoid duplicate orders
       const message = error instanceof Error ? error.message : String(error)
       const isNetworkError = this.isNetworkError(error)
 
       if (isNetworkError) {
-        console.log(`[OrderExecutor] Network error during order placement for ${order.pair}: ${message}`)
-        // Query open orders to detect if our order already exists
+        console.log(`[OrderExecutor] Network error for ${order.pair}: ${message}`)
         const maybeOpen = await this.findPossiblyPlacedOrder(exchange, order)
         if (maybeOpen) {
-          console.log(`[OrderExecutor] Found possibly placed order ${String(maybeOpen['id'])} — treating as filled, not retrying`)
+          console.log(`[OrderExecutor] Found existing order ${String(maybeOpen['id'])}`)
           ccxtOrder = maybeOpen
         } else {
-          // Order likely not placed — safe to re-throw for retry loop
           throw error
         }
       } else {
-        // Non-network error (e.g. insufficient funds): fall back to market order
-        console.log(`[OrderExecutor] Limit order error, falling back to market: ${message}`)
-        ccxtOrder = (await exchange.createOrder(order.pair, 'market', order.side, order.amount)) as unknown as Record<string, unknown>
+        throw new Error(`[OrderExecutor] Market order failed for ${order.pair}: ${message}`)
       }
     }
 
