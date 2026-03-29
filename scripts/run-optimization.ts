@@ -10,14 +10,12 @@ import type { StrategyType } from '../src/rebalancer/strategies/strategy-config-
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const PAIRS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'AVAX/USDT', 'LINK/USDT']
+const PAIRS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT']
 const ALLOCATIONS = [
-  { asset: 'BTC', targetPct: 35 },
-  { asset: 'ETH', targetPct: 25 },
+  { asset: 'BTC', targetPct: 40 },
+  { asset: 'ETH', targetPct: 30 },
   { asset: 'SOL', targetPct: 15 },
-  { asset: 'BNB', targetPct: 5 },
-  { asset: 'AVAX', targetPct: 10 },
-  { asset: 'LINK', targetPct: 10 },
+  { asset: 'BNB', targetPct: 15 },
 ]
 const INITIAL_BALANCE = 100_000
 const FEE_PCT = 0.001

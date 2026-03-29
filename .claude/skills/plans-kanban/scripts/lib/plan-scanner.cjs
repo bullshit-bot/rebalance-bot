@@ -131,9 +131,7 @@ function getPlanMetadata(planFilePath) {
       path: planFilePath,
       directory: directory,
       phases: progress,
-      progress: (progress.total === 0 && richMeta.hasFrontmatter && normalizeStatus(richMeta.headerStatus) === 'completed')
-        ? 100
-        : progress.percentage,
+      progress: progress.percentage,
       lastModified: stats.mtime.toISOString(),
       // Use frontmatter status if hasFrontmatter (already normalized), otherwise derive from phases
       status: richMeta.hasFrontmatter && richMeta.headerStatus
