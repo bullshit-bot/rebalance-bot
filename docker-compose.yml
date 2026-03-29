@@ -126,7 +126,10 @@ services:
       - app-network
 
   goclaw:
-    image: ghcr.io/nextlevelbuilder/goclaw:latest
+    build:
+      context: .
+      dockerfile: docker/goclaw.Dockerfile
+    image: rebalance-goclaw:latest
     container_name: rebalance-goclaw
     restart: unless-stopped
     ports:
