@@ -14,6 +14,9 @@ const DEPOSIT_THRESHOLD_PCT = 1
 /** Cooldown between consecutive deposit detections (ms). */
 const DEPOSIT_COOLDOWN_MS = 60_000
 
+/** Default scheduled DCA amount (USD) per execution. Override via strategy config. */
+const DEFAULT_DCA_AMOUNT = 20
+
 // ─── DCAService ───────────────────────────────────────────────────────────────
 
 /**
@@ -93,6 +96,35 @@ class DCAService {
     if (orders.length === 0) {
       console.log('[DCAService] Portfolio is balanced — no DCA orders needed')
     }
+    return orders
+  }
+
+  /**
+   * Scheduled DCA: buy $amount worth of the most underweight asset.
+   * Called by cron scheduler daily — does not depend on deposit detection.
+   * In paper mode, logs the order but doesn't execute.
+   */
+  async executeScheduledDCA(amountUsd?: number): Promise<TradeOrder[]> {
+    const portfolio = portfolioTracker.getPortfolio()
+    if (!portfolio) {
+      console.log('[DCAService] Scheduled DCA skipped — portfolio not ready')
+      return []
+    }
+
+    const targets = await portfolioTracker.getTargetAllocations()
+    const amount = amountUsd ?? DEFAULT_DCA_AMOUNT
+    const orders = this.calculateDCAAllocation(amount, portfolio, targets)
+
+    if (orders.length > 0) {
+      console.log(`[DCAService] Scheduled DCA: $${amount} →`)
+      for (const order of orders) {
+        console.log(`  BUY ${order.amount.toFixed(6)} ${order.pair} on ${order.exchange}`)
+      }
+      // TODO: wire to order executor for live/paper execution
+    } else {
+      console.log(`[DCAService] Scheduled DCA: $${amount} — no orders (balanced or bear)`)
+    }
+
     return orders
   }
 

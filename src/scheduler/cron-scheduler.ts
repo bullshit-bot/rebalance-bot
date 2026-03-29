@@ -7,6 +7,7 @@ import { copySyncEngine } from '@/copy-trading/copy-sync-engine'
 import { marketSummaryService } from '@/ai/market-summary-service'
 import { telegramNotifier } from '@/notifier/telegram-notifier'
 import { goClawClient } from '@/ai/goclaw-client'
+import { dcaService } from '@/dca/dca-service'
 
 // ─── Dependency injection interfaces ─────────────────────────────────────────
 
@@ -25,6 +26,8 @@ export interface CronSchedulerDeps {
   onWeeklySummary: () => void
   /** Called every 12h — GoClaw AI market insights via Telegram. */
   onAiInsights: () => void
+  /** Called daily — scheduled DCA buy into most underweight asset. */
+  onScheduledDCA: () => void
 }
 
 // ─── CronScheduler ────────────────────────────────────────────────────────────
@@ -85,6 +88,11 @@ class CronScheduler {
           .catch((err: unknown) => {
             console.error('[CronScheduler] Weekly summary failed:', err)
           })
+      }),
+      onScheduledDCA: deps?.onScheduledDCA ?? (() => {
+        dcaService.executeScheduledDCA().catch((err: unknown) => {
+          console.error('[CronScheduler] Scheduled DCA failed:', err)
+        })
       }),
       onAiInsights: deps?.onAiInsights ?? (() => {
         // GoClaw analyzes portfolio using MCP tools and sends insights via Telegram
@@ -152,14 +160,19 @@ class CronScheduler {
       this.deps.onWeeklySummary()
     })
 
+    // Daily at 00:00 UTC (07:00 VN) — scheduled DCA buy
+    const scheduledDCAJob = new Cron('0 0 * * *', () => {
+      this.deps.onScheduledDCA()
+    })
+
     // Every 12 hours (07:00 + 19:00 UTC = 14:00 + 02:00 VN) — GoClaw AI insights
     const aiInsightsJob = new Cron('0 7,19 * * *', () => {
       this.deps.onAiInsights()
     })
 
-    this.jobs = [periodicRebalance, snapshotJob, priceCacheClean, copySyncJob, dailySummaryJob, weeklySummaryJob, aiInsightsJob]
+    this.jobs = [periodicRebalance, snapshotJob, priceCacheClean, copySyncJob, dailySummaryJob, weeklySummaryJob, scheduledDCAJob, aiInsightsJob]
 
-    console.log('[CronScheduler] Started — 7 jobs scheduled')
+    console.log('[CronScheduler] Started — 8 jobs scheduled')
   }
 
   /**
