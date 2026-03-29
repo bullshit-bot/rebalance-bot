@@ -40,6 +40,7 @@ export class StrategyBacktestAdapter {
     } else if (params.type === 'momentum-weighted') {
       this.momentumWeighted = new MomentumWeightedStrategy()
     }
+    // momentum-tilt uses priceHistories for simple momentum scoring (no dedicated class needed)
   }
 
   // ─── State accumulation ──────────────────────────────────────────────────
@@ -69,7 +70,7 @@ export class StrategyBacktestAdapter {
       this.volAdjusted.recordVolatility(currentVol, p.volLookbackDays)
     }
 
-    if (p.type === 'momentum-weighted') {
+    if (p.type === 'momentum-weighted' || p.type === 'momentum-tilt') {
       // Accumulate close prices per asset (strip /USDT suffix)
       for (const [pair, price] of Object.entries(prices)) {
         const asset = pair.replace('/USDT', '')
@@ -109,8 +110,11 @@ export class StrategyBacktestAdapter {
     }
 
     // momentum-weighted, momentum-tilt, equal-weight, threshold:
-    // use fixed-threshold check (allocations may be adjusted in getEffectiveAllocations)
-    return this._exceedsThreshold(holdings, allocations, totalValueUsd, fallbackThreshold)
+    // use threshold from strategy params if available, otherwise fallback
+    const threshold = ('thresholdPct' in p && typeof p.thresholdPct === 'number')
+      ? p.thresholdPct
+      : fallbackThreshold
+    return this._exceedsThreshold(holdings, allocations, totalValueUsd, threshold)
   }
 
   // ─── Effective allocations ───────────────────────────────────────────────
@@ -130,6 +134,10 @@ export class StrategyBacktestAdapter {
 
     if (p.type === 'equal-weight') {
       return this._equalWeightAllocations(baseAllocations)
+    }
+
+    if (p.type === 'momentum-tilt') {
+      return this._momentumTiltAllocations(baseAllocations)
     }
 
     return baseAllocations
@@ -167,6 +175,44 @@ export class StrategyBacktestAdapter {
       if (Math.abs(currentPct - alloc.targetPct) >= threshold) return true
     }
     return false
+  }
+
+  /**
+   * Tilt allocations toward assets with positive momentum.
+   * Uses simple return over momentumWindowDays as the signal.
+   * momentumWeight controls how much to shift (0=no tilt, 1=full tilt).
+   */
+  private _momentumTiltAllocations(allocations: Allocation[]): Allocation[] {
+    const p = this.params
+    const windowDays = ('momentumWindowDays' in p && typeof p.momentumWindowDays === 'number')
+      ? p.momentumWindowDays : 14
+    const weight = ('momentumWeight' in p && typeof p.momentumWeight === 'number')
+      ? p.momentumWeight : 0.3
+
+    // Calculate momentum score per asset (simple % return over window)
+    const scores = new Map<string, number>()
+    for (const alloc of allocations) {
+      const history = this.priceHistories.get(alloc.asset)
+      if (!history || history.length < windowDays + 1) {
+        scores.set(alloc.asset, 0)
+        continue
+      }
+      const recent = history[history.length - 1]!
+      const past = history[history.length - 1 - windowDays]!
+      scores.set(alloc.asset, past > 0 ? (recent - past) / past : 0)
+    }
+
+    // Tilt: shift weight from underperformers to outperformers
+    const avgScore = [...scores.values()].reduce((s, v) => s + v, 0) / scores.size
+    const adjusted = allocations.map((a) => {
+      const score = scores.get(a.asset) ?? 0
+      const tilt = (score - avgScore) * weight * 100 // convert to percentage points
+      return { ...a, targetPct: Math.max(1, a.targetPct + tilt) } // min 1% to avoid zero
+    })
+
+    // Normalise to 100%
+    const total = adjusted.reduce((s, a) => s + a.targetPct, 0)
+    return adjusted.map((a) => ({ ...a, targetPct: (a.targetPct / total) * 100 }))
   }
 
   /** Distribute weights equally across all allocations. */
