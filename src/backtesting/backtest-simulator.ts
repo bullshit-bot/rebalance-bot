@@ -212,14 +212,17 @@ class BacktestSimulator {
 
       const skipRebalanceInBear = trendMaPeriod > 0 && inBearMode
 
-      if (!skipRebalanceInBear) {
+      // For rebalance calculations, use only the crypto portion (exclude cash)
+      // This prevents the rebalancer from treating cash as drift
+      const cryptoOnlyValue = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0)
+
+      if (!skipRebalanceInBear && cryptoOnlyValue > 0) {
         if (adapter) {
-          // Build drifts map (asset → drift %) for state update
           const drifts = new Map<string, number>()
           for (const alloc of config.allocations) {
             const pair = `${alloc.asset}/USDT`
-            const currentPct = totalValueUsd > 0
-              ? ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100
+            const currentPct = cryptoOnlyValue > 0
+              ? ((holdings[pair]?.valueUsd ?? 0) / cryptoOnlyValue) * 100
               : 0
             drifts.set(alloc.asset, currentPct - alloc.targetPct)
           }
@@ -228,7 +231,7 @@ class BacktestSimulator {
           shouldRebalance = adapter.needsRebalance(
             holdings,
             config.allocations,
-            totalValueUsd,
+            cryptoOnlyValue,
             config.threshold,
           )
           if (shouldRebalance) {
@@ -238,7 +241,7 @@ class BacktestSimulator {
           shouldRebalance = this._needsRebalance(
             holdings,
             config.allocations,
-            totalValueUsd,
+            cryptoOnlyValue,
             config.threshold,
           )
         }
@@ -248,7 +251,7 @@ class BacktestSimulator {
             holdings,
             config,
             prices,
-            totalValueUsd,
+            cryptoOnlyValue,
             ts,
             effectiveAllocations,
           )
@@ -557,7 +560,8 @@ class BacktestSimulator {
   }
 
   /**
-   * Re-deploy excess cash into the most underweight asset (bull transition).
+   * Re-deploy excess cash into assets proportional to target allocation (bull transition).
+   * Distributes across ALL assets, not just the most underweight one.
    * Records trades for audit trail.
    */
   private _deployCash(
@@ -566,50 +570,40 @@ class BacktestSimulator {
     prices: Record<string, number>,
     excessCash: number,
     feePct: number,
-    totalValueUsd: number,
+    _totalValueUsd: number,
     trades: SimulatedTrade[],
     ts: number,
   ): void {
-    let maxDrift = -Infinity
-    let targetAsset: string | null = null
-
+    // Distribute excess cash across all assets by target allocation weight
     for (const alloc of allocations) {
       const pair = `${alloc.asset}/USDT`
-      const heldUsd = holdings[pair]?.valueUsd ?? 0
-      const targetUsd = (alloc.targetPct / 100) * totalValueUsd
-      const drift = targetUsd - heldUsd
-      if (drift > maxDrift) {
-        maxDrift = drift
-        targetAsset = pair
+      const price = prices[pair]
+      if (!price || price <= 0) continue
+
+      const buyAmount = excessCash * (alloc.targetPct / 100)
+      if (buyAmount <= 0) continue
+
+      const fee = buyAmount * feePct
+      const assetQty = (buyAmount - fee) / price
+
+      const holding = holdings[pair]
+      if (holding) {
+        holding.amount += assetQty
+        holding.valueUsd += buyAmount - fee
+      } else {
+        holdings[pair] = { amount: assetQty, valueUsd: buyAmount - fee }
       }
+
+      trades.push({
+        timestamp: ts,
+        pair,
+        side: 'buy',
+        amount: assetQty,
+        price,
+        costUsd: buyAmount,
+        fee,
+      })
     }
-
-    if (!targetAsset || maxDrift <= 0) return
-
-    const price = prices[targetAsset]
-    if (!price || price <= 0) return
-
-    const buyAmount = Math.min(excessCash, maxDrift)
-    const fee = buyAmount * feePct
-    const assetQty = (buyAmount - fee) / price
-
-    const holding = holdings[targetAsset]
-    if (holding) {
-      holding.amount += assetQty
-      holding.valueUsd += buyAmount - fee
-    } else {
-      holdings[targetAsset] = { amount: assetQty, valueUsd: buyAmount - fee }
-    }
-
-    trades.push({
-      timestamp: ts,
-      pair: targetAsset,
-      side: 'buy',
-      amount: assetQty,
-      price,
-      costUsd: buyAmount,
-      fee,
-    })
   }
 
   /** Serialises and persists a completed backtest result to the DB. */
