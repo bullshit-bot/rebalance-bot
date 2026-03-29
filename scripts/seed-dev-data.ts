@@ -9,6 +9,7 @@ import {
   TradeModel,
   RebalanceModel,
   AISuggestionModel,
+  StrategyConfigModel,
 } from '../src/db/models'
 
 async function run() {
@@ -22,17 +23,49 @@ async function run() {
     TradeModel.deleteMany({}),
     RebalanceModel.deleteMany({}),
     AISuggestionModel.deleteMany({}),
+    StrategyConfigModel.deleteMany({}),
   ])
   console.log('Cleared existing collections')
 
-  // ── Seed allocations ────────────────────────────────────────────────────────
+  // ── Seed optimal strategy config (backtest-validated) ──────────────────────
+  await StrategyConfigModel.create({
+    name: 'optimal-backtest-validated',
+    displayName: 'Optimal (Backtest Validated)',
+    isActive: true,
+    version: 1,
+    params: {
+      type: 'threshold',
+      thresholdPct: 5,
+      minTradeUsd: 10,
+    },
+    globalSettings: {
+      baseAsset: 'USDT',
+      cashReservePct: 0,
+      dcaRebalanceEnabled: true,
+      hardRebalanceThreshold: 15,
+      trendFilterEnabled: true,
+      trendFilterMA: 100,
+      bearCashPct: 90,
+      trendFilterCooldownDays: 3,
+      trendFilterBuffer: 2,
+      autoExecute: false,
+      cooldownHours: 4,
+      dynamicThreshold: true,
+      trendAware: false,
+      feeAware: true,
+      maxDailyVolume: 50000,
+      partialFactor: 0.75,
+    },
+    history: [],
+  })
+  console.log('Seeded optimal strategy config (backtest-validated)')
+
+  // ── Seed allocations (optimal: BTC 40/ETH 25/BNB 15/SOL 20) ───────────────
   const allocs = [
-    { asset: 'BTC', targetPct: 35, exchange: 'binance' },
+    { asset: 'BTC', targetPct: 40, exchange: 'binance' },
     { asset: 'ETH', targetPct: 25, exchange: 'binance' },
-    { asset: 'SOL', targetPct: 15, exchange: 'binance' },
-    { asset: 'USDT', targetPct: 10, exchange: 'binance' },
-    { asset: 'AVAX', targetPct: 8, exchange: 'binance' },
-    { asset: 'LINK', targetPct: 7, exchange: 'binance' },
+    { asset: 'BNB', targetPct: 15, exchange: 'binance' },
+    { asset: 'SOL', targetPct: 20, exchange: 'binance' },
   ]
   await AllocationModel.insertMany(allocs.map(a => ({
     asset: a.asset,
