@@ -1,7 +1,7 @@
 # Project Roadmap
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-28
+**Last Updated**: 2026-03-30
 **Current Version**: 1.0.1
 **Status**: Production (Stable) + Production Readiness Complete
 **Repository**: https://github.com/dungngo97/rebalance-bot
@@ -49,8 +49,13 @@ All eight major phases complete. System is production-deployed with 50+ features
 
 ### Phase 8: Cash-Aware DCA + Backtest Optimizer (✅ Complete)
 **Status**: Production-ready
-**Features**: Cash reserve (0-50%), DCA routing to underweight assets, hard rebalance threshold, backtest optimizer (4800+ grid combinations), backtest cash/DCA simulation, trend filter cooldown (3-day), comprehensive tests (80+ new tests)
+**Features**: Cash reserve (0-100%, optimal 100%), DCA routing to underweight assets, hard rebalance threshold, backtest optimizer (4800+ grid combinations), backtest cash/DCA simulation, trend filter cooldown (1-day optimal), comprehensive tests (80+ new tests)
 **Metrics**: 450 LOC (cash+DCA), 250 LOC (optimizer), 200 LOC (backtest integration), 70+ test files
+
+### Phase 9: GoClaw Telegram Migration (✅ Complete)
+**Status**: Production-deployed
+**Features**: GoClaw HTTP client (goclaw-client.ts), Telegram via GoClaw AI agent, daily/weekly reports, 12h AI insights, scheduled DCA ($20/day at 07:00 VN), portfolio tracker asset filtering, momentum-tilt thresholdPct fix, frontend cleanup, optimal config (threshold 8%, MA 110, bear 100%, cooldown 1d), MCP auth (X-API-Key), chart date fix, PnL color coding
+**Metrics**: 85 LOC (goclaw-client), 195 LOC (scheduler 8 cron jobs), +2.2% return improvement, Sharpe 2.23, MaxDD -39.4%
 
 ## Feature Matrix
 
@@ -61,7 +66,7 @@ All eight major phases complete. System is production-deployed with 50+ features
 | Real-Time Prices | ✅ | 2 | 260 |
 | REST API | ✅ | 2 | 1,850 |
 | React Dashboard | ✅ | 2 | 13,500 |
-| Telegram Alerts | ✅ | 2 | 210 |
+| GoClaw Telegram Integration | ✅ | 2+ | 85 |
 | Backtesting | ✅ | 3 | 1,015 |
 | Trailing Stops | ✅ | 4 | 175 |
 | DCA Strategy | ✅ | 4 | 235 |
@@ -96,17 +101,29 @@ All eight major phases complete. System is production-deployed with 50+ features
 
 ## Recent Updates (2026)
 
+**March 30, 2026 — GoClaw Telegram Integration + Optimal Config**:
+- ✅ GoClaw Telegram: All Telegram notifications via GoClaw HTTP client, Grammy dependency removed
+- ✅ Backend Integration: GoClawClient (src/ai/goclaw-client.ts) uses /v1/chat/completions endpoint
+- ✅ GoClaw Cron Jobs: 3 scheduled: daily report (01:00 UTC/08:00 VN), weekly Sunday (01:00 UTC/08:00 VN), AI insights (every 12h)
+- ✅ Scheduled DCA: Daily $20 at 07:00 VN into most underweight asset (bear guard holds 100% cash)
+- ✅ Portfolio Tracker Fix: Non-target assets (DAI/USD) filtered out, only target allocations + USDT/USDC shown
+- ✅ Backtest Strategy Fix: momentum-tilt now respects thresholdPct from strategy params (no fallback)
+- ✅ Frontend Cleanup: Strategy Config simplified (removed presets panel, legacy toggles), added Settings Guide + Active Config summary
+- ✅ Optimal Config: 672-combo grid search found better params: threshold 8% (5%), MA 110 (100), bear cash 100% (90%), cooldown 1d (3d) → +242.8% return (+133.9%), Sharpe 2.23, MaxDD -39.4%
+- ✅ MCP Auth Fix: Added X-API-Key to MCP→backend requests
+- ✅ Chart Date Fix: Portfolio history "Invalid Date" error resolved
+- ✅ PnL Display: Shows +/- sign with green/red color coding
+
 **March 29, 2026 — Complete System Implementation**:
 - ✅ Advanced Strategy System: 6 strategy types (threshold, equal-weight, momentum-tilt, vol-adjusted, mean-reversion, momentum-weighted)
 - ✅ Database-Driven Config: StrategyConfigModel with polymorphic Zod types, hot-reload via strategy:config-changed event
-- ✅ Cash-Aware Rebalancing: 0-50% cash reserve, DCA routing to most-underweight asset
+- ✅ Cash-Aware Rebalancing: 0-100% cash reserve (optimal 100%), DCA routing to most-underweight asset
 - ✅ Hard Rebalance Threshold: Separate high-drift trigger for traditional rebalancing
-- ✅ Trend Filter Cooldown: 3-day whipsaw protection on bull/bear flips
+- ✅ Trend Filter Cooldown: 1-day whipsaw protection (optimal from grid search)
 - ✅ Backtest Optimizer: Grid search across 4800+ parameter combinations
 - ✅ Backtest DCA + Cash Integration: Full simulation of cash reserve and DCA routing
 - ✅ Comprehensive Test Coverage: 62 strategy tests + 10 trend filter tests + 8 DCA tests
 - ✅ Strategy Config API: 5 endpoints for CRUD + activation with hot-reload
-- ✅ Complete Documentation: System architecture, codebase summary, roadmap updated
 
 **March 28, 2026 — Production Readiness**:
 - ✅ TrendFilter persistence to MongoDB (restart resilience)

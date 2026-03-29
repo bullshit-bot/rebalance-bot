@@ -73,7 +73,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - **API**: Hono v4 (lightweight, type-safe HTTP)
 - **Database**: Mongoose ODM + MongoDB 7 (NoSQL, encrypted credentials)
 - **Exchange**: CCXT Pro 4.4.0 (100+ exchange support)
-- **Telegram**: grammy 1.35+ (Bot API wrapper)
+- **Notifications**: GoClaw HTTP client (Telegram via GoClaw AI agent)
 - **Scheduler**: croner 9.0+ (Cron jobs)
 - **Validation**: Zod 3.24+ (Type-safe schemas)
 - **Linter**: Biome 1.9+ (Fast linting)
@@ -143,13 +143,14 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 **Trend Filter Behavior**:
 - Tracks BTC daily closes in rolling 400-day window
 - Emits `trend:changed` event on bull↔bear flip (with 3-day cooldown)
-- If bearish: auto-override allocations to 70% cash (configurable via `bearCashPct`)
+- If bearish: auto-override allocations to configured cash % (default: 70%, configurable via `bearCashPct`)
 - Provides read-only query API (`isBullishReadOnly()`) for healthchecks
 
-**Cash-Aware DCA**:
-- Reserve 0-50% cash (configurable via strategy config)
-- New capital directed to most underweight asset (not proportional)
-- Hard rebalance threshold for traditional drift-based trades
+**Cash-Aware DCA** (Scheduled Daily):
+- Reserve 0-100% cash during normal/bear markets (configurable via strategy config, optimal: 100%)
+- New capital directed to most underweight asset (via DCATargetResolver)
+- Daily scheduled DCA: $20 at 07:00 VN into most underweight asset
+- Hard rebalance threshold for traditional drift-based trades (default not set)
 
 ### 5. Executor Service
 **Location**: `src/executor/`
@@ -199,23 +200,35 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 ### 7. Notifier Service
 **Location**: `src/notifier/`
 **Responsibility**: User notifications
-**Channels**: Telegram via grammy
+**Channels**: Telegram via GoClaw HTTP client
 **Key Notifications**:
 - Rebalance alerts
 - Trade execution confirmations
-- Price threshold breaches
-- Daily portfolio summaries
+- Trailing stop triggers
+- Daily portfolio summaries (01:00 UTC / 08:00 VN)
+- Weekly performance reports (Sunday 01:00 UTC / 08:00 VN)
+- AI insights (every 12h at 07:00 + 19:00 UTC / 14:00 + 02:00 VN)
 - Error/exception alerts
+- Trend changes (bull/bear transitions)
+
+**GoClaw Integration**:
+- Backend sends event context as prompts to GoClaw `/v1/chat/completions`
+- GoClaw formats messages in Vietnamese and sends via its Telegram integration
+- 30-minute throttle per event type to prevent spam
+- Supports MCP tools for enriched context (portfolio analysis, trade lookup)
 
 ### 8. Scheduler Service
 **Location**: `src/scheduler/`
-**Responsibility**: Scheduled task execution
+**Responsibility**: Scheduled task execution via cron jobs
 **Key Tasks**:
-- DCA order scheduling
-- Portfolio snapshot capturing
-- OHLCV data collection
-- Backtesting runs
-- Analytics report generation
+- Every 4h: Emit periodic rebalance trigger
+- Every 5m: Persist portfolio snapshot to database
+- Every 60s: Clear stale price cache entries
+- Every 4h: Sync copy trading sources
+- Daily 01:00 UTC (08:00 VN): Send daily portfolio digest via GoClaw
+- Sunday 01:00 UTC (08:00 VN): Send weekly performance report via GoClaw
+- Daily 00:00 UTC (07:00 VN): Execute scheduled DCA buy into most underweight asset
+- Every 12h (07:00 + 19:00 UTC): GoClaw AI market insights analysis and Telegram delivery
 
 **Technology**: croner (cron scheduler)
 
@@ -329,7 +342,8 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 **Environment Variables**:
 - `MONGODB_URI` - MongoDB connection (set by Docker Compose)
 - `MONGO_PASSWORD` - MongoDB root password
-- `TELEGRAM_BOT_TOKEN` - Grammy bot token
+- `GOCLAW_URL` - GoClaw HTTP endpoint (default: http://goclaw:18790)
+- `GOCLAW_GATEWAY_TOKEN` - GoClaw authentication token
 - `REBALANCE_THRESHOLD` - Drift threshold (e.g., 0.05 = 5%)
 - `MIN_TRADE_USD` - Minimum trade value for execution
 - `PAPER_TRADING` - Boolean flag for simulation mode
@@ -338,14 +352,14 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 **Strategy Configuration** (via database-driven config, hot-reload):
 - Strategy type: `threshold`, `equal-weight`, `momentum-tilt`, `vol-adjusted`, `mean-reversion`, `momentum-weighted`
 - Strategy-specific params: thresholdPct, bandWidthSigma, lookbackDays, etc. (type-safe via Zod)
-- `cashReservePct` - Hold 0-50% cash, DCA deposits to most-underweight asset (default: 0%)
+- `cashReservePct` - Hold 0-100% cash for DCA, deposits to most-underweight asset (default: 0%, optimal: 100%)
 - `dcaRebalanceEnabled` - Route rebalance sells through DCA instead of immediate execution (default: false)
 - `hardRebalanceThreshold` - High-drift hard rebalance trigger (e.g., 20%, default: not set)
 - `trendFilterEnabled` - Enable MA-based trend filter (bool)
-- `trendFilterMA` - MA period for bull/bear detection (default: 100 days)
+- `trendFilterMA` - MA period for bull/bear detection (default: 110 days, optimal from grid search)
 - `trendFilterBuffer` - % buffer below MA still treated as bull (default: 2%)
-- `trendFilterCooldown` - Days between bear/bull flips to prevent whipsaw (default: 3 days)
-- `bearCashPct` - Cash override % when trend turns bearish (default: 70%)
+- `trendFilterCooldown` - Days between bear/bull flips to prevent whipsaw (default: 1 day, optimal from search)
+- `bearCashPct` - Cash override % when trend turns bearish (default: 70%, optimal: 100%)
 
 ## Security Model
 

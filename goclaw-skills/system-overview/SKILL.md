@@ -5,8 +5,11 @@ metadata:
   goclaw:
     emoji: 🤖
     requires:
-      bins:
-        - mcporter
+      mcp_tools:
+        - rb_get_health
+        - rb_get_portfolio
+        - rb_get_strategy_config
+        - rb_list_allocations
 ---
 
 # Rebalance Bot — System Overview
@@ -56,7 +59,9 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
 - Metrics: return %, annualized %, Sharpe ratio, max drawdown, fees
 - Benchmark: compares strategy vs buy-and-hold
 
-## Optimal Configuration (672-combo Grid Search, 2026-03-30)
+## Optimal Configuration (672-combo Grid Search, 2026-03-30) — PRODUCTION ACTIVE
+
+Current active config on production: `optimal-backtest-validated` v4
 
 | Parameter | Value | Reason |
 |-----------|-------|--------|
@@ -66,14 +71,17 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
 | Cooldown | **1 day** | Fast trend response |
 | Cash reserve | 0% | Trend filter handles protection |
 | DCA rebalance | disabled | Simplicity |
+| DCA amount | $20/day | Scheduled at 07:00 VN, routed to most underweight asset |
 
-### Backtest Results (2021-2026, $1000 + $20/day DCA)
+### Backtest Results (2021-2026, $1000 initial + $20/day DCA)
 
 | Config | Return | Annualized | Sharpe | Max DD |
 |--------|--------|-----------|--------|--------|
 | Old (MA100/TH5/CD3/Bear90) | +133.9% | +18.5% | 2.01 | -43.2% |
-| **New (MA110/TH8/CD1/Bear95)** | **+242.8%** | **+28.0%** | **2.23** | **-39.4%** |
-| No filter (no DCA) | +387% | - | 0.80 | -85% |
+| **Active (MA110/TH8/CD1/Bear95)** | **+242.8%** | **+28.0%** | **2.23%** | **-39.4%** |
+| No trend filter (no DCA) | +387% | - | 0.80 | -85% |
+
+**Key insights:** Trend filter single-handedly provides 3x return improvement and cuts max drawdown from -85% to -39%. Validated across 672 parameter combinations.
 
 ## MCP Tools Available (28 tools)
 

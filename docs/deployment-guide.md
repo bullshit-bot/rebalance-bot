@@ -38,14 +38,19 @@ Edit `.env`:
 MONGO_PASSWORD=your-strong-password-here
 GOCLAW_DB_PASSWORD=your-goclaw-password-here
 
-# Optional but recommended
-TELEGRAM_BOT_TOKEN=your-telegram-bot-token
-REBALANCE_THRESHOLD=0.05
+# GoClaw Telegram Integration (required for notifications)
+GOCLAW_URL=http://goclaw:18790
+GOCLAW_GATEWAY_TOKEN=your-gateway-token
+
+# Rebalancing & Trading
+REBALANCE_THRESHOLD=0.08               # 8% optimal from grid search
 MIN_TRADE_USD=10
 PAPER_TRADING=true
+TREND_FILTER_MA=110                    # Optimal MA period from grid search
+TREND_FILTER_COOLDOWN=1                # Days optimal from grid search
+BEAR_CASH_PCT=100                      # 100% cash in bear market optimal
 
-# GoClaw AI (optional)
-GOCLAW_GATEWAY_TOKEN=your-gateway-token
+# GoClaw AI (optional: for enhanced analytics)
 GOCLAW_ENCRYPTION_KEY=your-32-char-encryption-key
 ANTHROPIC_API_KEY=your-api-key
 XAI_API_KEY=your-xai-api-key
@@ -145,23 +150,28 @@ MONGO_PASSWORD=<secure-password>
 GOCLAW_DB_PASSWORD=<secure-password>
 ```
 
-### Recommended
+### Recommended (Strategy Tuning)
 
 ```bash
-TELEGRAM_BOT_TOKEN=<your-bot-token>
-REBALANCE_THRESHOLD=0.05        # 5% drift trigger
+REBALANCE_THRESHOLD=0.08        # 8% drift trigger (optimal from grid search)
+TREND_FILTER_MA=110             # 110-day MA period (optimal from search)
+TREND_FILTER_COOLDOWN=1         # 1-day cooldown (optimal from search)
+BEAR_CASH_PCT=100               # 100% cash during bear (optimal)
 MIN_TRADE_USD=10                # Min order size
 PAPER_TRADING=true              # Safe default
 ```
 
-### GoClaw (Optional but included)
+### GoClaw (Required for Telegram Notifications)
 
 ```bash
-GOCLAW_GATEWAY_TOKEN=<secure-token>
-GOCLAW_ENCRYPTION_KEY=<32-char-key>
-ANTHROPIC_API_KEY=              # Claude API key (optional)
-XAI_API_KEY=                    # xAI Grok API key (optional)
+GOCLAW_URL=http://goclaw:18790                    # Default endpoint
+GOCLAW_GATEWAY_TOKEN=<secure-token>               # Required for auth
+GOCLAW_ENCRYPTION_KEY=<32-char-key>               # Data encryption
+ANTHROPIC_API_KEY=                                # Claude API (optional)
+XAI_API_KEY=                                      # xAI Grok API (optional)
 ```
+
+All Telegram notifications now route through GoClaw AI agent. GoClaw formats messages in Vietnamese and handles delivery. See [GoClaw Integration](./system-architecture.md#7-notifier-service) for cron job times.
 
 ### Optional
 
@@ -175,11 +185,14 @@ CCXT_RATE_LIMIT=100             # Exchange rate limit
 
 ```bash
 MONGODB_URI=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017/rebalance?authSource=admin
-BACKEND_API_URL=http://backend:3001  # For mcp-server
-MCP_TRANSPORT=sse               # SSE mode for Claude
-MCP_PORT=3100                   # MCP server port
+BACKEND_API_URL=http://backend:3001       # For mcp-server
+MCP_TRANSPORT=sse                        # SSE mode for Claude
+MCP_PORT=3100                            # MCP server port
 GOCLAW_POSTGRES_DSN=postgres://goclaw:${GOCLAW_DB_PASSWORD}@goclaw-postgres:5432/goclaw
+MCP_API_KEY=<backend-api-key>            # X-API-Key header for MCP requests
 ```
+
+Note: MCP server now sends X-API-Key header on all requests to backend to pass auth middleware.
 
 ## Health Checks
 

@@ -1,7 +1,7 @@
 # Codebase Summary
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-29 (GoClaw migration)
+**Last Updated**: 2026-03-30 (Telegram → GoClaw migration, optimal config)
 **Version**: 1.0.0
 **Repository**: https://github.com/dungngo97/rebalance-bot
 **License**: MIT
@@ -33,8 +33,9 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 | copy-trading/ | 510 | Trade replication from sources |
 | ai/ | 380 | ML suggestions (GoClaw) |
 | dca/ | 280 | Dollar-cost averaging + allocation calculator |
-| notifier/ | 210 | Telegram notifications |
-| scheduler/ | 145 | Cron job execution |
+| notifier/ | 210 | GoClaw HTTP client for Telegram notifications |
+| ai/goclaw-client.ts | 85 | OpenAI-compatible /v1/chat/completions client |
+| scheduler/ | 195 | Cron jobs (8 total: periodic rebalance, snapshots, DCA, daily/weekly reports, 12h AI insights) |
 | trailing-stop/ | 175 | Stop-loss management |
 | config/ | 110 | Environment validation (Zod) |
 | events/ | 110 | Typed event bus |
@@ -277,7 +278,7 @@ src/
 | Database | Mongoose ODM + MongoDB 7 |
 | Exchange API | CCXT Pro 4.4.0 |
 | Scheduler | Croner 9.0+ |
-| Notifications | grammy 1.35+ |
+| Notifications | GoClaw HTTP client (via /v1/chat/completions) |
 | Frontend | React 18 + Vite |
 | UI Library | shadcn/ui + Radix |
 | State | React Query v5 |
@@ -378,11 +379,15 @@ WebSocket API (update frontend)
 - Integration tests: `.integration.test.ts` (with DB, event bus)
 - Isolated tests: `.isolated.test.ts` (no external dependencies)
 
-**Recent Additions** (Phase 1):
-- 62 new strategy tests (all 6 strategy types)
+**Recent Additions** (Phase 1 + Recent):
+- 62 strategy tests (all 6 strategy types)
 - 10 trend filter tests (bull/bear detection, cooldown, persistence)
 - 8 DCA resolver tests
 - Configuration API integration tests
+- GoClaw HTTP client (goclaw-client.ts) for Telegram delivery
+- Portfolio tracker filter: non-target assets (DAI/USD) now excluded
+- Scheduled DCA: Daily $20 at 07:00 VN into most underweight asset
+- Backend seed script with optimal config (threshold 8%, MA 110, bear cash 100%, cooldown 1d)
 
 **Command**: `bun test` (also supports watch mode)
 **Coverage Report**: `bun test --coverage`
