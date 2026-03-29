@@ -1,103 +1,124 @@
 import { describe, it, expect, mock } from 'bun:test'
 
-mock.module('@/db/database', () => ({
-  db: {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: async () => [
-            {
-              totalValueUsd: 10000,
-              createdAt: Math.floor(Date.now() / 1000) - 86400,
-            },
-            {
-              totalValueUsd: 11000,
-              createdAt: Math.floor(Date.now() / 1000),
-            },
-          ],
-          groupBy: async () => [
-            {
-              side: 'buy',
-              costUsd: 5000,
-              isPaper: 0,
-              count: 10,
-              totalCost: 50000,
-            },
-            {
-              side: 'sell',
-              costUsd: 3000,
-              isPaper: 0,
-              count: 5,
-              totalCost: 15000,
-            },
-          ],
-        }),
-      }),
-    }),
+// ─── Mock Mongoose models used by MarketSummaryService ────────────────────────
+// The service uses SnapshotModel and TradeModel directly from @db/database.
+// We stub the chainable Mongoose query API and aggregate.
+
+const mockSnapshots = [
+  { totalValueUsd: 10000, createdAt: new Date(Date.now() - 86_400_000) },
+  { totalValueUsd: 11000, createdAt: new Date() },
+]
+
+const mockTradeAgg = [
+  { _id: { side: 'buy', isPaper: false }, count: 10, totalCost: 50000 },
+  { _id: { side: 'sell', isPaper: false }, count: 5, totalCost: 15000 },
+]
+
+const makeLeaner = (data: unknown[]) => ({
+  lean: async () => data,
+})
+
+const makeFindChain = (data: unknown[]) => ({
+  select: () => ({
+    sort: () => makeLeaner(data),
+  }),
+})
+
+const makeFindOneChain = (data: unknown) => ({
+  sort: () => ({
+    lean: async () => data,
+  }),
+})
+
+mock.module('@db/database', () => ({
+  SnapshotModel: {
+    find: () => makeFindChain(mockSnapshots),
+    findOne: () => makeFindOneChain(mockSnapshots[0]),
+  },
+  TradeModel: {
+    aggregate: async () => mockTradeAgg,
+    find: () => makeFindChain([]),
+  },
+}))
+
+// Mock portfolio tracker — return null (no live portfolio in unit tests)
+mock.module('@portfolio/portfolio-tracker', () => ({
+  portfolioTracker: {
+    getPortfolio: () => null,
+  },
+}))
+
+// Mock trend filter
+mock.module('@rebalancer/trend-filter', () => ({
+  trendFilter: {
+    getDataPoints: () => 50,
+    isBullishReadOnly: () => true,
   },
 }))
 
 import { marketSummaryService } from './market-summary-service'
 
 describe('market-summary-service', () => {
-  it('generates daily summary', async () => {
+  it('generates daily summary without throwing', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(typeof summary).toBe('string')
+    expect(summary.length).toBeGreaterThan(0)
+  })
+
+  it('generateSummary() redirects to generateDailySummary()', async () => {
     const summary = await marketSummaryService.generateSummary()
     expect(typeof summary).toBe('string')
     expect(summary.length).toBeGreaterThan(0)
   })
 
-  it('summary includes portfolio section', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    expect(summary).toContain('Portfolio')
+  it('summary includes Vietnamese portfolio header', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toContain('Báo Cáo Portfolio Hàng Ngày')
   })
 
-  it('summary includes trade section', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    expect(summary).toContain('Trades')
+  it('summary includes portfolio value section (Giá Trị)', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toContain('Giá Trị Portfolio')
   })
 
-  it('summary includes daily header', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    expect(summary).toContain('Daily')
+  it('summary includes trade section (Giao Dịch)', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toContain('Giao Dịch')
   })
 
-  it('summary handles snapshot data', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    // Should contain value data
+  it('summary includes daily header with emoji', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toContain('Hàng Ngày')
+  })
+
+  it('summary contains dollar sign for portfolio values', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
     expect(summary).toContain('$')
   })
 
-  it('summary calculates value change', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    // Should show change between snapshots
-    expect(summary).toMatch(/Change:|▲|▼/)
+  it('summary shows change indicator (▲ or ▼)', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toMatch(/▲|▼/)
   })
 
-  it('summary aggregates trade counts', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    // Should show trade counts
+  it('summary aggregates trade counts — contains numeric digit', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
     expect(summary).toMatch(/\d+/)
   })
 
-  it('summary handles percentage calculations', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    // Should contain percentage data
-    expect(summary.length).toBeGreaterThan(0)
+  it('summary uses HTML bold formatting', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toContain('<b>')
+    expect(summary).toContain('</b>')
   })
 
-  it('generates summary without throwing', async () => {
-    // Verify function exists and is callable
-    expect(typeof marketSummaryService.generateSummary).toBe('function')
+  it('summary uses HTML code formatting', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toContain('<code>')
   })
 
-  it('summary uses HTML formatting', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    expect(summary).toMatch(/<[^>]+>/)
-  })
-
-  it('summary includes date information', async () => {
-    const summary = await marketSummaryService.generateSummary()
-    // toUTCString() returns dates ending in "GMT"
-    expect(summary).toMatch(/GMT|UTC/)
+  it('summary includes trend section', async () => {
+    const summary = await marketSummaryService.generateDailySummary()
+    expect(summary).toContain('Trend')
   })
 })

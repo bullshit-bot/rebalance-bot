@@ -320,6 +320,8 @@ describe('TelegramNotifier', () => {
       // Emit event to test coverage of event handler at line 51
       const { eventBus } = await import('@/events/event-bus')
       eventBus.emit('trade:executed', {
+        id: 'test-trade-1',
+        orderId: 'order-1',
         pair: 'BTC/USDT',
         side: 'buy',
         amount: 1,
@@ -329,6 +331,7 @@ describe('TelegramNotifier', () => {
         feeCurrency: 'USDT',
         exchange: 'binance',
         isPaper: false,
+        executedAt: new Date(),
       })
       freshNotifier.stop()
       expect(true).toBe(true)
@@ -341,11 +344,14 @@ describe('TelegramNotifier', () => {
       // Emit event to test coverage of event handler at line 55
       const { eventBus } = await import('@/events/event-bus')
       eventBus.emit('rebalance:completed', {
+        id: 'rebal-1',
+        status: 'completed',
         trigger: 'manual',
         trades: [],
         totalFeesUsd: 0,
         startedAt: new Date(),
         completedAt: new Date(),
+        beforeState: { totalValueUsd: 0, assets: [], updatedAt: Date.now() },
       })
       freshNotifier.stop()
       expect(true).toBe(true)
@@ -375,6 +381,7 @@ describe('TelegramNotifier', () => {
       const { eventBus } = await import('@/events/event-bus')
       eventBus.emit('trailing-stop:triggered', {
         asset: 'BTC',
+        exchange: 'binance',
         price: 55000,
         stopPrice: 50000,
       })

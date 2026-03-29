@@ -1,23 +1,19 @@
 import { describe, it, expect, mock } from 'bun:test'
 
-let grammy_bot_initialized = false
+// Mock GoClaw client — new impl routes all Telegram delivery through GoClaw
+let goClawChatCalled = false
+let goClawIsAvailableCalled = false
 
-mock.module('grammy', () => ({
-  Bot: class {
-    api = {
-      getMe: async () => ({ id: 123, is_bot: true }),
-      sendMessage: async () => ({ message_id: 1 }),
-    }
-    constructor() {
-      grammy_bot_initialized = true
-    }
-  },
-}))
-
-mock.module('@/config/app-config', () => ({
-  env: {
-    TELEGRAM_BOT_TOKEN: 'test-token-123',
-    TELEGRAM_CHAT_ID: 'test-chat-id',
+mock.module('@/ai/goclaw-client', () => ({
+  goClawClient: {
+    isAvailable: async () => {
+      goClawIsAvailableCalled = true
+      return true
+    },
+    chat: async (_prompt: string, _maxTokens?: number) => {
+      goClawChatCalled = true
+      return 'mocked response'
+    },
   },
 }))
 
@@ -32,13 +28,14 @@ mock.module('@/events/event-bus', () => ({
 import { TelegramNotifier } from './telegram-notifier'
 
 describe('telegram-notifier', () => {
-  it('initializes with valid credentials', async () => {
+  it('initializes and checks GoClaw availability', async () => {
+    goClawIsAvailableCalled = false
     const notifier = new TelegramNotifier()
     await notifier.initialize()
-    expect(grammy_bot_initialized).toBe(true)
+    expect(goClawIsAvailableCalled).toBe(true)
   })
 
-  it('starts notifier', async () => {
+  it('starts notifier and subscribes to events', async () => {
     const notifier = new TelegramNotifier()
     await notifier.initialize()
     await notifier.start()
@@ -46,9 +43,29 @@ describe('telegram-notifier', () => {
     expect(true).toBe(true)
   })
 
-  it('formats trade executed message', async () => {
+  it('stop is idempotent', () => {
     const notifier = new TelegramNotifier()
-    const trade = {
+    notifier.stop()
+    notifier.stop()
+    expect(true).toBe(true)
+  })
+
+  it('sendMessage routes through GoClaw chat', async () => {
+    goClawChatCalled = false
+    const notifier = new TelegramNotifier()
+    await notifier.initialize()
+    await notifier.sendMessage('Test message')
+    expect(goClawChatCalled).toBe(true)
+  })
+
+  it('has 30-minute THROTTLE_MS constant', () => {
+    const notifier = new TelegramNotifier()
+    expect(notifier['THROTTLE_MS']).toBe(30 * 60 * 1000)
+  })
+
+  it('describeTradeEvent returns meaningful string with pair and exchange', () => {
+    const notifier = new TelegramNotifier()
+    const result = notifier['describeTradeEvent']({
       pair: 'BTC/USDT',
       side: 'buy' as const,
       amount: 1,
@@ -58,63 +75,58 @@ describe('telegram-notifier', () => {
       fee: 0.1,
       feeCurrency: 'BTC',
       isPaper: false,
-      timestamp: Date.now(),
-    }
-    // Just verify it doesn't throw
-    expect(true).toBe(true)
+    } as any)
+    expect(result).toContain('BTC/USDT')
+    expect(result).toContain('binance')
   })
 
-  it('formats rebalance completed message', async () => {
+  it('describeRebalanceEvent returns meaningful string with trigger and fee info', () => {
     const notifier = new TelegramNotifier()
-    const event = {
-      id: 'rebal-1',
+    const result = notifier['describeRebalanceEvent']({
       trigger: 'manual' as const,
       trades: [],
       totalFeesUsd: 10,
       startedAt: new Date(),
       completedAt: new Date(),
-    }
-    // Just verify it doesn't throw
-    expect(true).toBe(true)
+    } as any)
+    expect(result).toContain('manual')
+    expect(typeof result).toBe('string')
   })
 
-  it('formats drift warning message', async () => {
+  it('describeTrailingStop returns asset and price info', () => {
     const notifier = new TelegramNotifier()
-    const data = {
+    const result = notifier['describeTrailingStop']({
       asset: 'BTC',
-      currentPct: 45,
-      targetPct: 60,
-      driftPct: -15,
-    }
-    // Just verify it doesn't throw
-    expect(true).toBe(true)
+      price: 60000,
+      stopPrice: 55000,
+    })
+    expect(result).toContain('BTC')
+    expect(typeof result).toBe('string')
   })
 
-  it('formats exchange status message', async () => {
+  it('describeTrendChange returns signal info', () => {
     const notifier = new TelegramNotifier()
-    // Just verify it doesn't throw
-    expect(true).toBe(true)
+    const bull = notifier['describeTrendChange']({ bullish: true, price: 65000, ma: 60000 })
+    expect(bull).toContain('BULL')
+
+    const bear = notifier['describeTrendChange']({ bullish: false, price: 40000, ma: null })
+    expect(bear).toContain('BEAR')
+    expect(bear).toContain('N/A')
   })
 
-  it('sends direct message', async () => {
+  it('sendMessage throttles repeated direct messages within THROTTLE_MS window', async () => {
+    // Verify throttle map prevents double-sends within the window
     const notifier = new TelegramNotifier()
-    await notifier.initialize()
-    await notifier.sendMessage('Test message')
-    expect(true).toBe(true)
-  })
+    // Patch sendViaGoClaw indirectly by checking throttle map
+    const throttleMap = notifier['throttle']
+    expect(throttleMap).toBeInstanceOf(Map)
 
-  it('throttles repeated event types', async () => {
-    const notifier = new TelegramNotifier()
-    await notifier.initialize()
     await notifier.sendMessage('Message 1')
+    const firstTimestamp = throttleMap.get('direct')
+    // Immediate second call — should be throttled (no new entry change, or same timestamp)
     await notifier.sendMessage('Message 2')
-    // Second message should be throttled
-    expect(true).toBe(true)
-  })
-
-  it('stops without starting', () => {
-    const notifier = new TelegramNotifier()
-    notifier.stop()
-    expect(true).toBe(true)
+    const secondTimestamp = throttleMap.get('direct')
+    // Throttle map only updates on actual send, so timestamps should be equal
+    expect(firstTimestamp).toBe(secondTimestamp)
   })
 })

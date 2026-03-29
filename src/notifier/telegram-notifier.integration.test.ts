@@ -22,16 +22,16 @@ describe('telegram-notifier', () => {
       }).not.toThrow()
     })
 
-    it('should mark bot as null when token is missing', async () => {
+    it('should handle GoClaw unavailability gracefully', async () => {
       const n = new TelegramNotifier()
       await n.initialize()
       expect(true).toBe(true)
     })
   })
 
-  describe('message formatting', () => {
-    it('should format trade executed message', () => {
-      const message = notifier['formatTradeExecuted']({
+  describe('event descriptions (internal helpers)', () => {
+    it('should describe trade event as plain text', () => {
+      const description = notifier['describeTradeEvent']({
         pair: 'BTC/USDT',
         side: 'buy',
         amount: 1,
@@ -41,16 +41,16 @@ describe('telegram-notifier', () => {
         fee: 10,
         feeCurrency: 'USDT',
         isPaper: false,
-      })
+      } as any)
 
-      expect(message).toBeDefined()
-      expect(typeof message).toBe('string')
-      expect(message.length).toBeGreaterThan(0)
-      expect(message).toContain('BTC/USDT')
+      expect(description).toBeDefined()
+      expect(typeof description).toBe('string')
+      expect(description.length).toBeGreaterThan(0)
+      expect(description).toContain('BTC/USDT')
     })
 
-    it('should format rebalance completed message', () => {
-      const message = notifier['formatRebalanceCompleted']({
+    it('should describe rebalance event as plain text', () => {
+      const description = notifier['describeRebalanceEvent']({
         totalFeesUsd: 100,
         trades: [{ pair: 'BTC/USDT' }],
         trigger: 'drift',
@@ -58,53 +58,45 @@ describe('telegram-notifier', () => {
         completedAt: new Date(),
       } as any)
 
-      expect(message).toBeDefined()
-      expect(typeof message).toBe('string')
-      expect(message.length).toBeGreaterThan(0)
+      expect(description).toBeDefined()
+      expect(typeof description).toBe('string')
+      expect(description.length).toBeGreaterThan(0)
     })
 
-    it('should format drift warning message', () => {
-      const message = notifier['formatDriftWarning']({
-        asset: 'BTC',
-        driftPct: 8,
-        targetPct: 50,
-        currentPct: 58,
-      })
-
-      expect(message).toBeDefined()
-      expect(typeof message).toBe('string')
-      expect(message).toContain('BTC')
-    })
-
-    it('should format exchange status message', () => {
-      const message = notifier['formatExchangeStatus']('binance', 'connected')
-
-      expect(message).toBeDefined()
-      expect(typeof message).toBe('string')
-      expect(message).toContain('binance')
-    })
-
-    it('should format alert message', () => {
-      const message = notifier['formatAlert']({
-        level: 'error',
-        message: 'Test error',
-      })
-
-      expect(message).toBeDefined()
-      expect(typeof message).toBe('string')
-      expect(message).toContain('error')
-    })
-
-    it('should format trailing stop message', () => {
-      const message = notifier['formatTrailingStopTriggered']({
+    it('should describe trailing stop event as plain text', () => {
+      const description = notifier['describeTrailingStop']({
         asset: 'ETH',
         price: 1900,
         stopPrice: 1800,
       })
 
-      expect(message).toBeDefined()
-      expect(typeof message).toBe('string')
-      expect(message).toContain('ETH')
+      expect(description).toBeDefined()
+      expect(typeof description).toBe('string')
+      expect(description).toContain('ETH')
+    })
+
+    it('should describe trend change event as plain text', () => {
+      const description = notifier['describeTrendChange']({
+        bullish: true,
+        price: 65000,
+        ma: 60000,
+      })
+
+      expect(description).toBeDefined()
+      expect(typeof description).toBe('string')
+      expect(description.length).toBeGreaterThan(0)
+    })
+
+    it('should describe trend change with null ma', () => {
+      const description = notifier['describeTrendChange']({
+        bullish: false,
+        price: 45000,
+        ma: null,
+      })
+
+      expect(description).toBeDefined()
+      expect(typeof description).toBe('string')
+      expect(description).toContain('N/A')
     })
   })
 
@@ -114,10 +106,10 @@ describe('telegram-notifier', () => {
       expect(notifier['throttle'] instanceof Map).toBe(true)
     })
 
-    it('should have throttle duration constant', () => {
+    it('should have 30-minute throttle duration constant', () => {
       const throttleMs = notifier['THROTTLE_MS']
       expect(throttleMs).toBeGreaterThan(0)
-      expect(throttleMs).toBe(5 * 60 * 1000)
+      expect(throttleMs).toBe(30 * 60 * 1000)
     })
   })
 
@@ -152,9 +144,9 @@ describe('telegram-notifier', () => {
     })
   })
 
-  describe('edge cases', () => {
-    it('should format message with very long pair name', () => {
-      const message = notifier['formatTradeExecuted']({
+  describe('edge cases — describe helpers with boundary values', () => {
+    it('should describe trade with very long pair name', () => {
+      const description = notifier['describeTradeEvent']({
         pair: 'VERY_LONG_COIN_NAME_12345/USDT',
         side: 'sell',
         amount: 1000,
@@ -164,14 +156,14 @@ describe('telegram-notifier', () => {
         fee: 0.001,
         feeCurrency: 'USDT',
         isPaper: true,
-      })
+      } as any)
 
-      expect(message).toBeDefined()
-      expect(message.length).toBeGreaterThan(0)
+      expect(description).toBeDefined()
+      expect(description.length).toBeGreaterThan(0)
     })
 
-    it('should format message with very large amounts', () => {
-      const message = notifier['formatTradeExecuted']({
+    it('should describe trade with very large amounts', () => {
+      const description = notifier['describeTradeEvent']({
         pair: 'BTC/USDT',
         side: 'buy',
         amount: 1000000,
@@ -181,14 +173,14 @@ describe('telegram-notifier', () => {
         fee: 100000,
         feeCurrency: 'USDT',
         isPaper: false,
-      })
+      } as any)
 
-      expect(message).toBeDefined()
-      expect(message.length).toBeGreaterThan(0)
+      expect(description).toBeDefined()
+      expect(description.length).toBeGreaterThan(0)
     })
 
-    it('should format message with very small amounts', () => {
-      const message = notifier['formatTradeExecuted']({
+    it('should describe trade with very small amounts', () => {
+      const description = notifier['describeTradeEvent']({
         pair: 'DOGE/USDT',
         side: 'buy',
         amount: 0.000001,
@@ -198,10 +190,10 @@ describe('telegram-notifier', () => {
         fee: 0.000001,
         feeCurrency: 'USDT',
         isPaper: false,
-      })
+      } as any)
 
-      expect(message).toBeDefined()
-      expect(message.length).toBeGreaterThan(0)
+      expect(description).toBeDefined()
+      expect(description.length).toBeGreaterThan(0)
     })
   })
 })

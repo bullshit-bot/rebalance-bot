@@ -54,9 +54,9 @@ describe('CronScheduler', () => {
       expect(secondJobCount).toBe(firstJobCount)
     })
 
-    it('should initialize with 5 jobs', () => {
+    it('should initialize with 7 jobs', () => {
       scheduler.start()
-      expect(scheduler['jobs'].length).toBe(5)
+      expect(scheduler['jobs'].length).toBe(7)
     })
 
     it('should register rebalance trigger job', () => {
@@ -81,7 +81,7 @@ describe('CronScheduler', () => {
 
     it('should register daily summary job', () => {
       scheduler.start()
-      expect(scheduler['jobs'].length).toBe(5)
+      expect(scheduler['jobs'].length).toBe(7)
     })
   })
 
@@ -115,7 +115,7 @@ describe('CronScheduler', () => {
 
     it('should prevent further job execution', () => {
       scheduler.start()
-      const jobsBefore = scheduler['jobs'].length
+      expect(scheduler['jobs'].length).toBeGreaterThan(0)
       scheduler.stop()
       expect(scheduler['jobs'].length).toBe(0)
     })
@@ -237,6 +237,8 @@ describe('CronScheduler - DI callbacks', () => {
     onPriceCacheClean: () => { calls.push('priceClean') },
     onCopySync: () => { calls.push('copySync') },
     onDailySummary: () => { calls.push('dailySummary') },
+    onWeeklySummary: () => { calls.push('weeklySummary') },
+    onAiInsights: () => { calls.push('aiInsights') },
   })
 
   beforeEach(() => {
@@ -279,7 +281,19 @@ describe('CronScheduler - DI callbacks', () => {
     expect(calls).toContain('dailySummary')
   })
 
-  it('all 5 callbacks are accessible via deps', () => {
+  it('invokes onWeeklySummary when callback called directly', () => {
+    scheduler.start()
+    ;(scheduler as any).deps.onWeeklySummary()
+    expect(calls).toContain('weeklySummary')
+  })
+
+  it('invokes onAiInsights when callback called directly', () => {
+    scheduler.start()
+    ;(scheduler as any).deps.onAiInsights()
+    expect(calls).toContain('aiInsights')
+  })
+
+  it('all 7 callbacks are accessible via deps', () => {
     scheduler.start()
     const depKeys = Object.keys((scheduler as any).deps)
     expect(depKeys).toContain('onPeriodicRebalance')
@@ -287,13 +301,15 @@ describe('CronScheduler - DI callbacks', () => {
     expect(depKeys).toContain('onPriceCacheClean')
     expect(depKeys).toContain('onCopySync')
     expect(depKeys).toContain('onDailySummary')
+    expect(depKeys).toContain('onWeeklySummary')
+    expect(depKeys).toContain('onAiInsights')
   })
 
   it('CronScheduler instantiates without any deps (uses defaults)', () => {
     const defaultScheduler = new CronScheduler()
     expect(defaultScheduler).toBeDefined()
     defaultScheduler.start()
-    expect(defaultScheduler['jobs'].length).toBe(5)
+    expect(defaultScheduler['jobs'].length).toBe(7)
     defaultScheduler.stop()
   })
 
@@ -362,10 +378,24 @@ describe('CronScheduler - default callback execution', () => {
     s.stop()
   })
 
-  it('default onDailySummary calls marketSummaryService.generateSummary() without throwing', () => {
+  it('default onDailySummary calls marketSummaryService.generateDailySummary() without throwing', () => {
     const s = new CronScheduler()
     s.start()
     expect(() => (s as any).deps.onDailySummary()).not.toThrow()
+    s.stop()
+  })
+
+  it('default onWeeklySummary calls marketSummaryService.generateWeeklySummary() without throwing', () => {
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onWeeklySummary()).not.toThrow()
+    s.stop()
+  })
+
+  it('default onAiInsights skips when portfolio is null', () => {
+    const s = new CronScheduler()
+    s.start()
+    expect(() => (s as any).deps.onAiInsights()).not.toThrow()
     s.stop()
   })
 
@@ -431,10 +461,10 @@ describe('CronScheduler - default callback execution', () => {
     cse.syncAll = original
   })
 
-  it('default onDailySummary catch fires when generateSummary rejects', async () => {
+  it('default onDailySummary catch fires when generateDailySummary rejects', async () => {
     const { marketSummaryService: mss } = require('@/ai/market-summary-service')
-    const original = mss.generateSummary.bind(mss)
-    mss.generateSummary = async () => { throw new Error('gen error') }
+    const original = mss.generateDailySummary.bind(mss)
+    mss.generateDailySummary = async () => { throw new Error('gen error') }
 
     const s = new CronScheduler()
     s.start()
@@ -442,6 +472,6 @@ describe('CronScheduler - default callback execution', () => {
     await new Promise<void>((r) => setTimeout(r, 20))
     s.stop()
 
-    mss.generateSummary = original
+    mss.generateDailySummary = original
   })
 })
