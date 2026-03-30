@@ -29,6 +29,14 @@ interface RateLimitEntry {
 
 const rateLimitMap = new Map<string, RateLimitEntry>()
 
+// Evict expired entries every 60s to prevent unbounded memory growth
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) rateLimitMap.delete(ip)
+  }
+}, 60_000).unref()
+
 /**
  * Simple in-memory rate limiter: max 100 requests per IP per minute.
  * Returns true if the request is allowed, false if rate-limited.

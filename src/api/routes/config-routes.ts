@@ -95,18 +95,27 @@ configRoutes.put('/allocations', async (c) => {
   }
 
   try {
-    // Delete all existing rows then re-insert for a clean replace
-    await AllocationModel.deleteMany({})
-
-    if (inputs.length > 0) {
-      await AllocationModel.create(
-        inputs.map((a) => ({
+    // Atomic replace: upsert each allocation by asset, then remove unlisted assets
+    const assetNames = inputs.map((a) => a.asset.toUpperCase())
+    const ops = inputs.map((a) => ({
+      updateOne: {
+        filter: { asset: a.asset.toUpperCase() },
+        update: {
           asset: a.asset.toUpperCase(),
           targetPct: a.targetPct,
           ...(a.exchange ? { exchange: a.exchange } : {}),
           ...(a.minTradeUsd !== undefined ? { minTradeUsd: a.minTradeUsd } : {}),
-        })),
-      )
+          updatedAt: new Date(),
+        },
+        upsert: true,
+      },
+    }))
+    if (ops.length > 0) await AllocationModel.bulkWrite(ops)
+    // Remove assets not in the new list
+    if (assetNames.length > 0) {
+      await AllocationModel.deleteMany({ asset: { $nin: assetNames } })
+    } else {
+      await AllocationModel.deleteMany({})
     }
 
     const updated = await AllocationModel.find().lean()

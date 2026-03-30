@@ -122,19 +122,23 @@ strategyConfigRoutes.delete('/:name', async (c) => {
   }
 })
 
-/** POST /:name/activate — deactivate current, activate target */
+/** POST /:name/activate — deactivate all others, activate target atomically */
 strategyConfigRoutes.post('/:name/activate', async (c) => {
   try {
-    const target = await StrategyConfigModel.findOne({ name: c.req.param('name') })
+    const name = c.req.param('name')
+
+    // Verify the target config exists before making any changes
+    const exists = await StrategyConfigModel.exists({ name })
+    if (!exists) return c.json({ error: 'Config not found' }, 404)
+
+    // Atomic: deactivate all + activate target in single bulkWrite
+    await StrategyConfigModel.bulkWrite([
+      { updateMany: { filter: { isActive: true }, update: { isActive: false } } },
+      { updateOne: { filter: { name }, update: { isActive: true, updatedAt: new Date() } } },
+    ])
+
+    const target = await StrategyConfigModel.findOne({ name }).lean()
     if (!target) return c.json({ error: 'Config not found' }, 404)
-
-    // Deactivate current active config
-    await StrategyConfigModel.updateMany({ isActive: true }, { isActive: false })
-
-    // Activate target
-    target.isActive = true
-    target.updatedAt = new Date()
-    await target.save()
 
     // Emit event for hot-reload
     eventBus.emit('strategy:config-changed', target.toObject())
