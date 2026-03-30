@@ -15,8 +15,8 @@ const DEPOSIT_THRESHOLD_PCT = 1
 /** Cooldown between consecutive deposit detections (ms). */
 const DEPOSIT_COOLDOWN_MS = 60_000
 
-/** Default scheduled DCA amount (USD) per execution. Override via strategy config. */
-const DEFAULT_DCA_AMOUNT = 20
+/** Fallback DCA amount when no strategy config is active. */
+const FALLBACK_DCA_AMOUNT = 20
 
 // ─── DCAService ───────────────────────────────────────────────────────────────
 
@@ -113,7 +113,8 @@ class DCAService {
     }
 
     const targets = await portfolioTracker.getTargetAllocations()
-    const amount = amountUsd ?? DEFAULT_DCA_AMOUNT
+    const configAmount = (strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined)?.dcaAmountUsd as number | undefined
+    const amount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT
     const orders = this.calculateDCAAllocation(amount, portfolio, targets)
 
     if (orders.length > 0) {

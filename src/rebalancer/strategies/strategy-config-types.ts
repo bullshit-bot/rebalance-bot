@@ -74,6 +74,8 @@ export const GlobalSettingsSchema = z.object({
   cashReservePct: z.number().min(0).max(50).default(0),
   // DCA routing: when true, DCA buys target only the most underweight asset
   dcaRebalanceEnabled: z.boolean().default(false),
+  // Scheduled DCA amount per execution (USD)
+  dcaAmountUsd: z.number().min(1).max(100000).default(20),
   // Hard rebalance threshold: full rebalance only fires when drift exceeds this
   hardRebalanceThreshold: z.number().min(5).max(50).default(15),
   // Trend filter: MA-based bear market protection

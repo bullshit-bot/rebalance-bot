@@ -10,6 +10,7 @@ export interface GlobalSettings {
   autoExecute: boolean;
   cashReservePct: number;
   dcaRebalanceEnabled: boolean;
+  dcaAmountUsd: number;
   hardRebalanceThreshold: number;
   trendFilterEnabled: boolean;
   trendFilterMA: number;
@@ -25,6 +26,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   autoExecute: false,
   cashReservePct: 0,
   dcaRebalanceEnabled: false,
+  dcaAmountUsd: 20,
   hardRebalanceThreshold: 15,
   trendFilterEnabled: false,
   trendFilterMA: 100,
@@ -83,6 +85,25 @@ export function GlobalSettingsSection({ settings, onChange }: Props) {
           Route DCA deposits to most underweight asset
         </p>
       </div>
+
+      {/* DCA Amount — only visible when DCA routing on */}
+      {settings.dcaRebalanceEnabled && (
+        <div className="py-3 border-b border-foreground/10">
+          <label className="stat-label">DCA Amount (USD)</label>
+          <input
+            type="number"
+            min={1}
+            max={100000}
+            step={1}
+            value={settings.dcaAmountUsd}
+            onChange={(e) => onChange("dcaAmountUsd", Number(e.target.value))}
+            className="brutal-input w-full mt-1"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            USD amount per scheduled DCA execution
+          </p>
+        </div>
+      )}
 
       {/* Hard Rebalance Threshold — only visible when DCA routing on */}
       {settings.dcaRebalanceEnabled && (
