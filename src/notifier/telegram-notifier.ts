@@ -50,10 +50,12 @@ export class TelegramNotifier {
       ].join('\n'))
     }
     const onRebalance = (event: RebalanceEvent) => {
+      // Only notify if trades were actually executed
+      if (!event.trades?.length) return
       void this.send('rebalance:completed', [
         `🔄 <b>Rebalance Hoàn Thành</b>`,
         `Trigger: <code>${event.trigger}</code>`,
-        `Lệnh: <code>${event.trades?.length ?? 0}</code> | Phí: <code>$${(event.totalFeesUsd ?? 0).toFixed(2)}</code>`,
+        `Lệnh: <code>${event.trades.length}</code> | Phí: <code>$${(event.totalFeesUsd ?? 0).toFixed(2)}</code>`,
       ].join('\n'))
     }
     const onTrailingStop = (data: { asset: string; exchange: ExchangeName; price: number; stopPrice: number }) => {
