@@ -53,6 +53,8 @@ export interface BacktestConfig {
   trendFilterBearCashPct?: number
   /** Trend filter: cooldown in candles before allowing bull→bear or bear→bull flip. Default: 3. */
   trendFilterCooldownCandles?: number
+  /** Trend filter: buffer % below MA before triggering bear. Default: 2. */
+  trendFilterBuffer?: number
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────

@@ -126,6 +126,7 @@ class BacktestSimulator {
             dcaAmountUsd,
             cashReservePct,
             totalValueUsd,
+            config.feePct,
           )
         }
         totalDcaInjected += dcaAmountUsd
@@ -136,7 +137,9 @@ class BacktestSimulator {
       if (trendMaPeriod > 0 && btcCloses.length >= trendMaPeriod) {
         const ma = btcCloses.slice(-trendMaPeriod).reduce((s, v) => s + v, 0) / trendMaPeriod
         const btcCurrentPrice = btcCloses[btcCloses.length - 1]!
-        const nowBear = btcCurrentPrice < ma
+        // Apply buffer: only bear if price is buffer% below MA (matches live trend-filter)
+        const trendBuffer = config.trendFilterBuffer ?? 2
+        const nowBear = btcCurrentPrice < ma * (1 - trendBuffer / 100)
 
         if (trendCooldownRemaining > 0) {
           trendCooldownRemaining--
@@ -471,9 +474,9 @@ class BacktestSimulator {
       const price = prices[order.pair]
       if (!price || price <= 0) continue
 
-      // order.amount is in USD
-      const costUsd = order.amount
-      const assetAmount = costUsd / price
+      // order.amount is in base asset units (e.g., 0.5 BTC), convert to USD
+      const assetAmount = order.amount
+      const costUsd = assetAmount * price
       const fee = costUsd * config.feePct
 
       // Apply trade to holdings
@@ -523,6 +526,7 @@ class BacktestSimulator {
     dcaAmountUsd: number,
     cashReservePct: number,
     totalValueUsd: number,
+    feePct: number = 0.001,
   ): void {
     // Investable pool excludes cash reserve
     const cryptoPool = totalValueUsd * (1 - cashReservePct / 100)
@@ -544,14 +548,16 @@ class BacktestSimulator {
     if (targetAsset && maxDrift > 0) {
       const price = prices[targetAsset]
       if (price && price > 0) {
+        const fee = dcaAmountUsd * feePct
+        const netAmount = dcaAmountUsd - fee
         const holding = holdings[targetAsset]
         if (holding) {
-          holding.amount += dcaAmountUsd / price
-          holding.valueUsd += dcaAmountUsd
+          holding.amount += netAmount / price
+          holding.valueUsd += netAmount
         } else {
           holdings[targetAsset] = {
-            amount: dcaAmountUsd / price,
-            valueUsd: dcaAmountUsd,
+            amount: netAmount / price,
+            valueUsd: netAmount,
           }
         }
       }
