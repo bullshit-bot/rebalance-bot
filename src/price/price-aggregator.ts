@@ -64,7 +64,7 @@ class PriceAggregator {
         // Skip if a loop for this key already exists
         if (this.watchLoops.has(loopKey)) continue
 
-        const loopPromise = this.watchTicker(exchange, exchangeName, pair)
+        const loopPromise = this.pollTicker(exchange, exchangeName, pair)
         this.watchLoops.set(loopKey, loopPromise)
       }
     }
@@ -110,6 +110,52 @@ class PriceAggregator {
   }
 
   // ─── Internal ───────────────────────────────────────────────────────────────
+
+  /**
+   * REST polling fallback — fetches ticker every 10s via fetchTicker.
+   * Used because Bun runtime doesn't support CCXT Pro WebSocket upgrade.
+   */
+  private async pollTicker(
+    exchange: ccxt.Exchange,
+    exchangeName: ExchangeName,
+    pair: string,
+  ): Promise<void> {
+    console.log(`[PriceAggregator] Polling ${pair} on ${exchangeName} (REST, 10s interval)`)
+
+    while (this.running) {
+      try {
+        const ticker = await exchange.fetchTicker(pair)
+
+        const priceData: PriceData = {
+          exchange: exchangeName,
+          pair,
+          price: ticker.last ?? ticker.close ?? 0,
+          bid: ticker.bid ?? 0,
+          ask: ticker.ask ?? 0,
+          volume24h: ticker.baseVolume ?? 0,
+          change24h: ticker.percentage ?? 0,
+          timestamp: ticker.timestamp ?? Date.now(),
+        }
+
+        if (priceData.price === 0) {
+          await this.sleep(10_000)
+          continue
+        }
+
+        priceCache.set(pair, priceData)
+        eventBus.emit('price:update', priceData)
+      } catch (err: unknown) {
+        if (!this.running) break
+        console.error(
+          `[PriceAggregator] Error polling ${pair} on ${exchangeName}:`,
+          err instanceof Error ? err.message : err,
+        )
+      }
+      await this.sleep(10_000)
+    }
+
+    console.log(`[PriceAggregator] Poll loop exited: ${pair} on ${exchangeName}`)
+  }
 
   /**
    * Continuously watch a single trading pair on a single exchange.
