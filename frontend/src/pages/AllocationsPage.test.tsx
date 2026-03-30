@@ -11,6 +11,7 @@ vi.mock('@/hooks/use-portfolio-queries', () => ({
 
 vi.mock('@/hooks/use-allocation-queries', () => ({
   useAllocations: vi.fn(),
+  useUpdateAllocations: vi.fn(() => ({ mutate: vi.fn() })),
 }))
 
 import { usePortfolio } from '@/hooks/use-portfolio-queries'
