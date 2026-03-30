@@ -24,6 +24,11 @@ import type { BacktestConfig } from "@/lib/api-types";
 
 const PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"];
 
+// Default target allocations matching strategy config
+const DEFAULT_ALLOCATIONS: Record<string, number> = {
+  BTC: 40, ETH: 25, SOL: 20, BNB: 15,
+};
+
 interface BacktestTrade {
   date?: string
   pair?: string
@@ -78,11 +83,14 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
     if (selectedPairs.length === 0) return;
     const config: Record<string, unknown> = {
       pairs: selectedPairs,
-      allocations: selectedPairs.map((p) => ({
-        asset: p.split("/")[0]!,
-        targetPct: 100 / selectedPairs.length,
-        minTradeUsd: 10,
-      })),
+      allocations: selectedPairs.map((p) => {
+        const asset = p.split("/")[0]!;
+        return {
+          asset,
+          targetPct: DEFAULT_ALLOCATIONS[asset] ?? (100 / selectedPairs.length),
+          minTradeUsd: 10,
+        };
+      }),
       startDate: new Date(startDate).getTime(),
       endDate: new Date(endDate).getTime(),
       initialBalance: balance,
