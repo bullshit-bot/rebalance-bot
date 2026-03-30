@@ -26,13 +26,14 @@ const YEARS = 5
 
 // ─── Grid parameters ─────────────────────────────────────────────────────────
 
-const MA_PERIODS = [50, 80, 100, 110, 120, 150, 200]
+const MA_PERIODS = [50, 70, 80, 90, 100, 110, 120, 150, 200]
 const BEAR_CASH_PCTS = [70, 80, 90, 100]
-const COOLDOWN_DAYS = [1, 2, 3, 5]
-const THRESHOLDS = [3, 5, 8]
-const CASH_RESERVES = [0, 10]
+const COOLDOWN_DAYS = [1, 2, 3, 5, 7]
+const THRESHOLDS = [2, 3, 4, 5, 6, 8, 10]
+const CASH_RESERVES = [0]
+const TREND_BUFFERS = [0, 1, 2, 3]
 
-// Total combos: 7 × 4 × 4 × 3 × 2 = 672
+// Total combos: 9 × 4 × 5 × 7 × 1 × 4 = 5040
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ interface Result {
   cooldown: number
   threshold: number
   cashReserve: number
+  buffer: number
   returnPct: number
   annualized: number
   sharpe: number
@@ -61,7 +63,7 @@ async function main() {
   const startDate = now - YEARS * 365 * 24 * 60 * 60 * 1000
 
   const combos: Array<{
-    ma: number; bearCash: number; cooldown: number; threshold: number; cashReserve: number
+    ma: number; bearCash: number; cooldown: number; threshold: number; cashReserve: number; buffer: number
   }> = []
 
   for (const ma of MA_PERIODS) {
@@ -69,7 +71,9 @@ async function main() {
       for (const cd of COOLDOWN_DAYS) {
         for (const th of THRESHOLDS) {
           for (const cr of CASH_RESERVES) {
-            combos.push({ ma, bearCash: bear, cooldown: cd, threshold: th, cashReserve: cr })
+            for (const buf of TREND_BUFFERS) {
+              combos.push({ ma, bearCash: bear, cooldown: cd, threshold: th, cashReserve: cr, buffer: buf })
+            }
           }
         }
       }
@@ -103,6 +107,7 @@ async function main() {
         trendFilterMaPeriod: c.ma,
         trendFilterBearCashPct: c.bearCash,
         trendFilterCooldownCandles: c.cooldown,
+        trendFilterBuffer: c.buffer,
         cashReservePct: c.cashReserve,
       }
 
@@ -116,9 +121,9 @@ async function main() {
 
       if (done <= 3) console.log(`\nCombo result: return=${m.totalReturnPct.toFixed(1)}% sharpe=${m.sharpeRatio.toFixed(2)} dd=${m.maxDrawdownPct.toFixed(1)}%`)
       results.push({
-        label: `MA${c.ma}-bear${c.bearCash}-cd${c.cooldown}-th${c.threshold}-cr${c.cashReserve}`,
+        label: `MA${c.ma}-bear${c.bearCash}-cd${c.cooldown}-th${c.threshold}-buf${c.buffer}`,
         ma: c.ma, bearCash: c.bearCash, cooldown: c.cooldown,
-        threshold: c.threshold, cashReserve: c.cashReserve,
+        threshold: c.threshold, cashReserve: c.cashReserve, buffer: c.buffer,
         returnPct: m.totalReturnPct,
         annualized: m.annualizedReturnPct,
         sharpe: m.sharpeRatio,
@@ -164,6 +169,7 @@ async function main() {
   console.log(`Bear Cash: ${best.bearCash}%`)
   console.log(`Cooldown: ${best.cooldown} days`)
   console.log(`Threshold: ${best.threshold}%`)
+  console.log(`Trend Buffer: ${best.buffer}%`)
   console.log(`Cash Reserve: ${best.cashReserve}%`)
   console.log(`Return: +${best.returnPct.toFixed(1)}% | Annual: +${best.annualized.toFixed(1)}%`)
   console.log(`Sharpe: ${best.sharpe.toFixed(2)} | MaxDD: ${best.maxDD.toFixed(1)}%`)
