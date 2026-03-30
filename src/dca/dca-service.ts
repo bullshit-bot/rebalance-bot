@@ -5,6 +5,7 @@ import { strategyManager } from '@rebalancer/strategy-manager'
 import { trendFilter } from '@rebalancer/trend-filter'
 import { getExecutor } from '@executor/index'
 import { calcProportionalDCA, calcSingleTargetDCA } from '@dca/dca-allocation-calculator'
+import { STABLECOINS } from '@rebalancer/trade-calculator'
 import type { Allocation, Portfolio, TradeOrder } from '@/types/index'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -86,14 +87,26 @@ class DCAService {
       }
     }
 
-    // DCA rebalance routing: concentrate full amount on most underweight asset
-    const dcaTarget = strategyManager.getDCATarget(portfolio, targets)
-    if (dcaTarget !== null) {
-      return calcSingleTargetDCA(dcaTarget, depositAmount, portfolio, targets, minTradeUsd)
-    }
-
-    // If rebalance mode is on but no target found → portfolio balanced, skip
+    // DCA rebalance routing
     if (gs?.dcaRebalanceEnabled) {
+      // When crypto holdings are small, distribute proportionally to build initial positions
+      const cryptoValue = portfolio.assets
+        .filter((a) => !STABLECOINS.has(a.asset))
+        .reduce((sum, a) => sum + a.valueUsd, 0)
+
+      if (cryptoValue < depositAmount) {
+        // Not enough crypto to compare ratios — spread proportionally
+        console.log(`[DCAService] Crypto $${cryptoValue.toFixed(0)} < DCA $${depositAmount} — proportional mode`)
+        const orders = calcProportionalDCA(depositAmount, portfolio, targets, minTradeUsd)
+        if (orders.length > 0) return orders
+      }
+
+      // Enough crypto to compare — concentrate on most underweight asset
+      const dcaTarget = strategyManager.getDCATarget(portfolio, targets)
+      if (dcaTarget !== null) {
+        return calcSingleTargetDCA(dcaTarget, depositAmount, portfolio, targets, minTradeUsd)
+      }
+
       console.log('[DCAService] Rebalance mode: portfolio crypto is balanced — no DCA needed')
       return []
     }
