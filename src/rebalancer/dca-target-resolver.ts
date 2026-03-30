@@ -17,15 +17,31 @@ export function getDCATarget(
   portfolio: Portfolio,
   allocations: Allocation[],
 ): string | null {
-  const totalValue = portfolio.totalValueUsd
-  if (totalValue <= 0) return null
+  // Calculate total crypto value (exclude stablecoins like USDT)
+  // Target %s are relative to the crypto portion, not the full portfolio
+  const cryptoValue = portfolio.assets
+    .filter((a) => a.asset !== 'USDT' && a.asset !== 'USDC' && a.asset !== 'BUSD')
+    .reduce((sum, a) => sum + a.valueUsd, 0)
+
+  // If no crypto held yet, pick the asset with highest target
+  if (cryptoValue <= 0) {
+    let maxTarget = 0
+    let target: string | null = null
+    for (const alloc of allocations) {
+      if (alloc.targetPct > maxTarget) {
+        maxTarget = alloc.targetPct
+        target = alloc.asset
+      }
+    }
+    return target
+  }
 
   let maxDrift = 0
   let target: string | null = null
 
   for (const alloc of allocations) {
     const held = portfolio.assets.find((a) => a.asset === alloc.asset)
-    const currentPct = held ? (held.valueUsd / totalValue) * 100 : 0
+    const currentPct = held ? (held.valueUsd / cryptoValue) * 100 : 0
     const drift = alloc.targetPct - currentPct
     if (drift > maxDrift) {
       maxDrift = drift

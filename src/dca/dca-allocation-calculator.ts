@@ -29,11 +29,17 @@ export function calcProportionalDCA(
     targetMap.set(t.asset, entry)
   }
 
+  // Calculate current % relative to crypto portion only (exclude stablecoins)
+  const cryptoValue = portfolio.assets
+    .filter((a) => a.asset !== 'USDT' && a.asset !== 'USDC' && a.asset !== 'BUSD')
+    .reduce((sum, a) => sum + a.valueUsd, 0)
+
   const underweight: DeficitEntry[] = []
-  // Check all target assets, not just those in portfolio (handles 0-balance assets)
   for (const [asset, target] of targetMap) {
     const portfolioAsset = portfolio.assets.find((a) => a.asset === asset)
-    const currentPct = portfolioAsset?.currentPct ?? 0
+    const currentPct = cryptoValue > 0 && portfolioAsset
+      ? (portfolioAsset.valueUsd / cryptoValue) * 100
+      : 0
     const deficit = target.targetPct - currentPct
     if (deficit > 0) {
       underweight.push({
