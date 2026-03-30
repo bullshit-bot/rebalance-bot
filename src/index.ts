@@ -51,7 +51,11 @@ async function main(): Promise<void> {
   await connectDB()
   console.log('[main] Database ready')
 
-  // Step 1b: Hydrate trend filter from persisted candles
+  // Step 1b: Load active strategy config from DB
+  const { strategyManager } = await import('@rebalancer/strategy-manager')
+  await strategyManager.loadFromDb()
+
+  // Step 1c: Hydrate trend filter from persisted candles
   await trendFilter.loadFromDb()
 
   // Step 2: Connect to exchanges (skips any exchange missing credentials)
