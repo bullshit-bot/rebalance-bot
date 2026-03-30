@@ -116,19 +116,7 @@ class RebalanceEngine {
       console.info('[RebalanceEngine] Bull recovery trigger — re-entering crypto positions (cashReserve=%s%%)',
         cashReservePct ?? 'default')
     }
-    let orders: TradeOrder[]
-
-    // In DCA mode, drift-triggered rebalances use DCA-sized trades (not full rebalance)
-    const config = strategyManager.getActiveConfig()
-    const gs = config?.globalSettings as Record<string, unknown> | undefined
-    if (gs?.dcaRebalanceEnabled && (trigger === 'threshold' || trigger === 'periodic' || trigger === 'manual')) {
-      const dcaAmount = typeof gs.dcaAmountUsd === 'number' ? gs.dcaAmountUsd : 20
-      const { dcaService } = await import('@dca/dca-service')
-      orders = dcaService.calculateDCAAllocation(dcaAmount, beforeState, targets)
-      console.info(`[RebalanceEngine] DCA mode: capping drift rebalance to $${dcaAmount}`)
-    } else {
-      orders = calculateTrades(beforeState, targets, undefined, cashReservePct)
-    }
+    const orders = calculateTrades(beforeState, targets, undefined, cashReservePct)
 
     // ── Step 4: persist initial record ───────────────────────────────────────
     await RebalanceModel.create({
@@ -217,17 +205,6 @@ class RebalanceEngine {
     }
 
     const targets = await portfolioTracker.getTargetAllocations()
-
-    // When DCA mode is enabled, preview shows DCA-sized trades (not full rebalance)
-    const config = strategyManager.getActiveConfig()
-    const gs = config?.globalSettings as Record<string, unknown> | undefined
-    if (gs?.dcaRebalanceEnabled) {
-      const dcaAmount = typeof gs.dcaAmountUsd === 'number' ? gs.dcaAmountUsd : 20
-      const { dcaService } = await import('@dca/dca-service')
-      const dcaTrades = dcaService.calculateDCAAllocation(dcaAmount, portfolio, targets)
-      return { trades: dcaTrades, portfolio }
-    }
-
     const trades = calculateTrades(portfolio, targets)
     return { trades, portfolio }
   }
