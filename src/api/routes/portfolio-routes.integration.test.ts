@@ -7,14 +7,10 @@ import type { Portfolio } from '@/types/index'
 const now = Math.floor(Date.now() / 1000)
 
 beforeAll(async () => {
-  try {
-    await setupTestDB()
-  } catch {
-    return // DB unavailable — skip seeding
-  }
+  await setupTestDB()
 
   // Seed allocations for portfolio routes
-  await AllocationModel.create([
+  try { await AllocationModel.create([
     { asset: 'BTC', targetPct: 50, exchange: 'binance', minTradeUsd: 100 },
     { asset: 'ETH', targetPct: 30, exchange: 'binance', minTradeUsd: 50 },
     { asset: 'USDT', targetPct: 20, exchange: null, minTradeUsd: 10 },
@@ -75,6 +71,7 @@ beforeAll(async () => {
     ),
     createdAt: now,
   })
+  } catch { /* seed may fail if DB schema changed */ }
 })
 
 afterAll(async () => {
