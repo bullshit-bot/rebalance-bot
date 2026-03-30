@@ -74,17 +74,31 @@ class CronScheduler {
         })
       }),
       onDailySummary: deps?.onDailySummary ?? (() => {
-        marketSummaryService
-          .generateDailySummary()
-          .then((summary) => telegramNotifier.sendMessage(summary))
+        // GoClaw generates AI report → send to Telegram via Bot API
+        goClawClient.chat(
+          'Gọi mcp_rb__get_portfolio và mcp_rb__get_health. Gửi báo cáo portfolio hàng ngày tiếng Việt: giá trị tổng, phân bổ từng asset, drift, trend filter.',
+          500,
+        )
+          .then((report) => {
+            if (report) return telegramNotifier.sendMessage(report)
+            // Fallback to static summary if GoClaw unavailable
+            return marketSummaryService.generateDailySummary()
+              .then((summary) => telegramNotifier.sendMessage(summary))
+          })
           .catch((err: unknown) => {
             console.error('[CronScheduler] Daily summary failed:', err)
           })
       }),
       onWeeklySummary: deps?.onWeeklySummary ?? (() => {
-        marketSummaryService
-          .generateWeeklySummary()
-          .then((summary) => telegramNotifier.sendMessage(summary))
+        goClawClient.chat(
+          'Gọi mcp_rb__get_portfolio và mcp_rb__list_trades. Tổng kết hiệu suất tuần tiếng Việt: P&L, trades, so sánh.',
+          500,
+        )
+          .then((report) => {
+            if (report) return telegramNotifier.sendMessage(report)
+            return marketSummaryService.generateWeeklySummary()
+              .then((summary) => telegramNotifier.sendMessage(summary))
+          })
           .catch((err: unknown) => {
             console.error('[CronScheduler] Weekly summary failed:', err)
           })
@@ -95,28 +109,16 @@ class CronScheduler {
         })
       }),
       onAiInsights: deps?.onAiInsights ?? (() => {
-        // GoClaw analyzes portfolio using MCP tools and sends insights via Telegram
-        const portfolio = portfolioTracker.getPortfolio()
-        if (!portfolio) return
-
-        const assets = portfolio.assets
-          .map((a) => `${a.asset}: $${a.valueUsd.toFixed(0)} (${a.currentPct.toFixed(1)}%, drift ${a.driftPct >= 0 ? '+' : ''}${a.driftPct.toFixed(1)}%)`)
-          .join('\n')
-
-        const prompt = [
-          `Phân tích portfolio crypto hiện tại và gửi nhận xét ngắn gọn bằng tiếng Việt cho chủ sở hữu:`,
-          ``,
-          `Tổng giá trị: $${portfolio.totalValueUsd.toFixed(0)}`,
-          assets,
-          ``,
-          `Hãy dùng tool get_portfolio và list_trades để lấy thêm dữ liệu nếu cần.`,
-          `Đưa ra: 1) Đánh giá tình hình, 2) Rủi ro cần chú ý, 3) Đề xuất hành động (nếu có).`,
-          `Viết ngắn gọn, tối đa 200 từ.`,
-        ].join('\n')
-
-        goClawClient.chat(prompt, 500).catch((err: unknown) => {
-          console.error('[CronScheduler] AI insights failed:', err)
-        })
+        goClawClient.chat(
+          'Phân tích portfolio bằng mcp_rb__get_portfolio. Đánh giá rủi ro, đề xuất hành động nếu cần. Tiếng Việt, ngắn gọn.',
+          500,
+        )
+          .then((report) => {
+            if (report) void telegramNotifier.sendMessage(report)
+          })
+          .catch((err: unknown) => {
+            console.error('[CronScheduler] AI insights failed:', err)
+          })
       }),
     }
   }
