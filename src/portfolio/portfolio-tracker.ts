@@ -160,45 +160,27 @@ class PortfolioTracker {
     name: ExchangeName,
     signal: AbortSignal,
   ): Promise<void> {
-    let wsFailCount = 0
-    const WS_FAIL_THRESHOLD = 3
-    const REST_POLL_INTERVAL = 10_000 // 10s REST fallback
+    // Bun runtime doesn't support ws 'upgrade' event needed by CCXT Pro watchBalance.
+    // Use REST fetchBalance polling at 10s interval — reliable on both testnet and mainnet.
+    // Price feeds still use WebSocket (public streams work fine in Bun).
+    const POLL_INTERVAL = 10_000
+
+    if (!exchange.fetchBalance) {
+      console.error(`[PortfolioTracker] Exchange ${name} has no fetchBalance — skipping`)
+      return
+    }
+
+    console.info(`[PortfolioTracker] Polling balance on ${name} every ${POLL_INTERVAL / 1000}s`)
 
     while (!signal.aborted) {
       try {
-        const useRest = wsFailCount >= WS_FAIL_THRESHOLD && exchange.fetchBalance
-        let balanceResponse: Record<string, unknown>
-
-        if (useRest) {
-          balanceResponse = await exchange.fetchBalance!()
-        } else {
-          // WebSocket with 30s timeout (Node.js runtime supports ws upgrade)
-          const WS_TIMEOUT = 30_000
-          balanceResponse = await Promise.race([
-            exchange.watchBalance(),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('watchBalance timeout')), WS_TIMEOUT)
-            ),
-          ])
-        }
-
-        if (!useRest) wsFailCount = 0
+        const balanceResponse = await exchange.fetchBalance()
         this.processBalanceResponse(balanceResponse, name)
-
-        if (useRest) {
-          await new Promise<void>((resolve) => setTimeout(resolve, REST_POLL_INTERVAL))
-        }
       } catch (err: unknown) {
         if (signal.aborted) break
-        wsFailCount++
-
-        if (wsFailCount === WS_FAIL_THRESHOLD) {
-          console.warn(`[PortfolioTracker] WebSocket failed ${WS_FAIL_THRESHOLD}x on ${name} — fallback to REST polling (${REST_POLL_INTERVAL / 1000}s)`)
-        } else if (wsFailCount < WS_FAIL_THRESHOLD) {
-          console.error(`[PortfolioTracker] watchBalance error on ${name}:`, err instanceof Error ? err.message : err)
-        }
-        await new Promise<void>((resolve) => setTimeout(resolve, 3_000))
+        console.error(`[PortfolioTracker] fetchBalance error on ${name}:`, err instanceof Error ? err.message : err)
       }
+      await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL))
     }
   }
 

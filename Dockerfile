@@ -1,21 +1,21 @@
-# Stage 1: Install dependencies (Bun for speed)
+# Stage 1: Install dependencies
 FROM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile && bun add protobufjs
 
-# Stage 2: Build (Bun bundler, target Node.js)
+# Stage 2: Build
 FROM oven/bun:1 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN bun build src/index.ts --outdir dist --target node
+RUN bun build src/index.ts --outdir dist --target bun
 
-# Stage 3: Production runtime (Node.js for full WebSocket support)
-FROM node:22-slim AS runner
+# Stage 3: Production runtime
+FROM oven/bun:1-slim AS runner
 WORKDIR /app
 
-# Install curl for Docker health checks
+# Install curl + CA certs for Docker health checks and HTTPS API calls
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
@@ -32,4 +32,4 @@ USER botuser
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+CMD ["bun", "run", "dist/index.js"]
