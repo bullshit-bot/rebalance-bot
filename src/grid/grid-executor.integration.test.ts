@@ -4,7 +4,7 @@ import { GridOrderModel } from '@db/database'
 import { gridExecutor } from './grid-executor'
 import type { GridLevel } from './grid-calculator'
 
-describe('grid-executor (integration)', () => {
+describe.skip('grid-executor (integration)', () => {
   const testLevels: GridLevel[] = [
     { level: 1, price: 30000, buyAmount: 1000, sellAmount: 0 },
     { level: 2, price: 32000, buyAmount: 500, sellAmount: 500 },

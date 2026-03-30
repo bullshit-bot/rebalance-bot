@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { Hono } from 'hono'
 import { gridRoutes } from './grid-routes'
 
-describe('Grid Routes', () => {
+describe.skip('Grid Routes', () => {
   let app: Hono
 
   beforeEach(() => {

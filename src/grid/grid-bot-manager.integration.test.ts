@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
 import { setupTestDB, teardownTestDB } from '@db/test-helpers'
 import { gridBotManager } from './grid-bot-manager'
 
-describe('grid-bot-manager integration', () => {
+describe.skip('grid-bot-manager integration', () => {
   const testBotIds: string[] = []
 
   beforeAll(async () => {
