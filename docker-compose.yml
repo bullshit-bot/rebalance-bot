@@ -158,6 +158,8 @@ services:
     depends_on:
       goclaw-postgres:
         condition: service_healthy
+      mcp-server:
+        condition: service_healthy
     deploy:
       resources:
         limits:
