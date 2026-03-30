@@ -160,48 +160,27 @@ class PortfolioTracker {
     name: ExchangeName,
     signal: AbortSignal,
   ): Promise<void> {
-    let wsFailCount = 0
-    const WS_FAIL_THRESHOLD = 3
-    const REST_POLL_INTERVAL = 30_000
+    // Bun runtime doesn't fully support ws 'upgrade' event needed by CCXT Pro
+    // for user data streams (watchBalance). Use REST polling with fetchBalance
+    // which is reliable on both testnet and mainnet.
+    const POLL_INTERVAL = 10_000 // 10s — fast enough for rebalancing
+
+    if (!exchange.fetchBalance) {
+      console.error(`[PortfolioTracker] Exchange ${name} has no fetchBalance — skipping`)
+      return
+    }
+
+    console.info(`[PortfolioTracker] Polling balance on ${name} every ${POLL_INTERVAL / 1000}s`)
 
     while (!signal.aborted) {
       try {
-        // Try WebSocket first; fall back to REST polling after repeated failures
-        const useRest = wsFailCount >= WS_FAIL_THRESHOLD && exchange.fetchBalance
-        let balanceResponse: Record<string, unknown>
-        if (useRest) {
-          balanceResponse = await exchange.fetchBalance!()
-        } else {
-          // Timeout WebSocket after 15s to avoid hanging forever (e.g. testnet)
-          const WS_TIMEOUT = 15_000
-          balanceResponse = await Promise.race([
-            exchange.watchBalance(),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('watchBalance timeout')), WS_TIMEOUT)
-            ),
-          ])
-        }
-
-        // Reset failure count on successful WebSocket response
-        if (!useRest) wsFailCount = 0
-
+        const balanceResponse = await exchange.fetchBalance()
         this.processBalanceResponse(balanceResponse, name)
-
-        // REST polling needs explicit delay; WebSocket blocks until next update
-        if (useRest) {
-          await new Promise<void>((resolve) => setTimeout(resolve, REST_POLL_INTERVAL))
-        }
       } catch (err: unknown) {
         if (signal.aborted) break
-        wsFailCount++
-
-        if (wsFailCount === WS_FAIL_THRESHOLD) {
-          console.warn(`[PortfolioTracker] WebSocket failed ${WS_FAIL_THRESHOLD}x on ${name} — switching to REST polling`)
-        } else if (wsFailCount < WS_FAIL_THRESHOLD) {
-          console.error(`[PortfolioTracker] watchBalance error on ${name}:`, err)
-        }
-        await new Promise<void>((resolve) => setTimeout(resolve, 3_000))
+        console.error(`[PortfolioTracker] fetchBalance error on ${name}:`, err instanceof Error ? err.message : err)
       }
+      await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL))
     }
   }
 
