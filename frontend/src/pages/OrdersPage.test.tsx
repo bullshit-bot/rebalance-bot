@@ -23,7 +23,7 @@ function renderWithProviders(ui: ReactNode) {
 describe('OrdersPage', () => {
   const mockTradesData = [
     {
-      id: 1,
+      _id: '1',
       exchange: 'binance',
       pair: 'BTC/USDT',
       side: 'buy' as const,
@@ -31,10 +31,10 @@ describe('OrdersPage', () => {
       price: 50000,
       fee: 10,
       rebalanceId: null,
-      executedAt: Math.floor(Date.now() / 1000),
+      executedAt: new Date().toISOString(),
     },
     {
-      id: 2,
+      _id: '2',
       exchange: 'binance',
       pair: 'ETH/USDT',
       side: 'sell' as const,
@@ -42,7 +42,7 @@ describe('OrdersPage', () => {
       price: 3000,
       fee: 5,
       rebalanceId: 'rebal-123',
-      executedAt: Math.floor(Date.now() / 1000) - 3600,
+      executedAt: new Date(Date.now() - 3600000).toISOString(),
     },
   ]
 
@@ -152,7 +152,7 @@ describe('OrdersPage', () => {
   it('displays pagination when there are many orders', () => {
     const manyOrders = Array.from({ length: 25 }, (_, i) => ({
       ...mockTradesData[0],
-      id: i,
+      _id: String(i),
     }))
     vi.mocked(useTrades).mockReturnValue({ isLoading: false, data: manyOrders, isError: false } as any)
 
@@ -170,7 +170,7 @@ describe('OrdersPage', () => {
   it('displays order count and page info when paginated', () => {
     const manyOrders = Array.from({ length: 25 }, (_, i) => ({
       ...mockTradesData[0],
-      id: i,
+      _id: String(i),
     }))
     vi.mocked(useTrades).mockReturnValue({ isLoading: false, data: manyOrders, isError: false } as any)
 
@@ -181,7 +181,7 @@ describe('OrdersPage', () => {
   it('resets to page 1 when search is applied', async () => {
     const manyOrders = Array.from({ length: 25 }, (_, i) => ({
       ...mockTradesData[0],
-      id: i,
+      _id: String(i),
       pair: i < 15 ? 'BTC/USDT' : 'ETH/USDT',
     }))
     vi.mocked(useTrades).mockReturnValue({ isLoading: false, data: manyOrders, isError: false } as any)
@@ -197,7 +197,7 @@ describe('OrdersPage', () => {
   it('resets to page 1 when tab filter is changed', async () => {
     const manyOrders = Array.from({ length: 25 }, (_, i) => ({
       ...mockTradesData[0],
-      id: i,
+      _id: String(i),
     }))
     vi.mocked(useTrades).mockReturnValue({ isLoading: false, data: manyOrders, isError: false } as any)
 

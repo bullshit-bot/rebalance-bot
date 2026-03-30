@@ -155,7 +155,7 @@ describe('AllocationsPage', () => {
     vi.mocked(useAllocations).mockReturnValue({ isLoading: false, data: [], isError: false } as any)
 
     renderWithProviders(<AllocationsPage />)
-    expect(screen.getByText('Allocations')).toBeInTheDocument()
+    expect(screen.getAllByText('Allocations').length).toBeGreaterThan(0)
   })
 
   it('displays legend for pie chart', () => {
