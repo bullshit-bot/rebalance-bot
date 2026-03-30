@@ -61,6 +61,7 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
   const [trendMaPeriod, setTrendMaPeriod] = useState(100);
   const [trendBearCashPct, setTrendBearCashPct] = useState(90);
   const [trendCooldown, setTrendCooldown] = useState(3);
+  const [trendBuffer, setTrendBuffer] = useState(0);
 
   // Cash reserve
   const [cashReservePct, setCashReservePct] = useState(0);
@@ -100,6 +101,7 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
       config.trendFilterMaPeriod = trendMaPeriod;
       config.trendFilterBearCashPct = trendBearCashPct;
       config.trendFilterCooldownCandles = trendCooldown;
+      config.trendFilterBuffer = trendBuffer;
     }
     // Cash reserve
     if (cashReservePct > 0) {
@@ -231,6 +233,12 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
                   Cooldown: <span className="tabular-nums">{trendCooldown} days</span>
                 </label>
                 <input type="range" min={0} max={10} value={trendCooldown} onChange={(e) => setTrendCooldown(Number(e.target.value))} className="w-full accent-primary" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">
+                  Buffer: <span className="tabular-nums">{trendBuffer}%</span>
+                </label>
+                <input type="range" min={0} max={5} step={0.5} value={trendBuffer} onChange={(e) => setTrendBuffer(Number(e.target.value))} className="w-full accent-primary" />
               </div>
             </div>
           )}
