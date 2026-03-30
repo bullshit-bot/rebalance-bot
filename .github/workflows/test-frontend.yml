@@ -24,13 +24,12 @@ jobs:
 
       - run: bun install
 
-      - name: Run tests
-        run: bun run test
-        continue-on-error: true
-
-      - name: Coverage
-        if: always()
+      - name: Run tests with coverage
         run: bun run test:cov
+
+      - name: Check coverage thresholds (95% total, 90% per file)
+        if: always()
+        run: bash ../scripts/check-coverage-threshold.sh coverage/lcov.info 95 90
         continue-on-error: true
 
       - uses: actions/upload-artifact@v4
