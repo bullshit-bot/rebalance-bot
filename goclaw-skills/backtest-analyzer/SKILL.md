@@ -34,25 +34,28 @@ Run and analyze backtesting results across different strategies and configuratio
 - `exchange`: "binance", "okx", or "bybit"
 - `dcaAmountUsd`: DCA injection per interval (0 = disabled)
 - `dcaIntervalCandles`: How often to inject DCA (1 = every candle)
-- `trendFilterMaPeriod`: BTC MA period for bear/bull detection (0 = disabled, 100 recommended)
-- `trendFilterBearCashPct`: % portfolio to cash in bear (90 recommended)
-- `trendFilterCooldownCandles`: Anti-whipsaw cooldown (3 recommended)
+- `trendFilterMaPeriod`: BTC MA period for bear/bull detection (0 = disabled, 120 optimal from grid search)
+- `trendFilterBuffer`: % buffer below MA still treated as bull (0 to 5%, optimal 0%)
+- `trendFilterBearCashPct`: % portfolio to cash in bear (100 optimal from backtest)
+- `trendFilterCooldownCandles`: Anti-whipsaw cooldown in days (1 optimal from grid search)
 - `cashReservePct`: % kept as cash buffer (0-50)
 
-### Optimal Config (from 4800-combo grid search, 5-year backtest)
-- Allocation: BTC 40% / ETH 25% / BNB 15% / SOL 20%
-- Trend filter: MA100, Bear 90% cash, Cooldown 3 days
-- DCA: $20/day, increase 2x during bear market
-- Expected: ~20%/year annualized, max drawdown ~34%
-- Trend filter alone: +48% → +150% return improvement
+### Optimal Config (from 5040-combo grid search, 5-year backtest, 2026-03-31)
+- Allocation: BTC 40% / ETH 25% / SOL 20% / BNB 15%
+- Trend filter: MA120, Buffer 0%, Bear 100% cash, Cooldown 1 day
+- DCA: $20/day scheduled at 07:00 VN
+- Expected: ~30.5%/year annualized (2021-2026 historical)
+- Max drawdown: -34% (vs -85% without trend filter)
+- Trend filter impact: +48% → +284% return improvement (5.9x)
 
-### Key Backtest Results (2021-2026, $1000 initial + $20/day DCA)
-| Strategy | Invested | Final | Return | Max DD |
-|----------|----------|-------|--------|--------|
-| No filter | $37,500 | $55,430 | +47.8% | -62.5% |
-| MA100 filter | $37,500 | $93,733 | +150.0% | -34.7% |
-| MA100 + SOL 20% | $37,500 | $98,725 | +163.3% | -33.7% |
-| MA100 + DCA 3x bear | $70,660 | $178,911 | +153.2% | -34.7% |
+### Key Backtest Results (2021-2026, $1000 initial + $20/day DCA = $37,500 invested)
+| Strategy | Final Balance | Return | Sharpe | Max DD | Notes |
+|----------|---------------|--------|--------|--------|-------|
+| No filter, no DCA | $10,870 | +387% | 0.80 | -85% | Benchmark (buy & hold) |
+| MA110/TH8/CD1/Bear100 | $24,280 | +242.8% | 2.23 | -39.4% | Previous optimal (v1.0.2, invalid) |
+| **MA120/TH10/CD1/Bear100, Buf0** | **$28,400** | **+284.0%** | **2.29** | **-34.0%** | **Current optimal (v1.0.3)** |
+
+**Note:** Previous 672-combo grid search results invalidated due to backtest engine fixes (double-division trade amount bug, DCA fees not deducted, trend buffer missing). Re-ran full 5040-combo optimization after fixes.
 
 ## Workflow
 

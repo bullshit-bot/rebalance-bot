@@ -1,7 +1,7 @@
 # System Architecture
 
-**Last Updated**: 2026-03-30
-**Version**: 1.0.2
+**Last Updated**: 2026-03-31
+**Version**: 1.0.3
 **Project**: Crypto Rebalance Bot
 **Status**: Complete (4 phases + advanced strategies)
 
@@ -142,9 +142,11 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 
 **Trend Filter Behavior**:
 - Tracks BTC daily closes in rolling 400-day window
-- Emits `trend:changed` event on bull↔bear flip (with 3-day cooldown)
+- Emits `trend:changed` event on bull↔bear flip (with configurable cooldown)
 - If bearish: auto-override allocations to configured cash % (default: 70%, configurable via `bearCashPct`)
+- Buffer below MA still treated as bull: configurable `trendFilterBuffer` (default: 2%, can be 0-5%)
 - Provides read-only query API (`isBullishReadOnly()`) for healthchecks
+- Backtest now includes buffer simulation (matches live behavior)
 
 **DCA (Dollar-Cost Averaging)** (Scheduled Daily, Fully Independent):
 - Scheduled daily DCA: triggered via cron at 07:00 VN or manual `POST /api/dca/trigger`
@@ -365,10 +367,10 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - `dcaAmountUsd` - Configurable DCA amount per execution (default: $20, range: $1-$100k)
 - `hardRebalanceThreshold` - High-drift hard rebalance trigger (e.g., 20%, default: not set)
 - `trendFilterEnabled` - Enable MA-based trend filter (bool)
-- `trendFilterMA` - MA period for bull/bear detection (default: 110 days, optimal from grid search)
-- `trendFilterBuffer` - % buffer below MA still treated as bull (default: 2%)
-- `trendFilterCooldown` - Days between bear/bull flips to prevent whipsaw (default: 1 day, optimal from search)
-- `bearCashPct` - Cash override % when trend turns bearish (default: 70%, optimal: 100%)
+- `trendFilterMA` - MA period for bull/bear detection (default: 120 days, optimal from 5040-combo grid search)
+- `trendFilterBuffer` - % buffer below MA still treated as bull (default: 2%, optimal from backtest: 0%)
+- `trendFilterCooldown` - Days between bear/bull flips to prevent whipsaw (default: 1 day)
+- `bearCashPct` - Cash override % when trend turns bearish (default: 70%, optimal from backtest: 100%)
 - **Target Allocations (Crypto-Only)**: BTC 40%, ETH 25%, SOL 20%, BNB 15% — percentages apply to crypto portion only (stablecoins excluded from denominator)
 
 ## Security Model

@@ -65,13 +65,15 @@ Price Feeds (REST polling, 10s) → PriceService → EventBus
 - **Backtest proven**: increases return from +48% to +242% over 5 years, reduces drawdown from -85% to -39%
 
 ### 3. DCA (Dollar-Cost Averaging) — Fully Independent
-- Scheduled daily: executes at 07:00 VN or via manual `POST /api/dca/trigger` trigger
-- Configurable amount: `dcaAmountUsd` ($1-$100k, default $20)
+- Scheduled daily: executes at 07:00 VN (configurable) or via manual `POST /api/dca/trigger` endpoint
+- Configurable amount: `dcaAmountUsd` ($1-$100k, default $20, read from strategy config on startup)
 - **Proportional mode**: When `cryptoValue < dcaAmountUsd`, spreads DCA proportionally across all underweight assets
 - **Single-target mode**: When `dcaRebalanceEnabled=true` AND crypto >= threshold, concentrates full DCA on most underweight asset
-- **Dust handling**: When crypto < $10, treats all assets as 0% and picks highest target allocation
+- **Dust handling**: When crypto < $10, treats all assets as 0% and picks highest target allocation (initial accumulation phase)
+- **Crypto-only allocations**: Target % computed excluding stablecoins from denominator (BTC 40%, ETH 25%, SOL 20%, BNB 15%)
 - **Trend filter aware**: In bear market, DCA deposits held as cash (no crypto buys)
 - **Independent from rebalance**: DCA cron and rebalance engine don't interact or cap each other
+- Fees: Applied to DCA trades (now included in backtest simulation)
 - Cash reserve: keeps 0-50% in stablecoins as buffer (configurable)
 
 ### 4. Backtesting
@@ -80,29 +82,29 @@ Price Feeds (REST polling, 10s) → PriceService → EventBus
 - Metrics: return %, annualized %, Sharpe ratio, max drawdown, fees
 - Benchmark: compares strategy vs buy-and-hold
 
-## Optimal Configuration (4800-combo Grid Search, 2026-03-30) — PRODUCTION ACTIVE
+## Optimal Configuration (5040-combo Grid Search, 2026-03-31) — PRODUCTION ACTIVE
 
-Current active config on production: `optimal-backtest-validated` v4
+Current active config on production: `optimal-backtest-validated` v5
 
 | Parameter | Value | Reason |
 |-----------|-------|--------|
 | Allocation | BTC 40% / ETH 25% / SOL 20% / BNB 15% (crypto-only) | Blue-chip heavy, excludes stablecoins |
-| Strategy | threshold (**8%**) | Less trades, let profit run |
-| Trend filter | **MA110**, Bear **100%** cash | Smoother signal, full capital preservation |
+| Strategy | threshold (**10%**) | Reduced trading frequency, better long-term holding |
+| Trend filter | **MA120**, Buffer **0%**, Bear **100%** cash | Smooth 4-month MA, no false signals, full capital preservation |
 | Cooldown | **1 day** | Fast trend response |
 | Cash reserve | 0% | Trend filter handles protection |
-| DCA rebalance | enabled | Caps rebalance trades to dcaAmountUsd |
-| DCA amount | **$20/day** | Scheduled at 07:00 VN, manual trigger available |
+| DCA rebalance | enabled | Scheduled $20/day at 07:00 VN |
+| DCA amount | **$20/day** | Manual trigger available via POST /api/dca/trigger |
 
 ### Backtest Results (2021-2026, $1000 initial + $20/day DCA)
 
 | Config | Return | Annualized | Sharpe | Max DD |
 |--------|--------|-----------|--------|--------|
-| Old (MA100/TH5/CD3/Bear90) | +133.9% | +18.5% | 2.01 | -43.2% |
-| **Active (MA110/TH8/CD1/Bear100, DCA budget cap)** | **+242.8%** | **+28.0%** | **2.23%** | **-39.4%** |
-| No trend filter (no DCA) | +387% | - | 0.80 | -85% |
+| No filter (no DCA) | +387% | - | 0.80 | -85% |
+| Old (MA110/TH8/CD1/Bear100) | +242.8% | +28.0% | 2.23 | -39.4% |
+| **Active (MA120/TH10/CD1/Bear100, Buf0)** | **+284.0%** | **+30.5%** | **2.29** | **-34.0%** |
 
-**Key insights:** Trend filter single-handedly provides 3x return improvement and cuts max drawdown from -85% to -39%. DCA budget cap prevents over-trading. Validated across 4800+ parameter combinations.
+**Key insights:** New MA120/TH10 config improves returns +41.2% vs previous setup. Trend filter single-handedly provides 3x return improvement and cuts max drawdown from -85% to -34%. Validated across 5040+ parameter combinations. Previous 672-combo results invalidated due to backtest engine fixes (double-division bug, DCA fees, buffer).
 
 ## MCP Tools Available (28 tools)
 

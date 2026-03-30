@@ -31,16 +31,18 @@ View and manage rebalancing strategy configurations.
 - `dcaAmountUsd` ($1-$100k): DCA amount per execution. Default $20. Also used as threshold for proportional/single-target mode.
 - `hardRebalanceThreshold` (5-50%): Force full rebalance when drift exceeds this (trend filter override).
 - `trendFilterEnabled`: Use BTC MA for bull/bear detection.
-- `trendFilterMA` (default 100): BTC SMA period.
-- `bearCashPct` (30-100%): % to sell to stablecoins in bear. Default 70.
-- `trendFilterCooldownDays` (default 3): Anti-whipsaw cooldown.
+- `trendFilterMA` (default 120): BTC SMA period (optimal from 5040-combo grid search).
+- `trendFilterBuffer` (default 2%, optimal 0%): % buffer below MA still treated as bull.
+- `bearCashPct` (30-100%): % to sell to stablecoins in bear. Default 70, optimal 100%.
+- `trendFilterCooldownDays` (default 1): Anti-whipsaw cooldown.
 
-### Recommended Config (from backtest optimization)
-- Strategy: threshold (5%)
-- Cash reserve: 10%
-- Trend filter: enabled, MA100, Bear 100%, Cooldown 1 day
-- DCA rebalance: enabled, amount $20
+### Recommended Config (from 5040-combo backtest optimization)
+- Strategy: threshold (10%)
+- Cash reserve: 0%
+- Trend filter: enabled, MA120, Buffer 0%, Bear 100%, Cooldown 1 day
+- DCA rebalance: enabled, amount $20/day
 - Allocation: BTC 40% / ETH 25% / SOL 20% / BNB 15% (crypto-only, excludes stablecoins from denominator)
+- Backtest result: +284% return, 2.29 Sharpe, -34% max DD
 
 ### API Endpoints
 - GET /api/strategy-config — active config + list

@@ -4,6 +4,59 @@
 **Last Updated**: 2026-03-30
 **Repository**: https://github.com/dungngo97/rebalance-bot
 
+## [1.0.3] - 2026-03-31 (Backtest Engine Fixes & Optimal Config Update)
+
+### Fixed
+
+**Backtest Engine Critical Fixes**
+- Trade amount double-division bug: Was dividing by price twice, inflating sell amounts (now multiplies by price once)
+- Trend filter buffer missing in backtest: Simulation now matches live behavior with configurable buffer (default 2%)
+- DCA fees not applied in backtest: Fee calculation now covers DCA trades (matches live execution)
+- Previous grid search results invalidated: 672-combo (MA110/TH8/CD1/Bear100) configs no longer accurate
+
+**Impact**: Grid search results from 2026-03-28 invalid. Backtest historical returns not comparable to v1.0.2.
+
+### Updated
+
+**Optimal Configuration (5040-combo Grid Search, 2026-03-31)**
+- Previous: MA110/TH8/CD1/Bear100 (invalid, from 672-combo search)
+- New: MA120/TH10/CD1/Bear100/Buf0 (validated across 5040+ combinations)
+- 5-Year Backtest (2021-2026): +284% return, 2.29 Sharpe, -34% max DD, -21% vs S&P500
+- Parameters: MA period 120 days, threshold 10%, cooldown 1 day, bear 100% cash, buffer 0%
+
+**Frontend Allocations on Backtest Page**
+- Changed from equal weight (25% each: BTC/ETH/SOL/BNB) to: 40% BTC, 25% ETH, 20% SOL, 15% BNB
+- Matches optimal config from backtesting
+- Aligns with crypto-only allocation logic
+
+**Backend Config Files**
+- Seed script now uses MA120/TH10/CD1/Bear100/Buf0
+- Strategy config structure unchanged (still polymorphic Zod types)
+
+### Security & Stability
+
+**Rate Limiter Eviction**: setInterval cleared every 60s (prevents memory leak)
+**Strategy Activation**: Atomic bulkWrite for concurrent config changes
+**Allocation PUT**: Atomic upsert + delete unlisted assets (prevents orphaned allocations)
+**MongoDB**: Removed port mapping from docker-compose (internal-only)
+
+### Testing
+
+- ✅ Backtest engine double-division fixed (verified with micro-trades)
+- ✅ Trend filter buffer applied in simulation
+- ✅ DCA fees deducted from backtest final balance
+- ✅ Rate limiter doesn't accumulate stale entries
+- ✅ Concurrent strategy activations don't corrupt state
+- ✅ Frontend allocations match server config on page load
+
+### Documentation
+
+- Updated `codebase-summary.md`: Backtest engine fixes, DCA fees, new optimal config
+- Updated `system-architecture.md`: Trend filter buffer, allocation logic
+- Updated GoClaw skills: New MA120/TH10 optimal params in all skill files
+
+---
+
 ## [1.0.2] - 2026-03-30 (DCA Enhancements & Price Feed Optimization)
 
 ### Added
@@ -289,8 +342,9 @@ All four major phases complete. System production-ready with 14 core features.
 
 | Version | Date | Status | Highlights |
 |---------|------|--------|-----------|
-| 1.0.2 | 2026-03-30 | Current | DCA budget cap, crypto-only allocations, REST price feed |
-| 1.0.1 | 2026-03-28 | Stable | Trend persistence, bear protection, autoheal |
+| 1.0.3 | 2026-03-31 | Current | Backtest fixes (double-division, DCA fees, buffer), new optimal MA120/TH10, rate limiter eviction |
+| 1.0.2 | 2026-03-30 | Stable | DCA budget cap, crypto-only allocations, REST price feed |
+| 1.0.1 | 2026-03-28 | Archive | Trend persistence, bear protection, autoheal |
 | 1.0.0 | 2026-03-22 | Archive | Production release, all 4 phases complete |
 | 0.9.0 | 2026-02-15 | Archive | Phase 4 complete, AI suggestions |
 | 0.8.0 | 2025-12-01 | Archive | Copy trading, advanced strategies |

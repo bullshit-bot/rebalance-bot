@@ -1,8 +1,8 @@
 # Codebase Summary
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-30 (DCA budget cap, crypto-only allocations, REST price feed, API trigger)
-**Version**: 1.0.1
+**Last Updated**: 2026-03-31 (Backtest engine fixes, DCA fees, trend filter buffer, MA120/TH10 optimal)
+**Version**: 1.0.3
 **Repository**: https://github.com/dungngo97/rebalance-bot
 **License**: MIT
 
@@ -20,7 +20,7 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 | Module | LOC | Responsibility |
 |--------|-----|-----------------|
 | api/ | 1,950 | REST API (14 routes incl. strategy-config) + WebSocket |
-| backtesting/ | 1,200 | Simulator, metrics calc, parameter-grid optimizer (4800+ combos) |
+| backtesting/ | 1,200 | Simulator (fixed: double-division, DCA fees, buffer), metrics calc, parameter-grid optimizer (5040+ combos) |
 | rebalancer/ | 1,100 | Strategy mgr, drift detector, trend filter (MA + cooldown), DCA routing, cash-aware trades |
 | analytics/ | 880 | Performance metrics, reporting |
 | executor/ | 670 | Order execution via CCXT (real orders, testnet via BINANCE_SANDBOX) |
@@ -398,7 +398,9 @@ WebSocket API (update frontend)
 - Price feed: REST polling (10s interval via fetchTicker) replaces WebSocket (Bun runtime limitation)
 - Unified stablecoin set: USDT, USDC, BUSD, TUSD, DAI, USD exported from trade-calculator.ts
 - Strategy config loaded on startup: `strategyManager.loadFromDb()` in index.ts
-- Backend seed script with optimal config (threshold 8%, MA 110, bear cash 100%, cooldown 1d)
+- Backend seed script with optimal config (MA 120, threshold 10%, bear cash 100%, cooldown 1d, buffer 0%)
+- Backtest engine fixes: Double-division bug (trade amount × price²), DCA fees now deducted, trend buffer applied
+- Trend filter buffer: Configurable % below MA still treated as bull (default 2%, optimal 0%)
 
 **Command**: `bun test` (also supports watch mode)
 **Coverage Report**: `bun test --coverage`
