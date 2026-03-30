@@ -91,3 +91,11 @@ external/
 # Git worktrees (local development only)
 worktrees/
 knowledge-chunks.json
+
+# Tool-generated directories (not part of project)
+.opencode/
+.playwright-mcp/
+COVERAGE-TESTS.md
+Users/
+frontend/.claude/
+release-manifest.json
