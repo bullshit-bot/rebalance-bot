@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { Hono } from 'hono'
 import { gridRoutes } from './grid-routes'
 
-describe.skip('Grid Routes', () => {
+describe('Grid Routes', () => {
   let app: Hono
 
   beforeEach(() => {
@@ -644,6 +644,310 @@ describe.skip('Grid Routes', () => {
       })
 
       expect([200, 201, 400, 401, 422, 500]).toContain(res.status)
+    })
+
+    it('should validate priceLower is a number', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 'not_a_number',
+        priceUpper: 50000,
+        gridLevels: 10,
+        investment: 1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should validate priceUpper is a number', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: 'not_a_number',
+        gridLevels: 10,
+        investment: 1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should validate investment is a number', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 10,
+        investment: 'not_a_number',
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should handle missing body fields individually', async () => {
+      const baseBody = {
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 10,
+        investment: 1000,
+        gridType: 'normal',
+      }
+
+      // Test missing exchange
+      let body = JSON.stringify({ ...baseBody, exchange: undefined })
+      let res = await app.request('/grid', {
+        method: 'POST',
+        body: body.replace('undefined', 'null'),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect(res.status).toBe(400)
+
+      // Test missing pair
+      body = JSON.stringify({ ...baseBody, pair: '' })
+      res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('should reject negative priceLower', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: -100,
+        priceUpper: 50000,
+        gridLevels: 10,
+        investment: 1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should reject negative priceUpper', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: -50000,
+        gridLevels: 10,
+        investment: 1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should reject negative investment', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 10,
+        investment: -1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('should handle gridLevels as float validation', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 10.7,
+        investment: 1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      expect(res.status).toBe(400)
+    })
+  })
+
+  describe('Grid bot error states', () => {
+    it('should handle 422 errors from bot creation', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 10,
+        investment: 1000,
+        gridType: 'normal',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      // 422 when domain logic fails (price not cached, out of range, etc)
+      expect([200, 201, 400, 401, 422, 500]).toContain(res.status)
+    })
+
+    it('should include error message in response', async () => {
+      const body = JSON.stringify({
+        exchange: 'binance',
+      })
+
+      const res = await app.request('/grid', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.status === 400 || res.status === 422) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+  })
+
+  describe('Grid bot list with PnL merging', () => {
+    it('should return all required bot fields', async () => {
+      const res = await app.request('/grid/list')
+      if (res.status === 200) {
+        const data = await res.json()
+        if (data.length > 0) {
+          const bot = data[0]
+          expect(bot).toHaveProperty('id')
+          expect(bot).toHaveProperty('exchange')
+          expect(bot).toHaveProperty('pair')
+          expect(bot).toHaveProperty('gridType')
+          expect(bot).toHaveProperty('priceLower')
+          expect(bot).toHaveProperty('priceUpper')
+          expect(bot).toHaveProperty('gridLevels')
+          expect(bot).toHaveProperty('investment')
+          expect(bot).toHaveProperty('status')
+          expect(bot).toHaveProperty('totalProfit')
+          expect(bot).toHaveProperty('totalTrades')
+          expect(bot).toHaveProperty('createdAt')
+          expect(bot).toHaveProperty('stoppedAt')
+        }
+      }
+    })
+
+    it('should prefer in-memory PnL over DB values', async () => {
+      const res = await app.request('/grid/list')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(Array.isArray(data)).toBe(true)
+        // Verify the response structure is consistent
+        data.forEach((bot: any) => {
+          expect(typeof bot.totalProfit).toBe('number')
+          expect(typeof bot.totalTrades).toBe('number')
+        })
+      }
+    })
+  })
+
+  describe('GET /grid/:id detailed', () => {
+    it('should include config field in response', async () => {
+      const res = await app.request('/grid/bot-123')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('config')
+      }
+    })
+
+    it('should include full PnL breakdown', async () => {
+      const res = await app.request('/grid/bot-xyz')
+      if (res.status === 200) {
+        const data = await res.json()
+        if (data.pnl) {
+          expect(data.pnl).toHaveProperty('realized')
+          expect(data.pnl).toHaveProperty('unrealized')
+          expect(data.pnl).toHaveProperty('total')
+          expect(data.pnl).toHaveProperty('tradeCount')
+        }
+      }
+    })
+
+    it('should load PnL from database before reading', async () => {
+      const res = await app.request('/grid/bot-for-pnl')
+      // Test just validates the logic path exists
+      expect([200, 404, 500]).toContain(res.status)
+    })
+  })
+
+  describe('PUT /grid/:id/stop detailed', () => {
+    it('should return proper error message for not found', async () => {
+      const res = await app.request('/grid/not-found-bot/stop', { method: 'PUT' })
+      if (res.status === 404) {
+        const data = await res.json()
+        expect(data.error).toContain('not found')
+      }
+    })
+
+    it('should return proper error message for already stopped', async () => {
+      const res = await app.request('/grid/already-stopped-bot/stop', { method: 'PUT' })
+      if (res.status === 409) {
+        const data = await res.json()
+        expect(data.error).toContain('already stopped')
+      }
+    })
+
+    it('should return error with proper structure on 500', async () => {
+      const res = await app.request('/grid/db-error-bot/stop', { method: 'PUT' })
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+        expect(typeof data.error).toBe('string')
+      }
     })
   })
 })

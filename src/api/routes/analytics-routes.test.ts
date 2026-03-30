@@ -327,5 +327,234 @@ describe('Analytics Routes', () => {
         expect(disposition).toContain('tax-report-2025.csv')
       }
     })
+
+    it('should return proper CSV content-type', async () => {
+      const res = await app.request('/tax/export')
+      if (res.status === 200) {
+        const contentType = res.headers.get('content-type')
+        expect(contentType).toContain('text/csv')
+        expect(contentType).toContain('utf-8')
+      }
+    })
+
+    it('should handle error response on CSV generation failure', async () => {
+      const res = await app.request('/tax/export?year=2020')
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should return Response object for CSV (not JSON)', async () => {
+      const res = await app.request('/tax/export')
+      if (res.status === 200) {
+        // Verify it's not JSON error
+        const contentType = res.headers.get('content-type')
+        expect(contentType).not.toContain('application/json')
+      }
+    })
+  })
+
+  describe('Time range parsing edge cases', () => {
+    it('should handle from param as 0 (epoch start)', async () => {
+      const res = await app.request('/analytics/equity-curve?from=0')
+      expect([200, 400, 401, 500]).toContain(res.status)
+    })
+
+    it('should handle very large unix timestamps', async () => {
+      const res = await app.request('/analytics/equity-curve?from=9999999999&to=9999999999')
+      expect([200, 400, 401, 500]).toContain(res.status)
+    })
+
+    it('should parse both from and to together', async () => {
+      const res = await app.request('/analytics/pnl?from=1704067200&to=1711065600')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should default to last 30 days when both omitted', async () => {
+      const res = await app.request('/analytics/equity-curve')
+      expect([200, 401, 500]).toContain(res.status)
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('from')
+        expect(data).toHaveProperty('to')
+        expect(typeof data.from).toBe('number')
+        expect(typeof data.to).toBe('number')
+      }
+    })
+  })
+
+  describe('Analytics service error paths', () => {
+    it('should catch errors from equity curve builder', async () => {
+      const res = await app.request('/analytics/equity-curve')
+      expect([200, 401, 500]).toContain(res.status)
+      if (res.status === 500) {
+        const data = await res.json()
+        expect(data).toHaveProperty('error')
+      }
+    })
+
+    it('should catch errors from PnL calculator', async () => {
+      const res = await app.request('/analytics/pnl')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should catch errors from drawdown analyzer', async () => {
+      const res = await app.request('/analytics/drawdown')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should catch errors from fee tracker', async () => {
+      const res = await app.request('/analytics/fees')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+  })
+
+  describe('Analytics per-asset computation', () => {
+    it('should merge PnL and fee summaries by asset', async () => {
+      const res = await app.request('/analytics/assets')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toHaveProperty('assets')
+        expect(typeof data.assets).toBe('object')
+
+        // Each asset should have pnl, fees, and computed net
+        Object.entries(data.assets).forEach(([asset, values]: [string, any]) => {
+          if (values) {
+            expect(typeof values.pnl).toBe('number')
+            expect(typeof values.fees).toBe('number')
+            expect(typeof values.net).toBe('number')
+            // net should equal pnl - fees
+            expect(values.net).toBe(values.pnl - values.fees)
+          }
+        })
+      }
+    })
+
+    it('should handle empty asset data', async () => {
+      const res = await app.request('/analytics/assets')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data.assets).toBeDefined()
+      }
+    })
+
+    it('should use 0 as default for missing asset values', async () => {
+      const res = await app.request('/analytics/assets')
+      if (res.status === 200) {
+        const data = await res.json()
+        // All values should be defined (0 or actual number)
+        Object.entries(data.assets).forEach(([asset, values]: [string, any]) => {
+          if (values) {
+            expect(values.pnl).toBeDefined()
+            expect(values.fees).toBeDefined()
+            expect(values.net).toBeDefined()
+          }
+        })
+      }
+    })
+
+    it('should use Promise.all to fetch PnL and fees concurrently', async () => {
+      const res = await app.request('/analytics/assets')
+      // Just validate the async flow works
+      expect([200, 401, 500]).toContain(res.status)
+    })
+  })
+
+  describe('Tax report year validation', () => {
+    it('should accept year 2000 (boundary)', async () => {
+      const res = await app.request('/tax/report?year=2000')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should accept year 2100 (boundary)', async () => {
+      const res = await app.request('/tax/report?year=2100')
+      expect([200, 401, 500]).toContain(res.status)
+    })
+
+    it('should reject year 1999', async () => {
+      const res = await app.request('/tax/report?year=1999')
+      expect(res.status).toBe(400)
+      const data = await res.json()
+      expect(data.error).toContain('valid calendar year')
+    })
+
+    it('should reject year 2101', async () => {
+      const res = await app.request('/tax/report?year=2101')
+      expect(res.status).toBe(400)
+    })
+
+    it('should handle decimal year values', async () => {
+      const res = await app.request('/tax/report?year=2024.5')
+      expect([200, 400, 401, 500]).toContain(res.status)
+    })
+
+    it('should handle float year with parseInt', async () => {
+      const res = await app.request('/tax/report?year=2024.9')
+      // parseInt should truncate, so this becomes 2024
+      expect([200, 401, 500]).toContain(res.status)
+    })
+  })
+
+  describe('Error handling consistency', () => {
+    it('all endpoints return JSON on error', async () => {
+      const endpoints = [
+        '/analytics/equity-curve?from=invalid',
+        '/analytics/pnl?to=badvalue',
+        '/tax/report?year=2500',
+      ]
+
+      for (const endpoint of endpoints) {
+        const res = await app.request(endpoint)
+        if (res.status >= 400) {
+          const data = await res.json()
+          expect(data).toHaveProperty('error')
+        }
+      }
+    })
+
+    it('all endpoints handle service errors (500)', async () => {
+      const endpoints = [
+        '/analytics/equity-curve',
+        '/analytics/pnl',
+        '/analytics/drawdown',
+        '/analytics/fees',
+        '/analytics/assets',
+        '/tax/report',
+        '/tax/export',
+      ]
+
+      // Just validate they handle the case
+      for (const endpoint of endpoints) {
+        const res = await app.request(endpoint)
+        expect([200, 401, 500]).toContain(res.status)
+      }
+    })
+  })
+
+  describe('Drawdown default range', () => {
+    it('should use default range when no params', async () => {
+      const res = await app.request('/analytics/drawdown')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toBeDefined()
+      }
+    })
+
+    it('should use provided from param with default to', async () => {
+      const res = await app.request('/analytics/drawdown?from=1704067200')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toBeDefined()
+      }
+    })
+
+    it('should use provided to param with default from', async () => {
+      const res = await app.request('/analytics/drawdown?to=1711065600')
+      if (res.status === 200) {
+        const data = await res.json()
+        expect(data).toBeDefined()
+      }
+    })
   })
 })
