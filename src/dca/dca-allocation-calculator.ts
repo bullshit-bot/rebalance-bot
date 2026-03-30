@@ -1,4 +1,5 @@
 import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/index'
+import { priceCache } from '@price/price-cache'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,15 +30,16 @@ export function calcProportionalDCA(
   }
 
   const underweight: DeficitEntry[] = []
-  for (const portfolioAsset of portfolio.assets) {
-    const target = targetMap.get(portfolioAsset.asset)
-    if (!target) continue
-    const deficit = target.targetPct - portfolioAsset.currentPct
+  // Check all target assets, not just those in portfolio (handles 0-balance assets)
+  for (const [asset, target] of targetMap) {
+    const portfolioAsset = portfolio.assets.find((a) => a.asset === asset)
+    const currentPct = portfolioAsset?.currentPct ?? 0
+    const deficit = target.targetPct - currentPct
     if (deficit > 0) {
       underweight.push({
-        asset: portfolioAsset.asset,
+        asset,
         deficitPct: deficit,
-        exchange: target.exchange ?? portfolioAsset.exchange,
+        exchange: target.exchange ?? portfolioAsset?.exchange ?? 'binance',
       })
     }
   }
@@ -53,9 +55,13 @@ export function calcProportionalDCA(
     if (allocationUsd < minTradeUsd) continue
 
     const portfolioAsset = portfolio.assets.find((a) => a.asset === entry.asset)
-    if (!portfolioAsset || portfolioAsset.amount === 0 || portfolioAsset.valueUsd === 0) continue
-
-    const priceUsd = portfolioAsset.valueUsd / portfolioAsset.amount
+    let priceUsd: number | undefined
+    if (portfolioAsset && portfolioAsset.amount > 0 && portfolioAsset.valueUsd > 0) {
+      priceUsd = portfolioAsset.valueUsd / portfolioAsset.amount
+    } else {
+      priceUsd = priceCache.getBestPrice(`${entry.asset}/USDT`) ?? undefined
+    }
+    if (!priceUsd) continue
     orders.push({
       exchange: entry.exchange,
       pair: `${entry.asset}/USDT`,
@@ -89,13 +95,21 @@ export function calcSingleTargetDCA(
   const alloc = targets.find((t) => t.asset === asset)
   const portfolioAsset = portfolio.assets.find((a) => a.asset === asset)
 
-  if (!portfolioAsset || portfolioAsset.amount === 0 || portfolioAsset.valueUsd === 0) {
-    console.log(`[DCAAlloc] Target=${asset} has no price in portfolio snapshot, skipping`)
+  // Get price from portfolio (if asset held) or price cache (if 0 balance)
+  let priceUsd: number | undefined
+  if (portfolioAsset && portfolioAsset.amount > 0 && portfolioAsset.valueUsd > 0) {
+    priceUsd = portfolioAsset.valueUsd / portfolioAsset.amount
+  } else {
+    const pair = `${asset}/USDT`
+    priceUsd = priceCache.getBestPrice(pair) ?? undefined
+  }
+
+  if (!priceUsd) {
+    console.log(`[DCAAlloc] Target=${asset} has no price available, skipping`)
     return []
   }
 
-  const exchange: ExchangeName = alloc?.exchange ?? portfolioAsset.exchange ?? 'binance'
-  const priceUsd = portfolioAsset.valueUsd / portfolioAsset.amount
+  const exchange: ExchangeName = alloc?.exchange ?? portfolioAsset?.exchange ?? 'binance'
   console.log(`[DCAAlloc] DCA routing: full $${depositAmount.toFixed(2)} → ${asset} (most underweight)`)
 
   return [{
