@@ -1,8 +1,96 @@
 # Project Changelog
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-28
+**Last Updated**: 2026-03-30
 **Repository**: https://github.com/dungngo97/rebalance-bot
+
+## [1.0.2] - 2026-03-30 (DCA Enhancements & Price Feed Optimization)
+
+### Added
+
+**DCA Amount Configuration**
+- `dcaAmountUsd` added to `GlobalSettingsSchema` (src/rebalancer/strategies/strategy-config-types.ts)
+- Default $20, configurable range $1-$100k
+- Read from strategy config instead of env var (per-config override capability)
+- Frontend field visible when DCA enabled
+
+**DCA % Calculation Fixed (Crypto-Only)**
+- Target allocations now relative to **crypto portion only**: BTC 40%, ETH 25%, SOL 20%, BNB 15%
+- USDT/stablecoins excluded from denominator when computing current vs target %
+- Files: `src/rebalancer/dca-target-resolver.ts`, `src/dca/dca-allocation-calculator.ts`
+- Prevents false underweight signals when portfolio is cash-heavy
+
+**Unified Stablecoin Set**
+- `STABLECOINS` constant exported from `src/rebalancer/trade-calculator.ts`
+- Includes: USDT, USDC, BUSD, TUSD, DAI, USD
+- Used consistently across DCA calculator, DCA target resolver, drift detector
+- Eliminates magic string literals and sync failures
+
+**DCA Rebalance Mode Fallthrough Fix**
+- When `dcaRebalanceEnabled=true` and portfolio is balanced
+- Now returns `[]` (no trades) instead of falling through to proportional mode
+- Prevents double-trading in edge cases
+
+**REST Price Feed (Non-WebSocket)**
+- `src/price/price-aggregator.ts` now uses REST polling instead of WebSocket
+- `fetchTicker` method via CCXT (10s interval)
+- Root cause: Bun runtime doesn't support CCXT Pro WebSocket upgrade path
+- `watchTicker` method kept for future compatibility but not used
+- More stable for Bun deployment, slightly higher latency tolerance acceptable
+
+**Rebalance Engine DCA Budget Cap**
+- When `dcaRebalanceEnabled=true`, rebalance preview and triggers cap trades to `dcaAmountUsd`
+- Applies to threshold, periodic, and manual rebalance triggers
+- Trend filter bear/bull triggers still do full rebalance (hard boundaries prioritized)
+
+**POST /api/dca/trigger Endpoint**
+- Manual DCA trigger via REST: `POST /api/dca/trigger`
+- Response: `{ triggered: true, orders: N, details: [...] }`
+- Allows ad-hoc DCA execution beyond scheduled cron
+
+**Coverage CI Enforcement**
+- Backend: 75% total coverage (per-file threshold disabled)
+- Frontend: 85% total coverage (per-file threshold disabled)
+- `continue-on-error` removed from CI config
+- Builds fail on coverage below threshold
+
+**DCA Zero-Balance Fix**
+- DCA now works with 100% USDT portfolio (no crypto held yet)
+- Falls back to price cache (`getBestPrice`) when computing allocations
+- Handles new investor scenarios without errors
+
+### Modified
+
+- `GlobalSettingsSchema`: Added `dcaAmountUsd` field
+- `rebalance-engine.ts`: Added DCA budget cap logic for threshold/periodic/manual triggers
+- `dca-target-resolver.ts`: Crypto-only calculations, stablecoin exclusion
+- `dca-allocation-calculator.ts`: Crypto-only denominator logic
+- `price-aggregator.ts`: Switched from watchTicker (WebSocket) to fetchTicker (REST polling)
+- `trade-calculator.ts`: Exported `STABLECOINS` constant
+- GitHub Actions CI: Updated coverage thresholds, removed per-file checks
+
+### Performance
+
+- Price polling more predictable latency (10s fixed interval vs variable WebSocket)
+- DCA calculations faster (crypto-only scope reduction)
+- Rebalance engine caps unnecessary trades (budget awareness)
+
+### Testing
+
+- ✅ DCA trigger endpoint returns correct order count
+- ✅ DCA % calculation excludes stablecoins from denominator
+- ✅ Rebalance engine respects `dcaAmountUsd` budget cap
+- ✅ REST polling fetches latest ticker every 10s
+- ✅ Coverage CI blocks PRs below thresholds (75% backend, 85% frontend)
+- ✅ DCA works with zero-balance crypto portfolio
+
+### Documentation
+
+- Updated `system-architecture.md`: DCA flow, REST polling details, new endpoint
+- Updated `codebase-summary.md`: DCA changes, price feed modification
+- Updated `code-standards.md`: STABLECOINS convention
+
+---
 
 ## [1.0.1] - 2026-03-28 (Production Readiness Enhancements)
 
@@ -185,8 +273,9 @@ All four major phases complete. System production-ready with 14 core features.
 
 | Version | Date | Status | Highlights |
 |---------|------|--------|-----------|
-| 1.0.1 | 2026-03-28 | Current | Trend persistence, bear protection, autoheal |
-| 1.0.0 | 2026-03-22 | Stable | Production release, all 4 phases complete |
+| 1.0.2 | 2026-03-30 | Current | DCA budget cap, crypto-only allocations, REST price feed |
+| 1.0.1 | 2026-03-28 | Stable | Trend persistence, bear protection, autoheal |
+| 1.0.0 | 2026-03-22 | Archive | Production release, all 4 phases complete |
 | 0.9.0 | 2026-02-15 | Archive | Phase 4 complete, AI suggestions |
 | 0.8.0 | 2025-12-01 | Archive | Copy trading, advanced strategies |
 | 0.7.0 | 2025-10-15 | Archive | Backtesting, analytics dashboard |

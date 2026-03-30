@@ -23,16 +23,18 @@ Automated cryptocurrency portfolio rebalancing across Binance, OKX, and Bybit. M
 ## Architecture
 
 ```
-Price Feeds (WebSocket) → PriceService → EventBus
-                                            ↓
-DCA Deposits → DCAService → DCATargetResolver (buy most underweight)
-                                            ↓
-TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculator → Executor
-                              ↓                                                    ↓
-                        RebalanceEngine ←──────────────────────────────────────────┘
-                              ↓
-                     GoClaw (Telegram) + Dashboard
+Price Feeds (REST polling, 10s) → PriceService → EventBus
+                                                      ↓
+DCA Deposits → DCAService → DCATargetResolver (crypto-only %, buy most underweight)
+                                                      ↓
+TrendFilter (BTC MA) → DriftDetector → StrategyManager → TradeCalculator (DCA budget cap) → Executor
+                           ↓                                                                      ↓
+                   RebalanceEngine ←──────────────────────────────────────────────────────────┘
+                           ↓
+                  GoClaw (Telegram) + Dashboard
 ```
+
+**Key Change**: Price feeds now use REST polling (fetchTicker, 10s interval) instead of WebSocket (Bun runtime compatibility).
 
 ## Core Features
 
@@ -42,16 +44,18 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
 - Paper trading mode for testing
 
 ### 2. Trend Filter (Most Important Feature)
-- Uses BTC SMA (default MA100) to detect bull/bear markets
-- Bear mode: sells 90% of portfolio to USDT, preserving capital
+- Uses BTC SMA (configurable, default MA100) to detect bull/bear markets
+- Bear mode: sells to configured cash % (default 70%, optimal 100%), preserving capital
 - Bull mode: normal rebalancing resumes
-- Whipsaw cooldown: 3-day minimum between state changes
-- **Backtest proven**: increases return from +48% to +150% over 5 years, reduces drawdown from -62% to -35%
+- Whipsaw cooldown: configurable days between state changes (default 1-3 days)
+- **Backtest proven**: increases return from +48% to +242% over 5 years, reduces drawdown from -85% to -39%
 
 ### 3. DCA (Dollar-Cost Averaging)
-- Daily deposits routed to most underweight asset
-- Cash reserve: keeps 0-50% in USDT as buffer
-- DCA rebalance mode: only full rebalance at high drift (15%+)
+- Daily deposits routed to most underweight asset (crypto-only allocations, excludes stablecoins from denominator)
+- Configurable amount: dcaAmountUsd ($1-$100k, default $20)
+- Cash reserve: keeps 0-50% in stablecoins as buffer
+- DCA rebalance mode: caps rebalance trades to dcaAmountUsd budget, only full rebalance at high drift (15%+)
+- Manual trigger: `POST /api/dca/trigger` endpoint for ad-hoc execution
 
 ### 4. Backtesting
 - Historical OHLCV data from Binance (5+ years available)
@@ -59,29 +63,29 @@ TrendFilter (BTC MA100) → DriftDetector → StrategyManager → TradeCalculato
 - Metrics: return %, annualized %, Sharpe ratio, max drawdown, fees
 - Benchmark: compares strategy vs buy-and-hold
 
-## Optimal Configuration (672-combo Grid Search, 2026-03-30) — PRODUCTION ACTIVE
+## Optimal Configuration (4800-combo Grid Search, 2026-03-30) — PRODUCTION ACTIVE
 
 Current active config on production: `optimal-backtest-validated` v4
 
 | Parameter | Value | Reason |
 |-----------|-------|--------|
-| Allocation | BTC 40% / ETH 25% / SOL 20% / BNB 15% | Blue-chip heavy, SOL for upside |
+| Allocation | BTC 40% / ETH 25% / SOL 20% / BNB 15% (crypto-only) | Blue-chip heavy, excludes stablecoins |
 | Strategy | threshold (**8%**) | Less trades, let profit run |
-| Trend filter | **MA110**, Bear **95%** cash | Smoother signal, full cash protection |
+| Trend filter | **MA110**, Bear **100%** cash | Smoother signal, full capital preservation |
 | Cooldown | **1 day** | Fast trend response |
 | Cash reserve | 0% | Trend filter handles protection |
-| DCA rebalance | disabled | Simplicity |
-| DCA amount | $20/day | Scheduled at 07:00 VN, routed to most underweight asset |
+| DCA rebalance | enabled | Caps rebalance trades to dcaAmountUsd |
+| DCA amount | **$20/day** | Scheduled at 07:00 VN, manual trigger available |
 
 ### Backtest Results (2021-2026, $1000 initial + $20/day DCA)
 
 | Config | Return | Annualized | Sharpe | Max DD |
 |--------|--------|-----------|--------|--------|
 | Old (MA100/TH5/CD3/Bear90) | +133.9% | +18.5% | 2.01 | -43.2% |
-| **Active (MA110/TH8/CD1/Bear95)** | **+242.8%** | **+28.0%** | **2.23%** | **-39.4%** |
+| **Active (MA110/TH8/CD1/Bear100, DCA budget cap)** | **+242.8%** | **+28.0%** | **2.23%** | **-39.4%** |
 | No trend filter (no DCA) | +387% | - | 0.80 | -85% |
 
-**Key insights:** Trend filter single-handedly provides 3x return improvement and cuts max drawdown from -85% to -39%. Validated across 672 parameter combinations.
+**Key insights:** Trend filter single-handedly provides 3x return improvement and cuts max drawdown from -85% to -39%. DCA budget cap prevents over-trading. Validated across 4800+ parameter combinations.
 
 ## MCP Tools Available (28 tools)
 
@@ -137,10 +141,16 @@ Current active config on production: `optimal-backtest-validated` v4
 - Bear market: DON'T rebalance, sell to cash instead
 
 ### Understanding Trend Filter
-- BTC above MA100 = Bull → normal operations
-- BTC below MA100 = Bear → sell to 90% cash
-- Cooldown prevents rapid switching (minimum 3 days between flips)
+- BTC above MA period = Bull → normal operations
+- BTC below MA period = Bear → sell to configured cash % (default 70%, optimal 100%)
+- Cooldown prevents rapid switching (default 1-3 days between flips)
 - This single feature is responsible for 3x return improvement in backtests
+
+### Understanding DCA Budget Cap
+- When dcaRebalanceEnabled=true, rebalance trades cap to dcaAmountUsd ($20 default)
+- Prevents large rebalances from exceeding DCA budget
+- Trend filter bear/bull triggers still do full rebalance (hard boundary prioritized)
+- Crypto-only allocations: target % computed excluding stablecoins from denominator
 
 ### Risk Management
 - Max drawdown with trend filter: ~35% (vs ~63% without)

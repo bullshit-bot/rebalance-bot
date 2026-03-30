@@ -1,8 +1,8 @@
 # Codebase Summary
 
 **Project**: Crypto Rebalance Bot
-**Last Updated**: 2026-03-30 (Telegram → GoClaw migration, optimal config)
-**Version**: 1.0.0
+**Last Updated**: 2026-03-30 (DCA budget cap, crypto-only allocations, REST price feed, API trigger)
+**Version**: 1.0.1
 **Repository**: https://github.com/dungngo97/rebalance-bot
 **License**: MIT
 
@@ -29,10 +29,10 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 | exchange/ | 350 | Multi-exchange CCXT Pro abstraction |
 | portfolio/ | 385 | Real-time balance, allocation tracking |
 | db/ | 450 | Mongoose models (15 schemas) + MongoDB connection |
-| price/ | 260 | Price aggregation, WebSocket feeds |
+| price/ | 260 | Price aggregation, REST polling (10s interval via fetchTicker) |
 | copy-trading/ | 510 | Trade replication from sources |
 | ai/ | 380 | ML suggestions (GoClaw) |
-| dca/ | 280 | Dollar-cost averaging + allocation calculator |
+| dca/ | 280 | Dollar-cost averaging + crypto-only allocation calculator |
 | notifier/ | 210 | GoClaw HTTP client for Telegram notifications |
 | ai/goclaw-client.ts | 85 | OpenAI-compatible /v1/chat/completions client |
 | scheduler/ | 195 | Cron jobs (8 total: periodic rebalance, snapshots, DCA, daily/weekly reports, 12h AI insights) |
@@ -336,13 +336,14 @@ WebSocket API (update frontend)
 
 ## API Endpoints
 
-**REST** (14 routes + config):
+**REST** (15 routes + config):
 - `GET /health` - System health
 - `GET /api/portfolio` - Holdings & allocations
 - `GET /api/trades` - Trade history
 - `POST /api/rebalance` - Trigger rebalance
 - `GET /api/allocations` - Target allocations
 - `POST /api/allocations/:asset` - Update target
+- `POST /api/dca/trigger` - Manual DCA trigger (returns orders)
 - `GET /api/backtest/:id/results` - Backtest results
 - `GET /api/analytics` - Performance metrics
 - `POST /api/config` - Update settings
@@ -386,7 +387,12 @@ WebSocket API (update frontend)
 - Configuration API integration tests
 - GoClaw HTTP client (goclaw-client.ts) for Telegram delivery
 - Portfolio tracker filter: non-target assets (DAI/USD) now excluded
-- Scheduled DCA: Daily $20 at 07:00 VN into most underweight asset
+- Scheduled DCA: Configurable amount (`dcaAmountUsd`, default $20, range $1-$100k) at 07:00 VN into most underweight asset
+- DCA crypto-only: Target allocations (BTC 40%, ETH 25%, SOL 20%, BNB 15%) exclude stablecoins from denominator
+- Manual DCA trigger: `POST /api/dca/trigger` endpoint for on-demand execution
+- DCA budget cap: Rebalance engine caps trades to `dcaAmountUsd` when `dcaRebalanceEnabled=true`
+- Price feed: REST polling (10s interval via fetchTicker) replaces WebSocket (Bun runtime limitation)
+- Unified stablecoin set: USDT, USDC, BUSD, TUSD, DAI, USD exported from trade-calculator.ts
 - Backend seed script with optimal config (threshold 8%, MA 110, bear cash 100%, cooldown 1d)
 
 **Command**: `bun test` (also supports watch mode)

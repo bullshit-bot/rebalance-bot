@@ -19,14 +19,15 @@ Full rebalancing cycle with pre-flight safety checks.
 
 ## Workflow
 
-1. Run `rb_get_strategy_config` — check strategy config, trend filter status.
+1. Run `rb_get_strategy_config` — check strategy config, trend filter status, DCA settings.
 2. Run `rb_get_portfolio` — current holdings, weights, total value.
-3. Run `rb_get_allocations` — target allocations.
+3. Run `rb_get_allocations` — target allocations (crypto-only if DCA enabled).
 4. **Trend filter check**: If trendFilterEnabled=true, check market state.
-   - Bear mode (BTC < MA100) → "Bear market detected. Portfolio should be 90% cash. Skip rebalance."
+   - Bear mode (BTC < MA100) → "Bear market detected. Portfolio should be cash override %. Skip rebalance."
    - Bull mode → proceed normally.
 5. Compute drift. If max drift < threshold (default 5%), output "No rebalance needed" and stop.
    - If dcaRebalanceEnabled, use hardRebalanceThreshold (default 15%) instead.
+   - **DCA Budget Cap**: If dcaRebalanceEnabled, rebalance trades capped to dcaAmountUsd (default $20).
 6. Run `rb_get_rebalance_history limit=5` — check cooldown.
    - Last rebalance < 4h ago → "Cooldown active", stop.
    - Last rebalance failed → log warning, continue.
@@ -34,8 +35,9 @@ Full rebalancing cycle with pre-flight safety checks.
    - Portfolio value > 0.
    - No single asset > 80%.
    - Allocations sum to 100% (±0.01).
-   - Cash reserve respected (cashReservePct of portfolio stays as USDT).
+   - Cash reserve respected (cashReservePct of portfolio stays as stablecoins).
+   - DCA budget respected (dcaAmountUsd if dcaRebalanceEnabled).
 8. Present proposed trades to user. On approval:
    - Run `rb_trigger_rebalance`.
 9. Wait 10s, run `rb_get_rebalance_history limit=1` — confirm.
-10. Report: assets traded, fees, new weights, trend filter state, or error details.
+10. Report: assets traded, fees, new weights, DCA status if applicable, trend filter state, or error details.

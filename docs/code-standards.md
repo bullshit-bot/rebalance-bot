@@ -1,7 +1,7 @@
 # Code Standards & Development Guidelines
 
-**Last Updated**: 2026-03-26
-**Version**: 1.0.0
+**Last Updated**: 2026-03-30
+**Version**: 1.0.1
 **Project**: Crypto Rebalance Bot
 **Applies To**: All TypeScript/JavaScript code
 
@@ -733,6 +733,29 @@ const memoizedCalculation = (() => {
 | `events/` | Event emission, event coordination |
 | `notifier/` | Telegram alerts, messages |
 | `scheduler/` | Cron tasks, scheduled execution |
+
+### Shared Constants Convention
+
+**Stablecoin Set**:
+```typescript
+// File: src/rebalancer/trade-calculator.ts
+export const STABLECOINS = new Set(['USDT', 'USDC', 'BUSD', 'TUSD', 'DAI', 'USD']);
+
+// Usage in other modules (no local definitions):
+import { STABLECOINS } from '@/rebalancer/trade-calculator';
+
+// Check if asset is stablecoin
+if (STABLECOINS.has(asset)) {
+  // Handle stablecoin logic
+}
+
+// Used consistently in:
+// - src/dca/dca-allocation-calculator.ts (crypto-only calculations)
+// - src/rebalancer/dca-target-resolver.ts (allocation targets)
+// - src/rebalancer/drift-detector.ts (allocation monitoring)
+```
+
+**Why centralize**: Prevents sync failures when stablecoin list changes, ensures consistent behavior across modules, eliminates duplicate string literals.
 
 ## Configuration Management
 

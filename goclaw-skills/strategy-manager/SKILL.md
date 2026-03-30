@@ -26,20 +26,21 @@ View and manage rebalancing strategy configurations.
 | momentum-weighted | RSI+MACD composite scoring | rsiPeriod (14), macdFast (12), macdSlow (26), weightFactor (0.4) |
 
 ### Global Settings
-- `cashReservePct` (0-50%): Portion kept as USDT buffer. Default 0.
-- `dcaRebalanceEnabled`: Route DCA deposits to most underweight asset.
+- `cashReservePct` (0-50%): Portion kept as stablecoins buffer. Default 0.
+- `dcaRebalanceEnabled`: Route DCA deposits to most underweight asset, cap rebalance trades to DCA budget.
+- `dcaAmountUsd` ($1-$100k): DCA amount per execution. Default $20.
 - `hardRebalanceThreshold` (5-50%): Force full rebalance when drift exceeds this.
 - `trendFilterEnabled`: Use BTC MA for bull/bear detection.
-- `trendFilterMaPeriod` (default 100): BTC SMA period.
-- `trendFilterBearCashPct` (default 90): % to sell to cash in bear.
+- `trendFilterMA` (default 100): BTC SMA period.
+- `bearCashPct` (30-100%): % to sell to stablecoins in bear. Default 70.
 - `trendFilterCooldownDays` (default 3): Anti-whipsaw cooldown.
 
 ### Recommended Config (from backtest optimization)
 - Strategy: threshold (5%)
 - Cash reserve: 10%
-- Trend filter: enabled, MA100, Bear 90%, Cooldown 3 days
-- DCA rebalance: enabled
-- Allocation: BTC 40% / ETH 25% / BNB 15% / SOL 20%
+- Trend filter: enabled, MA100, Bear 100%, Cooldown 1 day
+- DCA rebalance: enabled, amount $20
+- Allocation: BTC 40% / ETH 25% / SOL 20% / BNB 15% (crypto-only, excludes stablecoins from denominator)
 
 ### API Endpoints
 - GET /api/strategy-config — active config + list

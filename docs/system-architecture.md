@@ -1,13 +1,13 @@
 # System Architecture
 
-**Last Updated**: 2026-03-29
-**Version**: 1.0.1
+**Last Updated**: 2026-03-30
+**Version**: 1.0.2
 **Project**: Crypto Rebalance Bot
 **Status**: Complete (4 phases + advanced strategies)
 
 ## Overview
 
-Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange support and advanced trading strategies. Event-driven architecture with WebSocket market data, REST API, Telegram notifications, and strategic execution engine. Runs on testnet (BINANCE_SANDBOX=true) by default — safe fake-money execution.
+Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange support and advanced trading strategies. Event-driven architecture with REST polling price feed (10s intervals), REST API, Telegram notifications, and strategic execution engine. Runs on testnet (BINANCE_SANDBOX=true) by default — safe fake-money execution.
 
 ## High-Level Architecture Diagram
 
@@ -19,7 +19,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 │  Frontend (nginx)   Backend (Bun)   MongoDB 7    MCP Server      │
 │  ┌──────────────┐  ┌──────────────┐ ┌──────────┐ ┌────────────┐ │
 │  │ React        │  │ Hono API     │ │Collections│ │ MCP (SSE)  │ │
-│  │ Dashboard    │→ │ + WebSocket  │←│ • trades │ │ Port: 3100 │ │
+│  │ Dashboard    │→ │ + REST Poll  │←│ • trades │ │ Port: 3100 │ │
 │  │ Port: 3000   │  │ Port: 3001   │ │ • trades │ └────────────┘ │
 │  └──────────────┘  └──────────────┘ └──────────┘        ↑        │
 │         ↑                  ↑                             │        │
@@ -29,7 +29,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 │  │              Services Layer                              │  │
 │  ├───────────────────────────────────────────────────────────┤  │
 │  │ Exchange │ Price Service │ Portfolio │ Rebalancer         │  │
-│  │ (CCXT)   │ (WebSocket)    │ (State)   │ (Strategy)         │  │
+│  │ (CCXT)   │ (REST Poll)    │ (State)   │ (Strategy)         │  │
 │  │          │                │           │                    │  │
 │  │ Executor │ Analytics │ Notifier │ Scheduler │ Copy Trading │  │
 │  └───────────────────────────────────────────────────────────┘  │
@@ -52,9 +52,9 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 │
 │  + autoheal (container auto-restart on failure)
 │
-│  Exchange WS Feed (Binance/OKX/Bybit)
+│  REST polling feed (Binance/OKX/Bybit, 10s interval)
 │         ↓
-│  Price Service processes OHLCV
+│  Price Service processes ticker data
 │         ↓
 │  EventBus broadcasts price:update
 │         ↓
@@ -97,11 +97,12 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 **Location**: `src/price/`
 **Responsibility**: Real-time market data processing
 **Key Functions**:
-- Maintain orderbook snapshots
+- REST polling ticker data every 10s (fetchTicker via CCXT)
 - Calculate technical indicators (VWAP, TWAP, momentum, volatility)
 - Broadcast price updates to EventBus
-- Handle WebSocket feed reconnections
+- Handle polling reconnections on failure
 - Support for multiple data streams
+- Note: Uses REST polling instead of WebSocket (Bun runtime limitation with CCXT Pro)
 
 ### 3. Portfolio Service
 **Location**: `src/portfolio/`
@@ -148,8 +149,11 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 **Cash-Aware DCA** (Scheduled Daily):
 - Reserve 0-100% cash during normal/bear markets (configurable via strategy config, optimal: 100%)
 - New capital directed to most underweight asset (via DCATargetResolver)
-- Daily scheduled DCA: $20 at 07:00 VN into most underweight asset
+- Configurable DCA amount (`dcaAmountUsd`, default $20, range $1-$100k) read from strategy config
+- Crypto-only allocations: Target percentages (BTC 40%, ETH 25%, SOL 20%, BNB 15%) relative to crypto portion only (excludes stablecoins from denominator)
+- Daily scheduled DCA: trigger via cron at 07:00 VN or manual `POST /api/dca/trigger`
 - Hard rebalance threshold for traditional drift-based trades (default not set)
+- When `dcaRebalanceEnabled=true`, rebalance engine caps trades to `dcaAmountUsd` budget
 
 ### 5. Executor Service
 **Location**: `src/executor/`
@@ -225,8 +229,9 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - Every 4h: Sync copy trading sources
 - Daily 01:00 UTC (08:00 VN): Send daily portfolio digest via GoClaw
 - Sunday 01:00 UTC (08:00 VN): Send weekly performance report via GoClaw
-- Daily 00:00 UTC (07:00 VN): Execute scheduled DCA buy into most underweight asset
+- Daily 00:00 UTC (07:00 VN): Execute scheduled DCA buy (amount = `dcaAmountUsd` from config) into most underweight asset
 - Every 12h (07:00 + 19:00 UTC): GoClaw AI market insights analysis and Telegram delivery
+- Manual DCA triggers available via `POST /api/dca/trigger` endpoint
 
 **Technology**: croner (cron scheduler)
 
@@ -267,6 +272,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - `GET /api/trades` - Historical trade records
 - `GET /api/allocations` - Target allocations
 - `POST /api/allocations/:asset` - Update target
+- `POST /api/dca/trigger` - Manual DCA trigger (returns `{ triggered: true, orders: N, details: [...] }`)
 
 **Strategy Configuration** (new):
 - `GET /api/strategy-config/active` - Current active strategy config
@@ -352,12 +358,14 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - Strategy-specific params: thresholdPct, bandWidthSigma, lookbackDays, etc. (type-safe via Zod)
 - `cashReservePct` - Hold 0-100% cash for DCA, deposits to most-underweight asset (default: 0%, optimal: 100%)
 - `dcaRebalanceEnabled` - Route rebalance sells through DCA instead of immediate execution (default: false)
+- `dcaAmountUsd` - Configurable DCA amount per execution (default: $20, range: $1-$100k)
 - `hardRebalanceThreshold` - High-drift hard rebalance trigger (e.g., 20%, default: not set)
 - `trendFilterEnabled` - Enable MA-based trend filter (bool)
 - `trendFilterMA` - MA period for bull/bear detection (default: 110 days, optimal from grid search)
 - `trendFilterBuffer` - % buffer below MA still treated as bull (default: 2%)
 - `trendFilterCooldown` - Days between bear/bull flips to prevent whipsaw (default: 1 day, optimal from search)
 - `bearCashPct` - Cash override % when trend turns bearish (default: 70%, optimal: 100%)
+- **Target Allocations (Crypto-Only)**: BTC 40%, ETH 25%, SOL 20%, BNB 15% — percentages apply to crypto portion only (stablecoins excluded from denominator)
 
 ## Security Model
 
