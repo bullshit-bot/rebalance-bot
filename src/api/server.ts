@@ -15,6 +15,7 @@ import { aiRoutes } from '@api/routes/ai-routes'
 import { copyTradingRoutes } from '@api/routes/copy-trading-routes'
 import { strategyConfigRoutes } from '@api/routes/strategy-config-routes'
 import { initWebSocket, handleOpen, handleClose } from '@api/ws/ws-handler'
+import { dcaService } from '@dca/dca-service'
 
 // ─── Rate limiter ─────────────────────────────────────────────────────────────
 
@@ -88,6 +89,13 @@ app.route('/api', gridRoutes)
 app.route('/api', aiRoutes)
 app.route('/api', copyTradingRoutes)
 app.route('/api/strategy-config', strategyConfigRoutes)
+
+// ─── Manual DCA trigger ──────────────────────────────────────────────────────
+
+app.post('/api/dca/trigger', async (c) => {
+  const orders = await dcaService.executeScheduledDCA()
+  return c.json({ triggered: true, orders: orders.length, details: orders })
+})
 
 // ─── 404 fallback ─────────────────────────────────────────────────────────────
 
