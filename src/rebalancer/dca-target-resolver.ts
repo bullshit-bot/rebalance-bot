@@ -24,8 +24,8 @@ export function getDCATarget(
     .filter((a) => !STABLECOINS.has(a.asset))
     .reduce((sum, a) => sum + a.valueUsd, 0)
 
-  // If no crypto held yet, pick the asset with highest target
-  if (cryptoValue <= 0) {
+  // If crypto value negligible (dust), pick the asset with highest target
+  if (cryptoValue < 10) {
     let maxTarget = 0
     let target: string | null = null
     for (const alloc of allocations) {
