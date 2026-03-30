@@ -27,10 +27,9 @@ jobs:
       - name: Run tests with coverage
         run: bun run test:cov
 
-      - name: Check coverage thresholds (95% total, 90% per file)
+      - name: Check coverage thresholds (85% total, 70% per file)
         if: always()
-        run: bash ../scripts/check-coverage-threshold.sh coverage/lcov.info 95 90
-        continue-on-error: true
+        run: bash ../scripts/check-coverage-threshold.sh coverage/lcov.info 85 70
 
       - uses: actions/upload-artifact@v4
         if: always()
