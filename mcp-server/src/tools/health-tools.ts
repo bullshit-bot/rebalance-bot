@@ -8,7 +8,7 @@ export function registerHealthTools(server: McpServer) {
     "Check the health status of the backend API",
     {},
     async () => {
-      const result = await apiClient.get("/health");
+      const result = await apiClient.get("/api/health");
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
   );
