@@ -45,9 +45,9 @@ export default function OrdersPage() {
   const statusFiltered = tab === "All" ? orders : orders.filter((o) => o.status === tab.toLowerCase());
   const filtered = search.trim()
     ? statusFiltered.filter((o) =>
-        o.symbol.toLowerCase().includes(search.toLowerCase()) ||
-        o.exchange.toLowerCase().includes(search.toLowerCase()) ||
-        o.id.toLowerCase().includes(search.toLowerCase())
+        (o.symbol ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (o.exchange ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (o.id ?? '').toLowerCase().includes(search.toLowerCase())
       )
     : statusFiltered;
 
@@ -112,7 +112,7 @@ export default function OrdersPage() {
                     <td className="tabular-nums text-xs">{o.time}</td>
                     <td className="text-xs font-medium">{o.exchange}</td>
                     <td className="font-bold">{o.symbol}</td>
-                    <td><ActionBadge action={o.side.toLowerCase()} /></td>
+                    <td><ActionBadge action={(o.side ?? '').toLowerCase()} /></td>
                     <td className="text-xs">{o.type}</td>
                     <td className="tabular-nums">{o.qty}</td>
                     <td className="tabular-nums">${o.price.toLocaleString()}</td>
