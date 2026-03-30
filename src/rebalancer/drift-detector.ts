@@ -152,7 +152,7 @@ class DriftDetector {
       : env.REBALANCE_THRESHOLD
 
     const breachedAsset = portfolio.assets.find(
-      (a) => Math.abs(a.driftPct) > threshold,
+      (a) => !STABLECOINS.has(a.asset) && Math.abs(a.driftPct) > threshold,
     )
     if (!breachedAsset) return
 
