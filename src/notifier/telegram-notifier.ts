@@ -1,48 +1,78 @@
 import { eventBus } from '@/events/event-bus'
-import { goClawClient } from '@/ai/goclaw-client'
 import type { ExchangeName, RebalanceEvent, TradeResult } from '@/types/index'
+
+// ─── Telegram Bot API (direct fetch, no Grammy) ─────────────────────────────
+
+const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? ''
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID ?? ''
+
+/** Send a message directly via Telegram Bot API */
+async function sendTelegram(text: string): Promise<void> {
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) return
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' }),
+    })
+  } catch (err) {
+    console.error('[TelegramNotifier] Send failed:', err instanceof Error ? err.message : err)
+  }
+}
 
 // ─── TelegramNotifier ─────────────────────────────────────────────────────────
 
 /**
- * Routes bot events to GoClaw AI agent for Telegram delivery.
- * GoClaw handles all Telegram communication — backend just sends event context.
- * Throttles repeated event types to avoid spam (30-minute cooldown per type).
+ * Sends Telegram notifications for bot events and scheduled reports.
+ * Uses direct Telegram Bot API fetch (no Grammy dependency).
+ * GoClaw handles interactive Telegram chat separately.
  */
 export class TelegramNotifier {
-  /** eventType -> timestamp of last sent message */
   private throttle: Map<string, number> = new Map()
   private readonly THROTTLE_MS = 30 * 60 * 1000 // 30 minutes
-  /** Stored listener references for clean removal in stop() */
   private listeners: Array<{ event: string; fn: (...args: unknown[]) => void }> = []
 
-  // ─── Lifecycle ──────────────────────────────────────────────────────────────
-
   async initialize(): Promise<void> {
-    const available = await goClawClient.isAvailable()
-    if (available) {
-      console.info('[TelegramNotifier] GoClaw connected — notifications via AI agent')
+    if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) {
+      console.info('[TelegramNotifier] Telegram Bot API ready')
     } else {
-      console.warn('[TelegramNotifier] GoClaw unavailable — notifications disabled')
+      console.warn('[TelegramNotifier] TELEGRAM_BOT_TOKEN or CHAT_ID not set — disabled')
     }
   }
 
   async start(): Promise<void> {
-    // Only subscribe to actionable events — GoClaw formats and sends via Telegram
     const onTrade = (trade: TradeResult) => {
-      void this.sendViaGoClaw('trade:executed', this.describeTradeEvent(trade))
+      const mode = trade.isPaper ? '📋 Paper' : '✅ Live'
+      const side = trade.side === 'buy' ? '🟢 MUA' : '🔴 BÁN'
+      void this.send('trade:executed', [
+        `💱 <b>Giao Dịch</b> ${mode}`,
+        `${side} <code>${trade.amount}</code> ${trade.pair}`,
+        `Giá: <code>$${trade.price.toFixed(2)}</code> | Phí: <code>${trade.fee} ${trade.feeCurrency}</code>`,
+      ].join('\n'))
     }
     const onRebalance = (event: RebalanceEvent) => {
-      void this.sendViaGoClaw('rebalance:completed', this.describeRebalanceEvent(event))
+      void this.send('rebalance:completed', [
+        `🔄 <b>Rebalance Hoàn Thành</b>`,
+        `Trigger: <code>${event.trigger}</code>`,
+        `Lệnh: <code>${event.trades?.length ?? 0}</code> | Phí: <code>$${(event.totalFeesUsd ?? 0).toFixed(2)}</code>`,
+      ].join('\n'))
     }
     const onTrailingStop = (data: { asset: string; exchange: ExchangeName; price: number; stopPrice: number }) => {
-      void this.sendViaGoClaw('trailing-stop:triggered', this.describeTrailingStop(data))
+      void this.send('trailing-stop:triggered', [
+        `🛑 <b>Trailing Stop</b>`,
+        `${data.asset}: <code>$${data.price.toFixed(2)}</code> → stop <code>$${data.stopPrice.toFixed(2)}</code>`,
+      ].join('\n'))
     }
     const onError = (err: Error) => {
-      void this.sendViaGoClaw('error', `Lỗi hệ thống: ${err.message}`)
+      void this.send('error', `🚨 <b>Lỗi</b>: ${err.message}`)
     }
     const onTrend = (data: { bullish: boolean; price: number; ma: number | null }) => {
-      void this.sendViaGoClaw('trend:changed', this.describeTrendChange(data))
+      const signal = data.bullish ? '🟢 BULL' : '🔴 BEAR'
+      const ma = data.ma !== null ? `$${data.ma.toFixed(0)}` : 'N/A'
+      void this.send('trend:changed', [
+        `📊 <b>Trend: ${signal}</b>`,
+        `BTC: <code>$${data.price.toFixed(0)}</code> | MA: <code>${ma}</code>`,
+      ].join('\n'))
     }
 
     eventBus.on('trade:executed', onTrade)
@@ -59,7 +89,7 @@ export class TelegramNotifier {
       { event: 'trend:changed', fn: onTrend as (...args: unknown[]) => void },
     ]
 
-    console.info('[TelegramNotifier] Subscribed to event bus → GoClaw')
+    console.info('[TelegramNotifier] Subscribed to event bus')
   }
 
   stop(): void {
@@ -68,98 +98,21 @@ export class TelegramNotifier {
       ;(eventBus as any).off(event, fn)
     }
     this.listeners = []
-    console.info('[TelegramNotifier] Stopped')
   }
 
-  // ─── GoClaw delivery ──────────────────────────────────────────────────────
+  /** Send scheduled report or direct message via Telegram */
+  async sendMessage(message: string): Promise<void> {
+    await sendTelegram(message)
+  }
 
-  /**
-   * Send event context to GoClaw for Telegram delivery.
-   * GoClaw formats the message in Vietnamese and sends via its Telegram channel.
-   */
-  private async sendViaGoClaw(eventType: string, context: string): Promise<void> {
+  /** Throttled send for event-driven notifications */
+  private async send(eventType: string, message: string): Promise<void> {
     const now = Date.now()
     const lastSent = this.throttle.get(eventType) ?? 0
     if (now - lastSent < this.THROTTLE_MS) return
-
     this.throttle.set(eventType, now)
-
-    const prompt = [
-      `Bạn là bot quản lý portfolio crypto. Hãy gửi thông báo ngắn gọn bằng tiếng Việt cho chủ sở hữu về sự kiện sau:`,
-      ``,
-      `Sự kiện: ${eventType}`,
-      context,
-      ``,
-      `Yêu cầu: Viết ngắn gọn, dùng emoji phù hợp, tập trung vào thông tin quan trọng. Không giải thích dài dòng.`,
-    ].join('\n')
-
-    const response = await goClawClient.chat(prompt, 300)
-    if (!response) {
-      console.error(`[TelegramNotifier] GoClaw failed for event "${eventType}"`)
-    }
-  }
-
-  /** Send a direct message via GoClaw (for cron scheduler reports) */
-  async sendMessage(message: string): Promise<void> {
-    const now = Date.now()
-    const lastSent = this.throttle.get('direct') ?? 0
-    if (now - lastSent < this.THROTTLE_MS) return
-    this.throttle.set('direct', now)
-
-    const prompt = [
-      `Bạn là bot quản lý portfolio crypto. Hãy gửi báo cáo sau cho chủ sở hữu qua Telegram. Giữ nguyên format, chỉ thêm emoji và nhận xét ngắn cuối báo cáo nếu cần:`,
-      ``,
-      message,
-    ].join('\n')
-
-    await goClawClient.chat(prompt, 500)
-  }
-
-  // ─── Event descriptions (plain text for GoClaw to format) ─────────────────
-
-  private describeTradeEvent(trade: TradeResult): string {
-    return [
-      `Loại: ${trade.side === 'buy' ? 'MUA' : 'BÁN'}`,
-      `Cặp: ${trade.pair} trên ${trade.exchange}`,
-      `Số lượng: ${trade.amount}`,
-      `Giá: $${trade.price.toFixed(2)}`,
-      `Giá trị: $${trade.costUsd.toFixed(2)}`,
-      `Phí: ${trade.fee} ${trade.feeCurrency}`,
-      `Chế độ: ${trade.isPaper ? 'Paper Trading' : 'Live Trading'}`,
-    ].join('\n')
-  }
-
-  private describeRebalanceEvent(event: RebalanceEvent): string {
-    const duration = event.completedAt && event.startedAt
-      ? `${Math.round((event.completedAt.getTime() - event.startedAt.getTime()) / 1000)}s`
-      : 'N/A'
-    return [
-      `Trigger: ${event.trigger}`,
-      `Số lệnh: ${event.trades?.length ?? 0}`,
-      `Tổng phí: $${(event.totalFeesUsd ?? 0).toFixed(2)}`,
-      `Thời gian: ${duration}`,
-    ].join('\n')
-  }
-
-  private describeTrailingStop(data: { asset: string; price: number; stopPrice: number }): string {
-    return [
-      `Tài sản: ${data.asset}`,
-      `Giá kích hoạt: $${data.price.toFixed(2)}`,
-      `Giá stop: $${data.stopPrice.toFixed(2)}`,
-    ].join('\n')
-  }
-
-  private describeTrendChange(data: { bullish: boolean; price: number; ma: number | null }): string {
-    const signal = data.bullish ? 'BULL (tăng)' : 'BEAR (giảm)'
-    const ma = data.ma !== null ? `$${data.ma.toFixed(2)}` : 'N/A'
-    return [
-      `Tín hiệu: ${signal}`,
-      `Giá BTC: $${data.price.toFixed(2)}`,
-      `MA: ${ma}`,
-    ].join('\n')
+    await sendTelegram(message)
   }
 }
-
-// ─── Singleton export ─────────────────────────────────────────────────────────
 
 export const telegramNotifier = new TelegramNotifier()
