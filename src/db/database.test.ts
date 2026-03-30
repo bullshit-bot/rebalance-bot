@@ -151,7 +151,6 @@ describe('Database', () => {
       fee: 5,
       feeCurrency: 'USDT',
       orderId: 'order123',
-      isPaper: 0,
     })
 
     const trades = db.getTable('trades')
@@ -287,23 +286,10 @@ describe('Database', () => {
       fee: 5,
       feeCurrency: 'USDT',
       orderId: 'long-order-id-123',
-      isPaper: 0,
     })
 
     const trades = db.getTable('trades')
     expect(trades[0].orderId).toBe('long-order-id-123')
-  })
-
-  test('should support boolean types via integers', async () => {
-    await db.insert('trades').values({
-      isPaper: 1, // true
-      exchange: 'binance',
-      pair: 'BTC/USDT',
-      side: 'buy',
-    })
-
-    const trades = db.getTable('trades')
-    expect(trades[0].isPaper).toBe(1)
   })
 
   test('should handle null/undefined values', async () => {

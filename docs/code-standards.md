@@ -750,7 +750,7 @@ const EnvSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   REBALANCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.05),
   MIN_TRADE_USD: z.coerce.number().default(10),
-  PAPER_TRADING: z.enum(['true', 'false']).default('true'),
+  BINANCE_SANDBOX: z.string().optional(), // Controls testnet vs mainnet
   VITE_API_URL: z.string().default('/api'),
 });
 

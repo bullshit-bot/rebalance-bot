@@ -33,12 +33,6 @@ export const env = createEnv({
     MAX_TRADE_USD: z.coerce.number().positive().default(5000),
     DAILY_LOSS_LIMIT_PCT: z.coerce.number().positive().default(10),
 
-    // Trading mode — defaults to true (safe paper-trading until explicitly disabled)
-    PAPER_TRADING: z
-      .enum(['true', 'false', '1', '0'])
-      .transform((v) => v === 'true' || v === '1')
-      .default('true'),
-
     // GoClaw AI agent (for scheduled reports and autonomous actions)
     GOCLAW_URL: z.string().url().optional(),
     GOCLAW_GATEWAY_TOKEN: z.string().optional(),
@@ -77,8 +71,6 @@ export const env = createEnv({
     MIN_TRADE_USD: process.env['MIN_TRADE_USD'],
     MAX_TRADE_USD: process.env['MAX_TRADE_USD'],
     DAILY_LOSS_LIMIT_PCT: process.env['DAILY_LOSS_LIMIT_PCT'],
-
-    PAPER_TRADING: process.env['PAPER_TRADING'],
 
     STRATEGY_MODE: process.env['STRATEGY_MODE'],
     MOMENTUM_WINDOW_DAYS: process.env['MOMENTUM_WINDOW_DAYS'],

@@ -85,7 +85,6 @@ interface TradeLean {
   price: number
   costUsd: number
   fee: number | null
-  isPaper: boolean
   executedAt: Date
 }
 
@@ -93,7 +92,7 @@ interface TradeLean {
 
 class TaxReporter {
   /**
-   * Generate a FIFO-based tax report for all real (non-paper) trades in `year`.
+   * Generate a FIFO-based tax report for all trades in `year`.
    *
    * Strategy:
    *  1. Load ALL buy trades up to end-of-year (needed for FIFO lot history).
@@ -104,19 +103,17 @@ class TaxReporter {
   async generateReport(year: number): Promise<TaxReport> {
     const { startMs, endMs } = yearBoundsMs(year)
 
-    // Fetch all real buys up to end of year — needed for complete FIFO history
+    // Fetch all buys up to end of year — needed for complete FIFO history
     const allBuys = await TradeModel.find({
       side: 'buy',
-      isPaper: false,
       executedAt: { $gte: new Date(0), $lt: new Date(endMs) },
     })
       .sort({ executedAt: 1 })
       .lean() as unknown as TradeLean[]
 
-    // Fetch real sells within the target year only
+    // Fetch sells within the target year only
     const yearSells = await TradeModel.find({
       side: 'sell',
-      isPaper: false,
       executedAt: { $gte: new Date(startMs), $lt: new Date(endMs) },
     })
       .sort({ executedAt: 1 })

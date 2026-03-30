@@ -17,7 +17,6 @@
 2. **Environment Variables** (`.env`)
    ```env
    BINANCE_SANDBOX=false
-   PAPER_TRADING=false
    BINANCE_API_KEY=your_mainnet_key
    BINANCE_API_SECRET=your_mainnet_secret
    ```
@@ -37,7 +36,7 @@
 
 | Action | Command |
 |--------|---------|
-| Stop live trades immediately | Set `PAPER_TRADING=true` in `.env`, restart backend |
+| Stop live trades immediately | `docker compose stop backend` |
 | Halt bot completely | `docker compose stop backend` |
 | Switch back to testnet | Set `BINANCE_SANDBOX=true` in `.env`, restart backend |
 

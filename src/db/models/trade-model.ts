@@ -11,7 +11,6 @@ export interface ITrade {
   feeCurrency: string | null
   orderId: string | null
   rebalanceId: string | null
-  isPaper: boolean
   executedAt: Date
 }
 
@@ -26,7 +25,6 @@ const tradeSchema = new Schema<ITrade>({
   feeCurrency: { type: String, default: null },
   orderId: { type: String, default: null },
   rebalanceId: { type: String, default: null },
-  isPaper: { type: Boolean, default: false },
   executedAt: { type: Date, default: Date.now },
 })
 
@@ -34,4 +32,4 @@ tradeSchema.index({ rebalanceId: 1 })
 
 export const TradeModel = model<ITrade>('Trade', tradeSchema)
 export type Trade = ITrade & { _id: string }
-export type NewTrade = Omit<ITrade, 'isPaper' | 'executedAt'> & { isPaper?: boolean; executedAt?: Date }
+export type NewTrade = Omit<ITrade, 'executedAt'> & { executedAt?: Date }

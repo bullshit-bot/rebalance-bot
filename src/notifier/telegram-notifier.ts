@@ -42,10 +42,9 @@ export class TelegramNotifier {
 
   async start(): Promise<void> {
     const onTrade = (trade: TradeResult) => {
-      const mode = trade.isPaper ? '📋 Paper' : '✅ Live'
       const side = trade.side === 'buy' ? '🟢 MUA' : '🔴 BÁN'
       void this.send('trade:executed', [
-        `💱 <b>Giao Dịch</b> ${mode}`,
+        `💱 <b>Giao Dịch</b> ✅ Live`,
         `${side} <code>${trade.amount}</code> ${trade.pair}`,
         `Giá: <code>$${trade.price.toFixed(2)}</code> | Phí: <code>${trade.fee} ${trade.feeCurrency}</code>`,
       ].join('\n'))

@@ -161,7 +161,7 @@ class MarketSummaryService {
       { $match: { executedAt: { $gte: since } } },
       {
         $group: {
-          _id: { side: "$side", isPaper: "$isPaper" },
+          _id: { side: "$side" },
           count: { $sum: 1 },
           totalCost: { $sum: "$costUsd" },
         },

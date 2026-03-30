@@ -146,7 +146,6 @@ function makeGEDeps(options?: {
         feeCurrency: 'USDT',
         orderId: `ex-order-${Date.now()}`,
         executedAt: new Date(),
-        isPaper: true,
       }
     },
     executeBatch: async (orders: any[]) => {

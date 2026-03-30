@@ -45,7 +45,6 @@ GOCLAW_GATEWAY_TOKEN=your-gateway-token
 # Rebalancing & Trading
 REBALANCE_THRESHOLD=0.08               # 8% optimal from grid search
 MIN_TRADE_USD=10
-PAPER_TRADING=true
 TREND_FILTER_MA=110                    # Optimal MA period from grid search
 TREND_FILTER_COOLDOWN=1                # Days optimal from grid search
 BEAR_CASH_PCT=100                      # 100% cash in bear market optimal
@@ -158,7 +157,6 @@ TREND_FILTER_MA=110             # 110-day MA period (optimal from search)
 TREND_FILTER_COOLDOWN=1         # 1-day cooldown (optimal from search)
 BEAR_CASH_PCT=100               # 100% cash during bear (optimal)
 MIN_TRADE_USD=10                # Min order size
-PAPER_TRADING=true              # Safe default
 ```
 
 ### GoClaw (Required for Telegram Notifications)

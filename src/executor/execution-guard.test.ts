@@ -64,7 +64,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(tradeResult)
@@ -90,7 +89,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(tradeResult)
@@ -120,7 +118,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     const tradeResult2: TradeResult = {
@@ -135,7 +132,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-2',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(tradeResult1)
@@ -158,7 +154,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(tradeResult)
@@ -181,7 +176,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     for (let i = 0; i < 5; i++) {
@@ -204,7 +198,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(tradeResult)
@@ -283,7 +276,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(tradeResult)
@@ -303,7 +295,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     const result2: TradeResult = {
@@ -318,7 +309,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-2',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(result1)
@@ -340,7 +330,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     const buyResult: TradeResult = {
@@ -355,7 +344,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-2',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(sellResult)
@@ -406,7 +394,6 @@ describe('ExecutionGuard', () => {
       feeCurrency: 'USDT',
       orderId: 'order-1',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     guard.recordTrade(tradeResult)

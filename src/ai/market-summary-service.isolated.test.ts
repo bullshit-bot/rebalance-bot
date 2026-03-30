@@ -10,8 +10,8 @@ const mockSnapshots = [
 ]
 
 const mockTradeAgg = [
-  { _id: { side: 'buy', isPaper: false }, count: 10, totalCost: 50000 },
-  { _id: { side: 'sell', isPaper: false }, count: 5, totalCost: 15000 },
+  { _id: { side: 'buy' }, count: 10, totalCost: 50000 },
+  { _id: { side: 'sell' }, count: 5, totalCost: 15000 },
 ]
 
 const makeLeaner = (data: unknown[]) => ({

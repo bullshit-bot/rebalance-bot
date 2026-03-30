@@ -39,7 +39,6 @@ describe('use-trade-queries.ts', () => {
           feeCurrency: null,
           orderId: null,
           rebalanceId: null,
-          isPaper: 0 as const,
           executedAt: Date.now(),
         },
       ]

@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import { RebalanceModel } from '@db/database'
-import { env } from '@config/app-config'
 import { eventBus } from '@events/event-bus'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
 import { driftDetector } from '@rebalancer/drift-detector'
@@ -59,7 +58,7 @@ class RebalanceEngine {
     if (this.active) return
     this.active = true
     eventBus.on('rebalance:trigger', this.triggerListener)
-    console.info('[RebalanceEngine] Started (paper=%s)', env.PAPER_TRADING)
+
   }
 
   /** Stop listening and clean up. */

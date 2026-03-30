@@ -23,7 +23,7 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 | backtesting/ | 1,200 | Simulator, metrics calc, parameter-grid optimizer (4800+ combos) |
 | rebalancer/ | 1,100 | Strategy mgr, drift detector, trend filter (MA + cooldown), DCA routing, cash-aware trades |
 | analytics/ | 880 | Performance metrics, reporting |
-| executor/ | 670 | Order execution (live & paper trading) |
+| executor/ | 670 | Order execution via CCXT (real orders, testnet via BINANCE_SANDBOX) |
 | grid/ | 710 | Grid trading strategy implementation |
 | twap-vwap/ | 620 | Smart order routing, slippage reduction |
 | exchange/ | 350 | Multi-exchange CCXT Pro abstraction |
@@ -297,7 +297,7 @@ src/
 1. Environment validation (Zod)
 2. Database connection & schema
 3. Exchange connections (CCXT Pro)
-4. Executor initialization (live/paper mode)
+4. Executor initialization (OrderExecutor — testnet if BINANCE_SANDBOX=true)
 5. Price WebSocket subscription
 6. Portfolio service startup
 7. Drift detector activation

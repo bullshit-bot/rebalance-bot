@@ -11,13 +11,13 @@ beforeAll(async () => {
 
   const testTrades = [
     // BTC: buy 1 @ 40000, sell 1 @ 50000 → realized PnL = +9800 (after fees)
-    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy' as const, amount: 1, price: 40000, costUsd: 40000, fee: 100, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400 * 5) * 1000) },
-    { exchange: 'binance', pair: 'BTC/USDT', side: 'sell' as const, amount: 1, price: 50000, costUsd: 50000, fee: 100, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400 * 2) * 1000) },
+    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy' as const, amount: 1, price: 40000, costUsd: 40000, fee: 100, feeCurrency: 'USDT', rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400 * 5) * 1000) },
+    { exchange: 'binance', pair: 'BTC/USDT', side: 'sell' as const, amount: 1, price: 50000, costUsd: 50000, fee: 100, feeCurrency: 'USDT', rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400 * 2) * 1000) },
     // ETH: buy 10 @ 3000, sell 5 @ 3500 → partial sell
-    { exchange: 'binance', pair: 'ETH/USDT', side: 'buy' as const, amount: 10, price: 3000, costUsd: 30000, fee: 50, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400 * 10) * 1000) },
-    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell' as const, amount: 5, price: 3500, costUsd: 17500, fee: 50, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 3600) * 1000) },
+    { exchange: 'binance', pair: 'ETH/USDT', side: 'buy' as const, amount: 10, price: 3000, costUsd: 30000, fee: 50, feeCurrency: 'USDT', rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400 * 10) * 1000) },
+    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell' as const, amount: 5, price: 3500, costUsd: 17500, fee: 50, feeCurrency: 'USDT', rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 3600) * 1000) },
     // SOL: buy only (no sell) — should appear in unrealized
-    { exchange: 'binance', pair: 'SOL/USDT', side: 'buy' as const, amount: 100, price: 180, costUsd: 18000, fee: 30, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400) * 1000) },
+    { exchange: 'binance', pair: 'SOL/USDT', side: 'buy' as const, amount: 100, price: 180, costUsd: 18000, fee: 30, feeCurrency: 'USDT', rebalanceId: TEST_REBALANCE_ID, executedAt: new Date((now - 86400) * 1000) },
   ]
 
   for (const t of testTrades) {

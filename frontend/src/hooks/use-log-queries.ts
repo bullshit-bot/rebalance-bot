@@ -20,7 +20,6 @@ export function useLogs() {
         details: JSON.stringify({
           exchange: t.exchange,
           orderId: t.orderId,
-          isPaper: t.isPaper,
         }),
       }))
     },

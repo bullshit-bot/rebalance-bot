@@ -154,7 +154,7 @@ export class OrderExecutor implements IOrderExecutor {
       }
     }
 
-    const result = this.mapCcxtOrderToResult(ccxtOrder, order, false)
+    const result = this.mapCcxtOrderToResult(ccxtOrder, order)
     await this.persistAndEmit(result)
     return result
   }
@@ -165,7 +165,6 @@ export class OrderExecutor implements IOrderExecutor {
   private mapCcxtOrderToResult(
     ccxtOrder: Record<string, unknown>,
     original: TradeOrder,
-    isPaper: boolean,
   ): TradeResult {
     const filledPrice = toNumber(ccxtOrder['average'] ?? ccxtOrder['price']) ?? toNumber(original.price) ?? 0
     const filledAmount = toNumber(ccxtOrder['filled'] ?? ccxtOrder['amount']) ?? original.amount
@@ -187,7 +186,6 @@ export class OrderExecutor implements IOrderExecutor {
       feeCurrency,
       orderId: String(ccxtOrder['id'] ?? ''),
       executedAt: new Date(),
-      isPaper,
     }
   }
 
@@ -269,7 +267,6 @@ export class OrderExecutor implements IOrderExecutor {
         feeCurrency: result.feeCurrency,
         orderId: result.orderId ?? null,
         rebalanceId: result.rebalanceId ?? null,
-        isPaper: result.isPaper,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

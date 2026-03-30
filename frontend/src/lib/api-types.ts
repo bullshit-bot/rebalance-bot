@@ -41,7 +41,6 @@ export interface Trade {
   feeCurrency: string | null
   orderId: string | null
   rebalanceId: string | null
-  isPaper: 0 | 1
   executedAt: number
 }
 

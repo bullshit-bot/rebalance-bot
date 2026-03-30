@@ -186,7 +186,7 @@ describe('OrderExecutor - dependency injection', () => {
     expect(result.pair).toBe('BTC/USDT')
     expect(result.side).toBe('buy')
     expect(result.exchange).toBe('binance')
-    expect(result.isPaper).toBe(false)
+
   })
 
   test('execute() throws when exchange not found', async () => {
@@ -609,11 +609,10 @@ describe('OrderExecutor - dependency injection', () => {
       feeCurrency: 'USDT',
       orderId: 'order-123',
       executedAt: new Date(),
-      isPaper: false,
     }
 
     expect(result.pair).toBe('BTC/USDT')
-    expect(result.isPaper).toBe(false)
+
     expect(result.executedAt).toBeInstanceOf(Date)
   })
 })

@@ -39,7 +39,6 @@ describe('use-log-queries.ts', () => {
           feeCurrency: 'USDT',
           orderId: 'ord-123',
           rebalanceId: null,
-          isPaper: 0 as const,
           executedAt: Math.floor(Date.now() / 1000),
         },
       ]
@@ -66,7 +65,6 @@ describe('use-log-queries.ts', () => {
           feeCurrency: null,
           orderId: null,
           rebalanceId: null,
-          isPaper: 0 as const,
           executedAt: Math.floor(Date.now() / 1000),
         },
       ]
@@ -98,7 +96,6 @@ describe('use-log-queries.ts', () => {
           feeCurrency: 'USDT',
           orderId: 'ord-456',
           rebalanceId: null,
-          isPaper: 0 as const,
           executedAt: Math.floor(Date.now() / 1000),
         },
       ]
@@ -127,7 +124,6 @@ describe('use-log-queries.ts', () => {
           feeCurrency: null,
           orderId: 'ord-789',
           rebalanceId: null,
-          isPaper: 0 as const,
           executedAt: Math.floor(Date.now() / 1000),
         },
       ]
@@ -155,7 +151,6 @@ describe('use-log-queries.ts', () => {
           feeCurrency: 'USDT',
           orderId: 'ord-xyz',
           rebalanceId: 'reb-123',
-          isPaper: 1 as const,
           executedAt: Math.floor(Date.now() / 1000),
         },
       ]
@@ -169,7 +164,6 @@ describe('use-log-queries.ts', () => {
       const details = JSON.parse(logs[0].details)
       expect(details.exchange).toBe('bybit')
       expect(details.orderId).toBe('ord-xyz')
-      expect(details.isPaper).toBe(1)
     })
 
     it('calls getTrades with limit of 50', async () => {

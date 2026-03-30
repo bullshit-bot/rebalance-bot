@@ -241,7 +241,7 @@ describe('api.ts', () => {
   describe('getTrades', () => {
     it('fetches trades with limit', async () => {
       const mockData = [
-        { id: 1, exchange: 'binance', pair: 'BTC/USDT', side: 'buy', amount: 0.1, price: 40000, costUsd: 4000, executedAt: Date.now(), fee: null, feeCurrency: null, orderId: null, rebalanceId: null, isPaper: 0 },
+        { id: 1, exchange: 'binance', pair: 'BTC/USDT', side: 'buy', amount: 0.1, price: 40000, costUsd: 4000, executedAt: Date.now(), fee: null, feeCurrency: null, orderId: null, rebalanceId: null },
       ]
       vi.mocked(fetch).mockResolvedValueOnce({
         status: 200,

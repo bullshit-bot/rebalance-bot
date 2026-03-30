@@ -83,7 +83,6 @@ export interface TradeResult {
   orderId: string
   rebalanceId?: string
   executedAt: Date
-  isPaper: boolean
 }
 
 // ─── Rebalance lifecycle ──────────────────────────────────────────────────────

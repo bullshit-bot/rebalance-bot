@@ -125,9 +125,6 @@ async function main(): Promise<void> {
   // Step 13: Start HTTP API server
   startServer()
 
-  console.log(`Bot running on port ${env.API_PORT}`)
-  console.log(`Mode: ${env.PAPER_TRADING ? 'PAPER TRADING' : 'LIVE TRADING'}`)
-
   // ─── Graceful shutdown ─────────────────────────────────────────────────────
 
   const shutdown = async (): Promise<void> => {

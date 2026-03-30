@@ -330,7 +330,7 @@ describe('TelegramNotifier', () => {
         fee: 10,
         feeCurrency: 'USDT',
         exchange: 'binance',
-        isPaper: false,
+
         executedAt: new Date(),
       })
       freshNotifier.stop()

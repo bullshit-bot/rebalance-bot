@@ -53,18 +53,6 @@ describe('app-config', () => {
     })
   })
 
-  describe('Trading mode configuration', () => {
-    it('PAPER_TRADING should exist', () => {
-      expect(env).toHaveProperty('PAPER_TRADING')
-      expect(env.PAPER_TRADING !== undefined).toBe(true)
-    })
-
-    it('PAPER_TRADING should be true or "true" for safety default', () => {
-      const isPaperTrading = env.PAPER_TRADING === true || env.PAPER_TRADING === 'true'
-      expect(isPaperTrading || env.PAPER_TRADING === '1').toBe(true)
-    })
-  })
-
   describe('Strategy configuration', () => {
     it('STRATEGY_MODE should exist when defined', () => {
       expect(env).toHaveProperty('STRATEGY_MODE')
@@ -134,7 +122,6 @@ describe('app-config', () => {
         'MIN_TRADE_USD',
         'MAX_TRADE_USD',
         'DAILY_LOSS_LIMIT_PCT',
-        'PAPER_TRADING',
       ]
       requiredKeys.forEach((key) => {
         expect(env).toHaveProperty(key)

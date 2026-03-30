@@ -139,8 +139,6 @@ export function startServer(): ReturnType<typeof Bun.serve> {
     },
   })
 
-  console.info('[Server] Listening on port %d (paper=%s)', env.API_PORT, env.PAPER_TRADING)
-
   return server
 }
 

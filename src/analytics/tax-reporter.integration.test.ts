@@ -14,20 +14,20 @@ beforeAll(async () => {
 
   const testTrades = [
     // Buy BTC in 2024 (long-term: >365 days before sell)
-    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy' as const, amount: 2, price: 30000, costUsd: 60000, fee: 100, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_TAG, executedAt: new Date((jan1 - 400 * 86400) * 1000) },
+    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy' as const, amount: 2, price: 30000, costUsd: 60000, fee: 100, feeCurrency: 'USDT', rebalanceId: TEST_TAG, executedAt: new Date((jan1 - 400 * 86400) * 1000) },
     // Sell BTC in 2025 → long-term gain
-    { exchange: 'binance', pair: 'BTC/USDT', side: 'sell' as const, amount: 1, price: 50000, costUsd: 50000, fee: 80, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 30 * 86400) * 1000) },
+    { exchange: 'binance', pair: 'BTC/USDT', side: 'sell' as const, amount: 1, price: 50000, costUsd: 50000, fee: 80, feeCurrency: 'USDT', rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 30 * 86400) * 1000) },
 
     // Buy ETH in 2025 (short-term: <365 days)
-    { exchange: 'binance', pair: 'ETH/USDT', side: 'buy' as const, amount: 10, price: 3000, costUsd: 30000, fee: 50, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 10 * 86400) * 1000) },
+    { exchange: 'binance', pair: 'ETH/USDT', side: 'buy' as const, amount: 10, price: 3000, costUsd: 30000, fee: 50, feeCurrency: 'USDT', rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 10 * 86400) * 1000) },
     // Sell ETH in 2025 → short-term gain
-    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell' as const, amount: 5, price: 3500, costUsd: 17500, fee: 40, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 60 * 86400) * 1000) },
+    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell' as const, amount: 5, price: 3500, costUsd: 17500, fee: 40, feeCurrency: 'USDT', rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 60 * 86400) * 1000) },
 
     // Sell ETH in 2025 → short-term LOSS
-    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell' as const, amount: 3, price: 2800, costUsd: 8400, fee: 30, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 90 * 86400) * 1000) },
+    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell' as const, amount: 3, price: 2800, costUsd: 8400, fee: 30, feeCurrency: 'USDT', rebalanceId: TEST_TAG, executedAt: new Date((jan1 + 90 * 86400) * 1000) },
 
     // Sell SOL with NO matching buy → zero cost basis (pre-existing balance)
-    { exchange: 'binance', pair: 'SOL/USDT', side: 'sell' as const, amount: 50, price: 200, costUsd: 10000, fee: 20, feeCurrency: 'USDT', isPaper: false, rebalanceId: TEST_TAG, executedAt: new Date(jul1 * 1000) },
+    { exchange: 'binance', pair: 'SOL/USDT', side: 'sell' as const, amount: 50, price: 200, costUsd: 10000, fee: 20, feeCurrency: 'USDT', rebalanceId: TEST_TAG, executedAt: new Date(jul1 * 1000) },
   ]
 
   for (const t of testTrades) {

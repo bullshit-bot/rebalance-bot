@@ -16,8 +16,8 @@ beforeAll(async () => {
 
   // Seed trades so trade section has data
   await TradeModel.insertMany([
-    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy', amount: 0.1, price: 60000, costUsd: 6000, isPaper: true, executedAt: hoursAgo(6) },
-    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell', amount: 1, price: 3000, costUsd: 3000, isPaper: false, executedAt: hoursAgo(3) },
+    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy', amount: 0.1, price: 60000, costUsd: 6000, executedAt: hoursAgo(6) },
+    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell', amount: 1, price: 3000, costUsd: 3000, executedAt: hoursAgo(3) },
   ])
 })
 
@@ -87,10 +87,10 @@ describe('MarketSummaryService', () => {
       expect(summary).toContain('Portfolio')
     })
 
-    it('should distinguish paper vs live trades', async () => {
+    it('should include trade summary in output', async () => {
       const summary = await marketSummaryService.generateSummary()
 
-      // Vietnamese output groups by side/isPaper — just verify summary is valid string
+      // Vietnamese output groups by side — verify summary is valid string
       expect(typeof summary).toBe('string')
       expect(summary.length).toBeGreaterThan(0)
     })

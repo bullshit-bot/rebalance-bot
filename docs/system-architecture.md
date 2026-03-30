@@ -7,7 +7,7 @@
 
 ## Overview
 
-Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange support, advanced trading strategies, and full paper trading capabilities. Event-driven architecture with WebSocket market data, REST API, Telegram notifications, and strategic execution engine.
+Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange support and advanced trading strategies. Event-driven architecture with WebSocket market data, REST API, Telegram notifications, and strategic execution engine. Runs on testnet (BINANCE_SANDBOX=true) by default — safe fake-money execution.
 
 ## High-Level Architecture Diagram
 
@@ -90,7 +90,6 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - Unified order API (buy/sell/cancel) across Binance, OKX, Bybit
 - Market data aggregation
 - Automatic reconnection and rate limiting
-- Paper trading simulation
 
 **Dependencies**: CCXT Pro, EventEmitter2
 
@@ -161,7 +160,6 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - Handle partial fills and cancellations
 - Collect fees and execution prices
 - Log trades to database
-- Support paper trading mode
 
 ### 6. Advanced Strategies (Phase 4+)
 
@@ -346,7 +344,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - `GOCLAW_GATEWAY_TOKEN` - GoClaw authentication token
 - `REBALANCE_THRESHOLD` - Drift threshold (e.g., 0.05 = 5%)
 - `MIN_TRADE_USD` - Minimum trade value for execution
-- `PAPER_TRADING` - Boolean flag for simulation mode
+- `BINANCE_SANDBOX` - Use Binance testnet (fake money, real execution path)
 - `VITE_API_URL` - Frontend API URL (set to /api in Docker)
 
 **Strategy Configuration** (via database-driven config, hot-reload):

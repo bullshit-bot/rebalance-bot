@@ -139,14 +139,6 @@ describe('order-executor (integration)', () => {
     }, { timeout: 15000 })
   })
 
-  describe('paper trading mode', () => {
-    it('PAPER_TRADING env is set', () => {
-      // paper mode is default when no exchange keys
-      const mode = process.env.PAPER_TRADING
-      expect(mode === undefined || mode === 'true').toBe(true)
-    })
-  })
-
   describe('order object validation', () => {
     it('handles order with valid structure', () => {
       const order = {

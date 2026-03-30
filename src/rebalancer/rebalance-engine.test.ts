@@ -132,7 +132,7 @@ describe('RebalanceEngine', () => {
             feeCurrency: 'USDT',
             orderId: 'mock-' + Date.now(),
             executedAt: new Date(),
-            isPaper: false,
+    
           }),
         )
       },
