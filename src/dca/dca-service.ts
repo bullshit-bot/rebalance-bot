@@ -3,6 +3,7 @@ import { eventBus } from '@events/event-bus'
 import { portfolioTracker } from '@portfolio/portfolio-tracker'
 import { strategyManager } from '@rebalancer/strategy-manager'
 import { trendFilter } from '@rebalancer/trend-filter'
+import { getExecutor } from '@executor/index'
 import { calcProportionalDCA, calcSingleTargetDCA } from '@dca/dca-allocation-calculator'
 import type { Allocation, Portfolio, TradeOrder } from '@/types/index'
 
@@ -120,7 +121,14 @@ class DCAService {
       for (const order of orders) {
         console.log(`  BUY ${order.amount.toFixed(6)} ${order.pair} on ${order.exchange}`)
       }
-      // TODO: wire to order executor for live/paper execution
+      // Execute via paper/live executor
+      try {
+        const executor = getExecutor()
+        const results = await executor.executeBatch(orders)
+        console.log(`[DCAService] DCA executed: ${results.length} orders`)
+      } catch (err) {
+        console.error('[DCAService] DCA execution failed:', err instanceof Error ? err.message : err)
+      }
     } else {
       console.log(`[DCAService] Scheduled DCA: $${amount} — no orders (balanced or bear)`)
     }
