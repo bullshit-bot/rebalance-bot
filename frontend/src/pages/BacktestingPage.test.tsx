@@ -54,23 +54,25 @@ describe('BacktestingPage', () => {
 
   it('renders pair checkboxes', () => {
     const { container } = wrap(<BacktestingPage />)
+    // 4 pair checkboxes + 2 feature checkboxes (DCA, Trend Filter)
     const checkboxes = container.querySelectorAll('input[type="checkbox"]')
-    expect(checkboxes.length).toBe(4)
+    expect(checkboxes.length).toBe(6)
   })
 
-  it('BTC and ETH are checked by default', () => {
+  it('all 4 pairs are checked by default', () => {
     const { container } = wrap(<BacktestingPage />)
     const checkboxes = container.querySelectorAll('input[type="checkbox"]') as NodeListOf<HTMLInputElement>
+    // First 4 checkboxes are pair checkboxes: BTC, ETH, SOL, BNB — all checked by default
     expect(checkboxes[0].checked).toBe(true) // BTC
     expect(checkboxes[1].checked).toBe(true) // ETH
-    expect(checkboxes[2].checked).toBe(false) // SOL
-    expect(checkboxes[3].checked).toBe(false) // BNB
+    expect(checkboxes[2].checked).toBe(true) // SOL
+    expect(checkboxes[3].checked).toBe(true) // BNB
   })
 
   it('renders date inputs', () => {
     wrap(<BacktestingPage />)
-    expect(screen.getByDisplayValue('2026-02-01')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('2026-03-01')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('2021-03-30')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('2026-03-29')).toBeInTheDocument()
   })
 
   it('renders threshold slider', () => {
@@ -80,7 +82,7 @@ describe('BacktestingPage', () => {
 
   it('renders balance and fee inputs', () => {
     wrap(<BacktestingPage />)
-    expect(screen.getByDisplayValue('100000')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('1000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('0.1')).toBeInTheDocument()
   })
 
@@ -94,9 +96,11 @@ describe('BacktestingPage', () => {
   it('disables run button when no pairs selected', () => {
     const { container } = wrap(<BacktestingPage />)
     const checkboxes = container.querySelectorAll('input[type="checkbox"]')
-    // Uncheck BTC and ETH
+    // Uncheck all 4 pair checkboxes (indices 0–3)
     fireEvent.click(checkboxes[0])
     fireEvent.click(checkboxes[1])
+    fireEvent.click(checkboxes[2])
+    fireEvent.click(checkboxes[3])
     const btn = screen.getByRole('button', { name: /Run Backtest/i })
     expect(btn).toBeDisabled()
   })
@@ -125,7 +129,17 @@ describe('BacktestingPage', () => {
   it('renders metrics when result available', () => {
     vi.mocked(useRunBacktest).mockReturnValue({
       mutate: vi.fn(),
-      data: { metrics: { totalReturn: 25.5, annualized: 40.2, sharpe: 1.8, maxDrawdown: -15.3, trades: 42, fees: 250.5 }, trades: [] },
+      data: {
+        metrics: {
+          totalReturnPct: 25.5,
+          annualizedReturnPct: 40.2,
+          sharpeRatio: 1.8,
+          maxDrawdownPct: -15.3,
+          totalTrades: 42,
+          totalFeesPaid: 250.5,
+        },
+        trades: [],
+      },
       isPending: false, isError: false, status: 'success', error: null,
     } as any)
     wrap(<BacktestingPage />)
@@ -137,18 +151,21 @@ describe('BacktestingPage', () => {
   it('renders trade table with data', () => {
     vi.mocked(useRunBacktest).mockReturnValue({
       mutate: vi.fn(),
-      data: { metrics: {}, trades: [{ date: '2026-02-01', pair: 'BTC/USDT', side: 'buy', qty: 0.5, price: 45000, fee: 22.5, pnl: 1500 }] },
+      data: {
+        metrics: {},
+        trades: [{ date: '2026-02-01', pair: 'BTC/USDT', side: 'buy', qty: 0.5, price: 45000, fee: 22.5, pnl: 1500 }],
+      },
       isPending: false, isError: false, status: 'success', error: null,
     } as any)
     wrap(<BacktestingPage />)
-    expect(screen.getByText('Simulated Trades')).toBeInTheDocument()
+    expect(screen.getByText(/Simulated Trades/)).toBeInTheDocument()
     expect(screen.getByText('2026-02-01')).toBeInTheDocument()
   })
 
   it('shows no trades message when empty', () => {
     vi.mocked(useRunBacktest).mockReturnValue({
       mutate: vi.fn(),
-      data: { metrics: { totalReturn: 5.0 }, trades: [] },
+      data: { metrics: { totalReturnPct: 5.0 }, trades: [] },
       isPending: false, isError: false, status: 'success', error: null,
     } as any)
     wrap(<BacktestingPage />)
@@ -158,7 +175,11 @@ describe('BacktestingPage', () => {
   it('renders equity curve when available', () => {
     vi.mocked(useRunBacktest).mockReturnValue({
       mutate: vi.fn(),
-      data: { metrics: { equityCurve: [{ date: '2026-02-01', strategy: 100000 }] }, trades: [] },
+      data: {
+        metrics: {},
+        trades: [],
+        equityCurve: [{ timestamp: 1738368000000, value: 100000 }],
+      },
       isPending: false, isError: false, status: 'success', error: null,
     } as any)
     wrap(<BacktestingPage />)
