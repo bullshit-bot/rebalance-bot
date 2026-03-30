@@ -8,7 +8,7 @@ import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from '@/type
 
 /** Minimal CCXT Pro Exchange interface — avoids importing the broken ccxt.pro namespace. */
 interface CcxtProExchange {
-  watchBalance(): Promise<Record<string, unknown>>
+  watchBalance?(): Promise<Record<string, unknown>>
   fetchBalance?(): Promise<Record<string, unknown>>
 }
 

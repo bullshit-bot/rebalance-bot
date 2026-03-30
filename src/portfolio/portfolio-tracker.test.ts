@@ -1,5 +1,19 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 import type { Portfolio, PortfolioAsset } from '@/types/index'
+
+// Mock AllocationModel so getTargetAllocations() does not hit MongoDB in unit tests
+mock.module('@db/database', () => ({
+  AllocationModel: {
+    find: () => ({
+      lean: async () => [
+        { asset: 'BTC', targetPct: 50, minTradeUsd: 10 },
+        { asset: 'ETH', targetPct: 30, minTradeUsd: 10 },
+        { asset: 'USDT', targetPct: 20, minTradeUsd: 10 },
+      ],
+    }),
+  },
+}))
+
 import { PortfolioTracker } from './portfolio-tracker'
 import type { PortfolioTrackerDeps } from './portfolio-tracker'
 
@@ -433,12 +447,11 @@ describe('PortfolioTracker - DI constructor', () => {
   })
 
   test('watchBalance loop emits balance:update then is stopped', async () => {
-    // Track calls; resolve first immediately, then abort
+    // fetchBalance-based REST polling: first call returns data, subsequent calls block
     let callCount = 0
-    const abortController = new AbortController()
 
     const mockEx = {
-      watchBalance: async () => {
+      fetchBalance: async () => {
         callCount++
         if (callCount === 1) {
           return {
@@ -446,10 +459,8 @@ describe('PortfolioTracker - DI constructor', () => {
             USDT: { free: 10000 },
           }
         }
-        // After first call, block until aborted
-        await new Promise<void>((_, reject) => {
-          abortController.signal.addEventListener('abort', () => reject(new Error('aborted')))
-        })
+        // Block until aborted by stopWatching (simulated via long sleep)
+        await new Promise<void>((resolve) => setTimeout(resolve, 60_000))
         return {}
       },
     }
@@ -457,11 +468,9 @@ describe('PortfolioTracker - DI constructor', () => {
     const exchanges = new Map([['binance' as any, mockEx]])
     tracker.startWatching(exchanges)
 
-    // Let first watchBalance call complete
+    // Let first fetchBalance call complete and process
     await new Promise<void>((r) => setTimeout(r, 50))
 
-    // Stop the tracker to abort the loop
-    abortController.abort()
     await tracker.stopWatching()
 
     expect(deps.events).toContain('balance:update')
@@ -472,13 +481,11 @@ describe('PortfolioTracker - DI constructor', () => {
     let callCount = 0
 
     const mockEx = {
-      watchBalance: async () => {
+      fetchBalance: async () => {
         callCount++
         if (callCount === 1) throw new Error('transient network error')
-        // Block — will be aborted by stopWatching
-        await new Promise<void>((_, reject) => {
-          setTimeout(() => reject(new Error('timeout')), 5000)
-        })
+        // Block — will be cleared by stopWatching aborting the signal
+        await new Promise<void>((resolve) => setTimeout(resolve, 60_000))
         return {}
       },
     }
@@ -486,7 +493,7 @@ describe('PortfolioTracker - DI constructor', () => {
     const exchanges = new Map([['binance' as any, mockEx]])
     tracker.startWatching(exchanges)
 
-    // Let first call throw and retry delay start (3s in source)
+    // Let first call throw; impl catches error and sleeps 10s before retry
     await new Promise<void>((r) => setTimeout(r, 50))
     await tracker.stopWatching()
 
@@ -503,7 +510,7 @@ describe('PortfolioTracker - DI constructor', () => {
       throw new Error('unexpected outer error')
     }
 
-    const mockEx = { watchBalance: async () => ({}) }
+    const mockEx = { fetchBalance: async () => ({}) }
     const exchanges = new Map([['binance' as any, mockEx]])
 
     // Should not throw even though inner watchBalance throws
