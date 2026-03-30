@@ -94,9 +94,10 @@ class DCAService {
         .filter((a) => !STABLECOINS.has(a.asset))
         .reduce((sum, a) => sum + a.valueUsd, 0)
 
-      if (cryptoValue < depositAmount) {
+      const configDcaAmount = typeof gs.dcaAmountUsd === 'number' ? gs.dcaAmountUsd : FALLBACK_DCA_AMOUNT
+      if (cryptoValue < configDcaAmount) {
         // Not enough crypto to compare ratios — spread proportionally
-        console.log(`[DCAService] Crypto $${cryptoValue.toFixed(0)} < DCA $${depositAmount} — proportional mode`)
+        console.log(`[DCAService] Crypto $${cryptoValue.toFixed(0)} < configured DCA $${configDcaAmount} — proportional mode`)
         const orders = calcProportionalDCA(depositAmount, portfolio, targets, minTradeUsd)
         if (orders.length > 0) return orders
       }
