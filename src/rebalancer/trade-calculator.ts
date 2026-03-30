@@ -5,7 +5,7 @@ import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/in
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Stablecoin symbols treated as cash reserve (not traded as crypto positions). */
-const STABLECOINS = new Set(['USDT', 'USDC', 'BUSD'])
+export const STABLECOINS = new Set(['USDT', 'USDC', 'BUSD', 'TUSD', 'DAI', 'USD'])
 
 /** Returns true if the asset symbol is a recognized stablecoin / cash asset. */
 const isStablecoin = (asset: string): boolean => STABLECOINS.has(asset)

@@ -1,5 +1,6 @@
 import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/index'
 import { priceCache } from '@price/price-cache'
+import { STABLECOINS } from '@rebalancer/trade-calculator'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ export function calcProportionalDCA(
 
   // Calculate current % relative to crypto portion only (exclude stablecoins)
   const cryptoValue = portfolio.assets
-    .filter((a) => a.asset !== 'USDT' && a.asset !== 'USDC' && a.asset !== 'BUSD')
+    .filter((a) => !STABLECOINS.has(a.asset))
     .reduce((sum, a) => sum + a.valueUsd, 0)
 
   const underweight: DeficitEntry[] = []

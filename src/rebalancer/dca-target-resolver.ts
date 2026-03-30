@@ -1,4 +1,5 @@
 import type { Allocation, Portfolio } from '@/types/index'
+import { STABLECOINS } from '@rebalancer/trade-calculator'
 
 // ─── getDCATarget ─────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ export function getDCATarget(
   // Calculate total crypto value (exclude stablecoins like USDT)
   // Target %s are relative to the crypto portion, not the full portfolio
   const cryptoValue = portfolio.assets
-    .filter((a) => a.asset !== 'USDT' && a.asset !== 'USDC' && a.asset !== 'BUSD')
+    .filter((a) => !STABLECOINS.has(a.asset))
     .reduce((sum, a) => sum + a.valueUsd, 0)
 
   // If no crypto held yet, pick the asset with highest target

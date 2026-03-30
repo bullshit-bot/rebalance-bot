@@ -3,6 +3,7 @@ import { eventBus } from '@events/event-bus'
 import { strategyManager } from '@rebalancer/strategy-manager'
 import { trendFilter } from '@rebalancer/trend-filter'
 import type { Portfolio } from '@/types/index'
+import { STABLECOINS } from '@rebalancer/trade-calculator'
 
 /** Default bear market cash target — shared with RebalanceEngine */
 export const DEFAULT_BEAR_CASH_PCT = 70
@@ -115,9 +116,8 @@ class DriftDetector {
         this.lastTrendBullish = false
 
         // Calculate current cash percentage
-        const stablecoins = new Set(['USDT', 'USDC', 'BUSD', 'TUSD', 'DAI', 'USD'])
         const cashUsd = portfolio.assets
-          .filter((a) => stablecoins.has(a.asset))
+          .filter((a) => STABLECOINS.has(a.asset))
           .reduce((sum, a) => sum + a.valueUsd, 0)
         const cashPct = portfolio.totalValueUsd > 0
           ? (cashUsd / portfolio.totalValueUsd) * 100

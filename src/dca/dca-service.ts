@@ -92,7 +92,13 @@ class DCAService {
       return calcSingleTargetDCA(dcaTarget, depositAmount, portfolio, targets, minTradeUsd)
     }
 
-    // Default: proportional allocation across all underweight assets
+    // If rebalance mode is on but no target found → portfolio balanced, skip
+    if (gs?.dcaRebalanceEnabled) {
+      console.log('[DCAService] Rebalance mode: portfolio crypto is balanced — no DCA needed')
+      return []
+    }
+
+    // Default (proportional mode): spread across all underweight assets
     const orders = calcProportionalDCA(depositAmount, portfolio, targets, minTradeUsd)
     if (orders.length === 0) {
       console.log('[DCAService] Portfolio is balanced — no DCA orders needed')
