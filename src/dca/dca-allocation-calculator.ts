@@ -38,7 +38,8 @@ export function calcProportionalDCA(
   const underweight: DeficitEntry[] = []
   for (const [asset, target] of targetMap) {
     const portfolioAsset = portfolio.assets.find((a) => a.asset === asset)
-    const currentPct = cryptoValue > 0 && portfolioAsset
+    // When crypto holdings are negligible (dust), ignore current % and use pure target %
+    const currentPct = cryptoValue >= depositAmount && portfolioAsset
       ? (portfolioAsset.valueUsd / cryptoValue) * 100
       : 0
     const deficit = target.targetPct - currentPct
