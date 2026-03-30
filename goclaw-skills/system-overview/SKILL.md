@@ -25,16 +25,30 @@ Automated cryptocurrency portfolio rebalancing across Binance, OKX, and Bybit. M
 ```
 Price Feeds (REST polling, 10s) → PriceService → EventBus
                                                       ↓
-DCA Deposits → DCAService → DCATargetResolver (crypto-only %, buy most underweight)
-                                                      ↓
-TrendFilter (BTC MA) → DriftDetector → StrategyManager → TradeCalculator (DCA budget cap) → Executor
-                           ↓                                                                      ↓
-                   RebalanceEngine ←──────────────────────────────────────────────────────────┘
-                           ↓
-                  GoClaw (Telegram) + Dashboard
+┌─────────────────────────────────────────────────────┴──────────────────────────┐
+│                                                                                 │
+│ ┌──────────────────────────────┐    ┌────────────────────────────────────┐   │
+│ │ Rebalance Engine             │    │ DCA Scheduler                      │   │
+│ │ (Drift > threshold)          │    │ (Daily 07:00 VN)                  │   │
+│ │ → Full rebalance             │    │ → dcaAmountUsd to underweight      │   │
+│ │ → Independent of DCA         │    │ → Independent of rebalance        │   │
+│ └──────────────────────────────┘    └────────────────────────────────────┘   │
+│          ↓                                         ↓                          │
+│   TradeCalculator            DCAService (proportional or single-target mode)  │
+│   (No DCA cap)                      ↓                                         │
+│                              DCATargetResolver                               │
+│                              (crypto-only %, dust < $10)                     │
+└─────────────────────────────────────────────────────┬──────────────────────────┘
+                                                       ↓
+                    TrendFilter (BTC MA) — affects both systems
+                    If bear: both sell to cash reserve
+                                                       ↓
+                                                  Executor
+                                                       ↓
+                           GoClaw (Telegram) + Dashboard
 ```
 
-**Key Change**: Price feeds now use REST polling (fetchTicker, 10s interval) instead of WebSocket (Bun runtime compatibility).
+**Key Architecture**: Rebalance + DCA are fully independent systems. Both respect trend filter but neither caps the other. Price feeds use REST polling (fetchTicker, 10s interval) instead of WebSocket (Bun runtime compatibility).
 
 ## Core Features
 
@@ -50,12 +64,15 @@ TrendFilter (BTC MA) → DriftDetector → StrategyManager → TradeCalculator (
 - Whipsaw cooldown: configurable days between state changes (default 1-3 days)
 - **Backtest proven**: increases return from +48% to +242% over 5 years, reduces drawdown from -85% to -39%
 
-### 3. DCA (Dollar-Cost Averaging)
-- Daily deposits routed to most underweight asset (crypto-only allocations, excludes stablecoins from denominator)
-- Configurable amount: dcaAmountUsd ($1-$100k, default $20)
-- Cash reserve: keeps 0-50% in stablecoins as buffer
-- DCA rebalance mode: caps rebalance trades to dcaAmountUsd budget, only full rebalance at high drift (15%+)
-- Manual trigger: `POST /api/dca/trigger` endpoint for ad-hoc execution
+### 3. DCA (Dollar-Cost Averaging) — Fully Independent
+- Scheduled daily: executes at 07:00 VN or via manual `POST /api/dca/trigger` trigger
+- Configurable amount: `dcaAmountUsd` ($1-$100k, default $20)
+- **Proportional mode**: When `cryptoValue < dcaAmountUsd`, spreads DCA proportionally across all underweight assets
+- **Single-target mode**: When `dcaRebalanceEnabled=true` AND crypto >= threshold, concentrates full DCA on most underweight asset
+- **Dust handling**: When crypto < $10, treats all assets as 0% and picks highest target allocation
+- **Trend filter aware**: In bear market, DCA deposits held as cash (no crypto buys)
+- **Independent from rebalance**: DCA cron and rebalance engine don't interact or cap each other
+- Cash reserve: keeps 0-50% in stablecoins as buffer (configurable)
 
 ### 4. Backtesting
 - Historical OHLCV data from Binance (5+ years available)
@@ -146,11 +163,12 @@ Current active config on production: `optimal-backtest-validated` v4
 - Cooldown prevents rapid switching (default 1-3 days between flips)
 - This single feature is responsible for 3x return improvement in backtests
 
-### Understanding DCA Budget Cap
-- When dcaRebalanceEnabled=true, rebalance trades cap to dcaAmountUsd ($20 default)
-- Prevents large rebalances from exceeding DCA budget
-- Trend filter bear/bull triggers still do full rebalance (hard boundary prioritized)
+### Understanding DCA Modes & Thresholds
+- **Proportional threshold**: `cryptoValue < dcaAmountUsd` → spread DCA across underweights
+- **Single-target mode**: `dcaRebalanceEnabled=true` + crypto >= threshold → full DCA to most underweight
+- **Dust handling**: `cryptoValue < $10` → pick highest target (initial accumulation phase)
 - Crypto-only allocations: target % computed excluding stablecoins from denominator
+- **Independence**: Rebalance engine does full portfolio rebalance (no DCA cap); DCA deposits $dcaAmountUsd daily (no rebalance cap)
 
 ### Risk Management
 - Max drawdown with trend filter: ~35% (vs ~63% without)

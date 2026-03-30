@@ -146,14 +146,18 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - If bearish: auto-override allocations to configured cash % (default: 70%, configurable via `bearCashPct`)
 - Provides read-only query API (`isBullishReadOnly()`) for healthchecks
 
-**Cash-Aware DCA** (Scheduled Daily):
-- Reserve 0-100% cash during normal/bear markets (configurable via strategy config, optimal: 100%)
-- New capital directed to most underweight asset (via DCATargetResolver)
+**DCA (Dollar-Cost Averaging)** (Scheduled Daily, Fully Independent):
+- Scheduled daily DCA: triggered via cron at 07:00 VN or manual `POST /api/dca/trigger`
 - Configurable DCA amount (`dcaAmountUsd`, default $20, range $1-$100k) read from strategy config
 - Crypto-only allocations: Target percentages (BTC 40%, ETH 25%, SOL 20%, BNB 15%) relative to crypto portion only (excludes stablecoins from denominator)
-- Daily scheduled DCA: trigger via cron at 07:00 VN or manual `POST /api/dca/trigger`
-- Hard rebalance threshold for traditional drift-based trades (default not set)
-- When `dcaRebalanceEnabled=true`, rebalance engine caps trades to `dcaAmountUsd` budget
+- Proportional mode: When `cryptoValue < dcaAmountUsd`, spreads DCA across all underweight assets proportionally
+- Single-target mode: When `dcaRebalanceEnabled=true` AND crypto >= threshold, concentrates full DCA on most underweight asset
+- Dust handling: Treats crypto < $10 as zero, picks highest target asset for initial accumulation
+- Fall-through behavior: If portfolio balanced, no DCA trades generated
+- **Key:** Rebalance + DCA are fully independent systems (no DCA cap in rebalance engine)
+  - Rebalance: Full portfolio rebalance when drift > threshold (no DCA budget constraints)
+  - DCA: Fixed `$dcaAmountUsd` daily purchases, independent scheduling
+  - Both active simultaneously; trend filter bear triggers affect both (sell to cash)
 
 ### 5. Executor Service
 **Location**: `src/executor/`

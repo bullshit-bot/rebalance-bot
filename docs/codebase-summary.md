@@ -296,17 +296,18 @@ src/
 ```
 1. Environment validation (Zod)
 2. Database connection & schema
-3. Exchange connections (CCXT Pro)
-4. Executor initialization (OrderExecutor — testnet if BINANCE_SANDBOX=true)
-5. Price WebSocket subscription
-6. Portfolio service startup
-7. Drift detector activation
-8. Rebalancer engine ready
-9. Strategy modules loaded
-10. Scheduler jobs registered
-11. HTTP server (Hono) startup
-12. WebSocket server ready
-13. Telegram notifier connected
+3. Load active strategy config from DB (strategyManager.loadFromDb())
+4. Exchange connections (CCXT Pro)
+5. Executor initialization (OrderExecutor — testnet if BINANCE_SANDBOX=true)
+6. Price REST polling subscription (10s interval)
+7. Portfolio service startup
+8. Drift detector activation
+9. Rebalancer engine ready
+10. Strategy modules loaded
+11. Scheduler jobs registered (DCA cron at 07:00 VN, periodic rebalance, snapshots, etc.)
+12. HTTP server (Hono) startup
+13. WebSocket server ready
+14. Telegram notifier connected
 ```
 
 ## Execution Flow
@@ -387,12 +388,16 @@ WebSocket API (update frontend)
 - Configuration API integration tests
 - GoClaw HTTP client (goclaw-client.ts) for Telegram delivery
 - Portfolio tracker filter: non-target assets (DAI/USD) now excluded
-- Scheduled DCA: Configurable amount (`dcaAmountUsd`, default $20, range $1-$100k) at 07:00 VN into most underweight asset
+- Scheduled DCA: Configurable amount (`dcaAmountUsd`, default $20, range $1-$100k) at 07:00 VN
+  - Proportional mode: cryptoValue < dcaAmountUsd → spread across underweights
+  - Single-target mode: dcaRebalanceEnabled=true + crypto >= threshold → most underweight asset
+  - Dust handling: crypto < $10 → pick highest target asset
+  - Independent from rebalance engine (both systems separate)
 - DCA crypto-only: Target allocations (BTC 40%, ETH 25%, SOL 20%, BNB 15%) exclude stablecoins from denominator
 - Manual DCA trigger: `POST /api/dca/trigger` endpoint for on-demand execution
-- DCA budget cap: Rebalance engine caps trades to `dcaAmountUsd` when `dcaRebalanceEnabled=true`
 - Price feed: REST polling (10s interval via fetchTicker) replaces WebSocket (Bun runtime limitation)
 - Unified stablecoin set: USDT, USDC, BUSD, TUSD, DAI, USD exported from trade-calculator.ts
+- Strategy config loaded on startup: `strategyManager.loadFromDb()` in index.ts
 - Backend seed script with optimal config (threshold 8%, MA 110, bear cash 100%, cooldown 1d)
 
 **Command**: `bun test` (also supports watch mode)

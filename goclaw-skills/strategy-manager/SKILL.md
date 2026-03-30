@@ -27,9 +27,9 @@ View and manage rebalancing strategy configurations.
 
 ### Global Settings
 - `cashReservePct` (0-50%): Portion kept as stablecoins buffer. Default 0.
-- `dcaRebalanceEnabled`: Route DCA deposits to most underweight asset, cap rebalance trades to DCA budget.
-- `dcaAmountUsd` ($1-$100k): DCA amount per execution. Default $20.
-- `hardRebalanceThreshold` (5-50%): Force full rebalance when drift exceeds this.
+- `dcaRebalanceEnabled`: When true, DCA uses single-target mode (most underweight asset) if crypto >= threshold.
+- `dcaAmountUsd` ($1-$100k): DCA amount per execution. Default $20. Also used as threshold for proportional/single-target mode.
+- `hardRebalanceThreshold` (5-50%): Force full rebalance when drift exceeds this (trend filter override).
 - `trendFilterEnabled`: Use BTC MA for bull/bear detection.
 - `trendFilterMA` (default 100): BTC SMA period.
 - `bearCashPct` (30-100%): % to sell to stablecoins in bear. Default 70.

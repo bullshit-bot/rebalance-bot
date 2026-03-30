@@ -20,16 +20,21 @@
 - Files: `src/rebalancer/dca-target-resolver.ts`, `src/dca/dca-allocation-calculator.ts`
 - Prevents false underweight signals when portfolio is cash-heavy
 
+**DCA Proportional Threshold Uses Config**
+- Proportional DCA triggered when `cryptoValue < gs.dcaAmountUsd` (was hardcoded $20)
+- Respects configured DCA amount for threshold logic
+- File: `src/dca/dca-service.ts`
+
+**DCA Dust Handling**
+- Proportional DCA ignores dust when `cryptoValue < depositAmount` (treats all assets as 0% currentPct)
+- DCA target resolver treats crypto < $10 as zero, picks highest target asset
+- Files: `src/dca/dca-allocation-calculator.ts`, `src/rebalancer/dca-target-resolver.ts`
+
 **Unified Stablecoin Set**
 - `STABLECOINS` constant exported from `src/rebalancer/trade-calculator.ts`
 - Includes: USDT, USDC, BUSD, TUSD, DAI, USD
 - Used consistently across DCA calculator, DCA target resolver, drift detector
 - Eliminates magic string literals and sync failures
-
-**DCA Rebalance Mode Fallthrough Fix**
-- When `dcaRebalanceEnabled=true` and portfolio is balanced
-- Now returns `[]` (no trades) instead of falling through to proportional mode
-- Prevents double-trading in edge cases
 
 **REST Price Feed (Non-WebSocket)**
 - `src/price/price-aggregator.ts` now uses REST polling instead of WebSocket
@@ -38,10 +43,16 @@
 - `watchTicker` method kept for future compatibility but not used
 - More stable for Bun deployment, slightly higher latency tolerance acceptable
 
-**Rebalance Engine DCA Budget Cap**
-- When `dcaRebalanceEnabled=true`, rebalance preview and triggers cap trades to `dcaAmountUsd`
-- Applies to threshold, periodic, and manual rebalance triggers
-- Trend filter bear/bull triggers still do full rebalance (hard boundaries prioritized)
+**Strategy Config Loaded on Startup**
+- `strategyManager.loadFromDb()` called in `src/index.ts` during bootstrap
+- Previously missing — fallback to hardcoded $20 DCA amount
+- Ensures active config available immediately after server start
+
+**Rebalance + DCA Fully Independent**
+- Rebalance engine does full portfolio rebalance (no DCA cap)
+- DCA cron runs separately with scheduled `dcaAmountUsd` purchases
+- Trend filter bear/bull triggers still do full rebalance (hard boundaries)
+- Previous DCA budget cap implementation reverted — both systems now independent
 
 **POST /api/dca/trigger Endpoint**
 - Manual DCA trigger via REST: `POST /api/dca/trigger`
@@ -62,33 +73,38 @@
 ### Modified
 
 - `GlobalSettingsSchema`: Added `dcaAmountUsd` field
-- `rebalance-engine.ts`: Added DCA budget cap logic for threshold/periodic/manual triggers
-- `dca-target-resolver.ts`: Crypto-only calculations, stablecoin exclusion
-- `dca-allocation-calculator.ts`: Crypto-only denominator logic
+- `dca-service.ts`: Proportional threshold now uses `gs.dcaAmountUsd`, independent of rebalance
+- `dca-target-resolver.ts`: Crypto-only calculations, stablecoin exclusion, dust < $10 handling
+- `dca-allocation-calculator.ts`: Crypto-only denominator logic, dust handling
 - `price-aggregator.ts`: Switched from watchTicker (WebSocket) to fetchTicker (REST polling)
 - `trade-calculator.ts`: Exported `STABLECOINS` constant
+- `rebalance-engine.ts`: Always does full rebalance (DCA budget cap reverted)
+- `index.ts`: Added `strategyManager.loadFromDb()` on startup
 - GitHub Actions CI: Updated coverage thresholds, removed per-file checks
 
 ### Performance
 
 - Price polling more predictable latency (10s fixed interval vs variable WebSocket)
 - DCA calculations faster (crypto-only scope reduction)
-- Rebalance engine caps unnecessary trades (budget awareness)
+- Rebalance engine processes full drift without budget constraints
 
 ### Testing
 
 - ✅ DCA trigger endpoint returns correct order count
 - ✅ DCA % calculation excludes stablecoins from denominator
-- ✅ Rebalance engine respects `dcaAmountUsd` budget cap
+- ✅ DCA uses proportional mode when `cryptoValue < dcaAmountUsd`
+- ✅ Dust < $10 treated as zero in DCA resolver
 - ✅ REST polling fetches latest ticker every 10s
 - ✅ Coverage CI blocks PRs below thresholds (75% backend, 85% frontend)
 - ✅ DCA works with zero-balance crypto portfolio
+- ✅ Rebalance fully independent of DCA (no cap)
+- ✅ Strategy config loaded on startup
 
 ### Documentation
 
-- Updated `system-architecture.md`: DCA flow, REST polling details, new endpoint
-- Updated `codebase-summary.md`: DCA changes, price feed modification
-- Updated `code-standards.md`: STABLECOINS convention
+- Updated `system-architecture.md`: DCA flow fully independent, strategy config loading, REST polling
+- Updated `codebase-summary.md`: DCA changes, price feed modification, startup sequence
+- Updated GoClaw skills: `auto-rebalance/SKILL.md`, `strategy-manager/SKILL.md`, `system-overview/SKILL.md`
 
 ---
 
