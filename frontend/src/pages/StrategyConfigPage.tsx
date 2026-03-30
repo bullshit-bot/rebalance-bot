@@ -52,6 +52,7 @@ export default function StrategyConfigPage() {
       autoExecute: g.autoExecute ?? prev.autoExecute,
       cashReservePct: g.cashReservePct ?? prev.cashReservePct,
       dcaRebalanceEnabled: g.dcaRebalanceEnabled ?? prev.dcaRebalanceEnabled,
+      dcaAmountUsd: g.dcaAmountUsd ?? prev.dcaAmountUsd,
       hardRebalanceThreshold: g.hardRebalanceThreshold ?? prev.hardRebalanceThreshold,
       trendFilterEnabled: g.trendFilterEnabled ?? prev.trendFilterEnabled,
       trendFilterMA: g.trendFilterMA ?? prev.trendFilterMA,
