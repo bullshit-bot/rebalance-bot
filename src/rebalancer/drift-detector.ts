@@ -60,8 +60,7 @@ class DriftDetector {
     if (this.active) return
     this.active = true
     this.deps.eventBus.on('portfolio:update', this.portfolioListener as (data: unknown) => void)
-    console.info('[DriftDetector] Started — threshold=%.1f%% cooldown=%dh',
-      env.REBALANCE_THRESHOLD, env.REBALANCE_COOLDOWN_HOURS)
+    console.info(`[DriftDetector] Started — threshold=${env.REBALANCE_THRESHOLD}% cooldown=${env.REBALANCE_COOLDOWN_HOURS}h`)
   }
 
   /** Stop listening and clean up. */
@@ -125,11 +124,7 @@ class DriftDetector {
           : 0
 
         if (cashPct < bearCashPct) {
-          console.info(
-            '[DriftDetector] Bear market — cash=%.1f%% < target=%.1f%%, triggering defensive rebalance',
-            cashPct,
-            bearCashPct,
-          )
+          console.info(`[DriftDetector] Bear market — cash=${cashPct.toFixed(1)}% < target=${bearCashPct}%, triggering defensive rebalance`)
           this.lastRebalanceTime = Date.now()
           this.deps.eventBus.emit('rebalance:trigger', { trigger: 'trend-filter-bear' })
         }
@@ -161,12 +156,7 @@ class DriftDetector {
     )
     if (!breachedAsset) return
 
-    console.info(
-      '[DriftDetector] Threshold breached — asset=%s drift=%.2f%% (threshold=%.1f%%)',
-      breachedAsset.asset,
-      breachedAsset.driftPct,
-      threshold,
-    )
+    console.info(`[DriftDetector] Threshold breached — asset=${breachedAsset.asset} drift=${breachedAsset.driftPct.toFixed(2)}% (threshold=${threshold}%)`)
 
     // Optimistically mark the rebalance time to block concurrent triggers
     // while the engine is executing.

@@ -172,7 +172,7 @@ class RebalanceEngine {
       }
 
       eventBus.emit('rebalance:completed', event)
-      console.info('[RebalanceEngine] Completed id=%s trades=%d fees=$%.4f', id, results.length, totalFeesUsd)
+      console.info(`[RebalanceEngine] Completed id=${id} trades=${results.length} fees=$${totalFeesUsd.toFixed(4)}`)
       return event
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err)

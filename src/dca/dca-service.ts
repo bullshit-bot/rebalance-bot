@@ -150,6 +150,9 @@ class DCAService {
    * suggestion-only signal — the caller / operator confirms before executing.
    */
   private readonly onPortfolioUpdate = (portfolio: Portfolio): void => {
+    // Skip incomplete portfolio data (e.g. only USDT loaded, crypto prices pending)
+    if (portfolio.totalValueUsd < 100) return
+
     if (this.previousTotalValue === 0) {
       this.previousTotalValue = portfolio.totalValueUsd
       console.log(`[DCAService] Baseline portfolio value set: $${portfolio.totalValueUsd.toFixed(2)}`)
