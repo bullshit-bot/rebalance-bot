@@ -391,34 +391,6 @@ describe('api.ts', () => {
     it('getTaxReport', async () => { ok({}); await api.getTaxReport(2026) })
     it('exportTaxCsvUrl', () => { expect(api.exportTaxCsvUrl(2026)).toContain('year=2026') })
 
-    // Smart Orders
-    it('createSmartOrder', async () => { ok({}); await api.createSmartOrder({ type: 'twap', exchange: 'binance', pair: 'BTC/USDT', side: 'buy', totalAmount: 1, durationMs: 3600000, slices: 4 }) })
-    it('getSmartOrder', async () => { ok({}); await api.getSmartOrder('so1') })
-    it('getActiveSmartOrders', async () => { ok([]); await api.getActiveSmartOrders() })
-    it('pauseSmartOrder', async () => { ok({}); await api.pauseSmartOrder('so1') })
-    it('resumeSmartOrder', async () => { ok({}); await api.resumeSmartOrder('so1') })
-    it('cancelSmartOrder', async () => { ok({}); await api.cancelSmartOrder('so1') })
-
-    // Grid
-    it('createGridBot', async () => { ok({}); await api.createGridBot({ exchange: 'binance', pair: 'BTC/USDT', priceLower: 60000, priceUpper: 70000, gridLevels: 10, investment: 1000 }) })
-    it('getGridBot', async () => { ok({}); await api.getGridBot('gb1') })
-    it('listGridBots', async () => { ok([]); await api.listGridBots() })
-    it('stopGridBot', async () => { ok({}); await api.stopGridBot('gb1') })
-
-    // Copy Trading
-    it('addCopySource', async () => { ok({}); await api.addCopySource({ name: 'x', sourceType: 'url' }) })
-    it('getCopySources', async () => { ok([]); await api.getCopySources() })
-    it('updateCopySource', async () => { ok({}); await api.updateCopySource('cs1', {}) })
-    it('deleteCopySource', async () => { ok({}); await api.deleteCopySource('cs1') })
-    it('syncCopy', async () => { ok({}); await api.syncCopy('cs1') })
-    it('getCopyHistory', async () => { ok([]); await api.getCopyHistory('cs1', 20) })
-
-    // AI
-    it('getAISuggestions', async () => { ok([]); await api.getAISuggestions('pending', 50) })
-    it('approveSuggestion', async () => { ok({}); await api.approveSuggestion('ai1') })
-    it('rejectSuggestion', async () => { ok({}); await api.rejectSuggestion('ai1') })
-    it('updateAIConfig', async () => { ok({}); await api.updateAIConfig({ autoApprove: true }) })
-    it('getMarketSummary', async () => { ok({}); await api.getMarketSummary() })
   })
 
   // ─── Error Cases ────────────────────────────────────────────────────────────

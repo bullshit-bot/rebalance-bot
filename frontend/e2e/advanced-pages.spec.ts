@@ -5,10 +5,6 @@ const advancedPages = [
   { path: '/backtesting', title: 'Backtesting' },
   { path: '/analytics', title: 'Analytics' },
   { path: '/tax', title: 'Tax' },
-  { path: '/grid', title: 'Grid' },
-  { path: '/smart-orders', title: 'Smart Orders' },
-  { path: '/copy-trading', title: 'Copy Trading' },
-  { path: '/ai-suggestions', title: 'AI Suggestions' },
   { path: '/settings', title: 'Settings' },
 ]
 

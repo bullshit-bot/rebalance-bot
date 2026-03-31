@@ -20,10 +20,6 @@ import LoginPage from "./pages/LoginPage";
 import BacktestingPage from "./pages/BacktestingPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import TaxPage from "./pages/TaxPage";
-import GridTradingPage from "./pages/GridTradingPage";
-import SmartOrdersPage from "./pages/SmartOrdersPage";
-import CopyTradingPage from "./pages/CopyTradingPage";
-import AISuggestionsPage from "./pages/AISuggestionsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,10 +44,6 @@ function ProtectedRoutes() {
         <Route path="/backtesting" element={<BacktestingPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/tax" element={<TaxPage />} />
-        <Route path="/grid" element={<GridTradingPage />} />
-        <Route path="/smart-orders" element={<SmartOrdersPage />} />
-        <Route path="/copy-trading" element={<CopyTradingPage />} />
-        <Route path="/ai-suggestions" element={<AISuggestionsPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

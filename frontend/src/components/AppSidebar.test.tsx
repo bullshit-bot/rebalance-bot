@@ -35,9 +35,7 @@ describe('AppSidebar', () => {
     renderSidebar()
     expect(screen.getByText('Backtesting')).toBeInTheDocument()
     expect(screen.getByText('Analytics')).toBeInTheDocument()
-    expect(screen.getByText('Grid Trading')).toBeInTheDocument()
-    expect(screen.getByText('Smart Orders')).toBeInTheDocument()
-    expect(screen.getByText('AI Suggestions')).toBeInTheDocument()
+    expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
   it('highlights active route', () => {

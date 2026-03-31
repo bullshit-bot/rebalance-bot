@@ -31,37 +31,6 @@ export {
   type IBacktestResult,
 } from "./backtest-result-model";
 export {
-  SmartOrderModel,
-  type SmartOrder,
-  type NewSmartOrder,
-  type ISmartOrder,
-} from "./smart-order-model";
-export { GridBotModel, type GridBot, type NewGridBot, type IGridBot } from "./grid-bot-model";
-export {
-  GridOrderModel,
-  type GridOrder,
-  type NewGridOrder,
-  type IGridOrder,
-} from "./grid-order-model";
-export {
-  AISuggestionModel,
-  type AISuggestion,
-  type NewAISuggestion,
-  type IAISuggestion,
-} from "./ai-suggestion-model";
-export {
-  CopySourceModel,
-  type CopySource,
-  type NewCopySource,
-  type ICopySource,
-} from "./copy-source-model";
-export {
-  CopySyncLogModel,
-  type CopySyncLog,
-  type NewCopySyncLog,
-  type ICopySyncLog,
-} from "./copy-sync-log-model";
-export {
   StrategyConfigModel,
   STRATEGY_PRESETS,
   type IStrategyConfig,

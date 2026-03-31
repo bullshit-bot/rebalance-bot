@@ -2,7 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard, Wallet, Repeat, ClipboardList, PieChart,
   Server, Cog, ScrollText, Bell, Settings, ChevronLeft, ChevronRight,
-  FlaskConical, BarChart3, Receipt, Grid3X3, Zap, Copy, Brain
+  FlaskConical, BarChart3, Receipt
 } from "lucide-react";
 import { useState } from "react";
 
@@ -24,10 +24,6 @@ const NAV_ITEMS: NavItem[] = [
   { title: "Backtesting",    path: "/backtesting",  icon: FlaskConical    },
   { title: "Analytics",      path: "/analytics",    icon: BarChart3       },
   { title: "Tax Reports",    path: "/tax",          icon: Receipt         },
-  { title: "Grid Trading",   path: "/grid",         icon: Grid3X3         },
-  { title: "Smart Orders",   path: "/smart-orders", icon: Zap             },
-  { title: "Copy Trading",   path: "/copy-trading", icon: Copy            },
-  { title: "AI Suggestions", path: "/ai-suggestions", icon: Brain         },
   { title: "Settings",       path: "/settings",     icon: Settings        },
 ];
 

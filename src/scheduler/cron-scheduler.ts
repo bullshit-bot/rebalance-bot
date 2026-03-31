@@ -1,6 +1,5 @@
 import { goClawClient } from "@/ai/goclaw-client";
 import { marketSummaryService } from "@/ai/market-summary-service";
-import { copySyncEngine } from "@/copy-trading/copy-sync-engine";
 import { dcaService } from "@/dca/dca-service";
 import { telegramNotifier } from "@/notifier/telegram-notifier";
 import { eventBus } from "@events/event-bus";
@@ -18,8 +17,6 @@ export interface CronSchedulerDeps {
   onPortfolioSnapshot: () => void;
   /** Called every 1m to clear stale prices. */
   onPriceCacheClean: () => void;
-  /** Called every 4h to sync copy trading. */
-  onCopySync: () => void;
   /** Called daily at 01:00 UTC (08:00 VN) to send daily digest. */
   onDailySummary: () => void;
   /** Called Sunday 01:00 UTC (08:00 VN) to send weekly report. */
@@ -73,13 +70,6 @@ class CronScheduler {
         deps?.onPriceCacheClean ??
         (() => {
           priceCache.clearStale();
-        }),
-      onCopySync:
-        deps?.onCopySync ??
-        (() => {
-          copySyncEngine.syncAll().catch((err: unknown) => {
-            console.error("[CronScheduler] Copy trading sync failed:", err);
-          });
         }),
       onDailySummary:
         deps?.onDailySummary ??
@@ -168,11 +158,6 @@ class CronScheduler {
       this.deps.onPriceCacheClean();
     });
 
-    // Every 4 hours — sync all enabled copy trading sources
-    const copySyncJob = new Cron("0 */4 * * *", () => {
-      this.deps.onCopySync();
-    });
-
     // Daily at 01:00 UTC (08:00 VN) — send daily portfolio digest
     const dailySummaryJob = new Cron("0 1 * * *", () => {
       this.deps.onDailySummary();
@@ -197,7 +182,6 @@ class CronScheduler {
       periodicRebalance,
       snapshotJob,
       priceCacheClean,
-      copySyncJob,
       dailySummaryJob,
       weeklySummaryJob,
       scheduledDCAJob,

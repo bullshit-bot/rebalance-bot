@@ -1,14 +1,10 @@
 import { authMiddleware } from "@api/middleware/auth-middleware";
-import { aiRoutes } from "@api/routes/ai-routes";
 import { analyticsRoutes } from "@api/routes/analytics-routes";
 import { backtestRoutes } from "@api/routes/backtest-routes";
 import { configRoutes } from "@api/routes/config-routes";
-import { copyTradingRoutes } from "@api/routes/copy-trading-routes";
-import { gridRoutes } from "@api/routes/grid-routes";
 import { healthRoutes } from "@api/routes/health-routes";
 import { portfolioRoutes } from "@api/routes/portfolio-routes";
 import { rebalanceRoutes } from "@api/routes/rebalance-routes";
-import { smartOrderRoutes } from "@api/routes/smart-order-routes";
 import { strategyConfigRoutes } from "@api/routes/strategy-config-routes";
 import { tradeRoutes } from "@api/routes/trade-routes";
 import { handleClose, handleOpen, initWebSocket } from "@api/ws/ws-handler";
@@ -92,10 +88,6 @@ app.route("/api/trades", tradeRoutes);
 app.route("/api/config", configRoutes);
 app.route("/api", backtestRoutes);
 app.route("/api", analyticsRoutes);
-app.route("/api", smartOrderRoutes);
-app.route("/api", gridRoutes);
-app.route("/api", aiRoutes);
-app.route("/api", copyTradingRoutes);
 app.route("/api/strategy-config", strategyConfigRoutes);
 
 // ─── Manual DCA trigger ──────────────────────────────────────────────────────

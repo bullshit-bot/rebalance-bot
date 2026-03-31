@@ -9,10 +9,6 @@ import { registerTradeTools } from "./tools/trade-tools.js";
 import { registerAllocationTools } from "./tools/allocation-tools.js";
 import { registerBacktestTools } from "./tools/backtest-tools.js";
 import { registerConfigTools } from "./tools/config-tools.js";
-import { registerGridTools } from "./tools/grid-tools.js";
-import { registerSmartOrderTools } from "./tools/smart-order-tools.js";
-import { registerAiTools } from "./tools/ai-tools.js";
-import { registerCopyTradingTools } from "./tools/copy-trading-tools.js";
 import { registerStrategyConfigTools } from "./tools/strategy-config-tools.js";
 
 const server = new McpServer({
@@ -28,10 +24,6 @@ registerTradeTools(server);
 registerAllocationTools(server);
 registerBacktestTools(server);
 registerConfigTools(server);
-registerGridTools(server);
-registerSmartOrderTools(server);
-registerAiTools(server);
-registerCopyTradingTools(server);
 registerStrategyConfigTools(server);
 
 const mode = process.env.MCP_TRANSPORT ?? "stdio";

@@ -7,10 +7,6 @@ import type {
   BacktestConfig, BacktestResult,
   EquityCurveResponse, PnLSummary, DrawdownResult, FeeSummary,
   TaxReport,
-  GridBot, GridBotInput,
-  SmartOrderDetail, SmartOrderInput,
-  CopySource, CopySourceInput, CopySyncLog,
-  AISuggestion,
   OptimizationRequest, OptimizationResult,
 } from './api-types'
 
@@ -105,39 +101,6 @@ export const api = {
   exportTaxCsvUrl: (year?: number) =>
     `${API_BASE}/tax/export${qs({ year })}`,
 
-  // Smart Orders
-  createSmartOrder: (data: SmartOrderInput) =>
-    apiFetch<{ orderId: string }>('/smart-order', { method: 'POST', body: JSON.stringify(data) }),
-  getSmartOrder: (id: string) => apiFetch<SmartOrderDetail>(`/smart-order/${id}`),
-  getActiveSmartOrders: () => apiFetch<SmartOrderDetail[]>('/smart-order/active'),
-  pauseSmartOrder: (id: string) =>
-    apiFetch<{ id: string; status: string }>(`/smart-order/${id}/pause`, { method: 'PUT' }),
-  resumeSmartOrder: (id: string) =>
-    apiFetch<{ id: string; status: string }>(`/smart-order/${id}/resume`, { method: 'PUT' }),
-  cancelSmartOrder: (id: string) =>
-    apiFetch<{ id: string; status: string }>(`/smart-order/${id}/cancel`, { method: 'PUT' }),
-
-  // Grid bots
-  createGridBot: (data: GridBotInput) =>
-    apiFetch<{ botId: string }>('/grid', { method: 'POST', body: JSON.stringify(data) }),
-  getGridBot: (id: string) => apiFetch<GridBot>(`/grid/${id}`),
-  listGridBots: () => apiFetch<GridBot[]>('/grid/list'),
-  stopGridBot: (id: string) =>
-    apiFetch<{ id: string; status: string; totalProfit: number; totalTrades: number }>(`/grid/${id}/stop`, { method: 'PUT' }),
-
-  // Copy Trading
-  addCopySource: (data: CopySourceInput) =>
-    apiFetch<{ id: string }>('/copy/source', { method: 'POST', body: JSON.stringify(data) }),
-  getCopySources: () => apiFetch<CopySource[]>('/copy/sources'),
-  updateCopySource: (id: string, data: Partial<CopySourceInput>) =>
-    apiFetch<{ ok: boolean }>(`/copy/source/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteCopySource: (id: string) =>
-    apiFetch<{ ok: boolean }>(`/copy/source/${id}`, { method: 'DELETE' }),
-  syncCopy: (sourceId?: string) =>
-    apiFetch<{ ok: boolean }>('/copy/sync', { method: 'POST', body: JSON.stringify({ sourceId }) }),
-  getCopyHistory: (sourceId?: string, limit?: number) =>
-    apiFetch<CopySyncLog[]>(`/copy/history${qs({ sourceId, limit })}`),
-
   // Strategy Config
   getStrategyConfig: () =>
     apiFetch<{ active: any; configs: any[] }>('/strategy-config'),
@@ -154,14 +117,4 @@ export const api = {
   deleteStrategyConfig: (name: string) =>
     apiFetch<any>(`/strategy-config/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 
-  // AI Suggestions
-  getAISuggestions: (status?: string, limit?: number) =>
-    apiFetch<AISuggestion[]>(`/ai/suggestions${qs({ status, limit })}`),
-  approveSuggestion: (id: string) =>
-    apiFetch<{ ok: boolean }>(`/ai/suggestion/${id}/approve`, { method: 'PUT' }),
-  rejectSuggestion: (id: string) =>
-    apiFetch<{ ok: boolean }>(`/ai/suggestion/${id}/reject`, { method: 'PUT' }),
-  updateAIConfig: (data: { autoApprove?: boolean; maxAllocationShiftPct?: number }) =>
-    apiFetch<unknown>('/ai/config', { method: 'PUT', body: JSON.stringify(data) }),
-  getMarketSummary: () => apiFetch<{ summary: string }>('/ai/summary'),
 }
