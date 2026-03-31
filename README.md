@@ -1,6 +1,6 @@
 # Crypto Rebalance Bot
 
-Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Automates multi-exchange portfolio rebalancing (Binance, OKX, Bybit) with advanced strategies: DCA, trailing stops, grid trading, copy trading, AI suggestions. Paper trading, backtesting, and comprehensive analytics.
+Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Automates multi-exchange portfolio rebalancing (Binance, OKX, Bybit) with advanced strategies: DCA, trailing stops, trend filter, and 6 configurable strategy types. Paper trading, backtesting, and comprehensive analytics.
 
 **Status**: Production-ready | **Language**: TypeScript | **Runtime**: Bun | **License**: MIT
 
@@ -15,15 +15,14 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Aut
 
 ### Advanced Strategies
 - **Trailing Stops** - Automatic position selling on price decline
-- **DCA** - Dollar-cost averaging with scheduled buy orders
-- **TWAP/VWAP** - Intelligent order splitting to minimize slippage
-- **Grid Trading** - Automated buy/sell at price intervals
-- **Copy Trading** - Mirror trades from other portfolio sources
+- **DCA** - Dollar-cost averaging with scheduled daily buy orders
+- **Trend Filter** - MA-based bull/bear detection with bear cash override
+- **6 Strategy Types** - Threshold, equal-weight, momentum-tilt, vol-adjusted, mean-reversion, momentum-weighted
 
 ### Analytics & Intelligence
-- **Backtesting** - Historical performance validation (Sharpe ratio, drawdown)
+- **Backtesting** - Historical performance validation (Sharpe ratio, drawdown, 5040+ combo optimizer)
 - **Performance Metrics** - Return, volatility, win rate analytics
-- **AI Suggestions** - ML-based allocation recommendations
+- **GoClaw AI Insights** - Scheduled market analysis via GoClaw agent
 - **Trade History** - Complete trade audit trail with fees
 
 ## Documentation
@@ -72,14 +71,13 @@ rebalance-bot/
 │   ├── rebalancer/        # Rebalancing strategy engine
 │   ├── executor/          # Order execution
 │   ├── price/             # Market data & indicators
-│   ├── strategies/        # DCA, grid, trailing-stop, TWAP/VWAP
+│   ├── strategies/        # DCA, trailing-stop, 6 strategy types
 │   ├── analytics/         # Performance metrics
 │   ├── backtesting/       # Historical testing
-│   ├── notifier/          # Telegram notifications
+│   ├── notifier/          # Telegram notifications (via GoClaw)
 │   ├── scheduler/         # Cron tasks
 │   ├── events/            # Event bus
-│   ├── ai/                # ML suggestions
-│   ├── copy-trading/      # Trade replication
+│   ├── ai/                # GoClaw client for AI insights
 │   └── config/            # Configuration & validation
 ├── frontend/              # React dashboard (Vite)
 ├── tests/                 # Test suites

@@ -27,7 +27,6 @@ jobs:
       API_KEY: e2e-test-key
       API_PORT: "3001"
       ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
-      PAPER_TRADING: "true"
       MONGODB_URI: "mongodb://localhost:27017/rebalance-e2e"
       REBALANCE_THRESHOLD: "5"
       MIN_TRADE_USD: "10"

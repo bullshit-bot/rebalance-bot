@@ -31,7 +31,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 │  │ Exchange │ Price Service │ Portfolio │ Rebalancer         │  │
 │  │ (CCXT)   │ (REST Poll)    │ (State)   │ (Strategy)         │  │
 │  │          │                │           │                    │  │
-│  │ Executor │ Analytics │ Notifier │ Scheduler │ Copy Trading │  │
+│  │ Executor │ Analytics │ Notifier │ Scheduler │ DCA          │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │         ↑
 │         │
@@ -98,7 +98,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 **Responsibility**: Real-time market data processing
 **Key Functions**:
 - REST polling ticker data every 10s (fetchTicker via CCXT)
-- Calculate technical indicators (VWAP, TWAP, momentum, volatility)
+- Calculate technical indicators (momentum, volatility)
 - Broadcast price updates to EventBus
 - Handle polling reconnections on failure
 - Support for multiple data streams
@@ -181,29 +181,18 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - Schedule regular buy orders at fixed intervals
 - Accumulate positions over time
 
-**TWAP/VWAP** (`src/twap-vwap/`):
-- Break large orders into smaller chunks
-- Execute over time to minimize slippage
-
-**Grid Trading** (`src/grid/`):
-- Place buy/sell orders at regular price intervals
-- Capture micro-movements in range-bound markets
-
-**Copy Trading** (`src/copy-trading/`):
-- Mirror trades from other portfolios
-- Track copied strategy performance
-
 **Backtesting** (`src/backtesting/`):
 - Historical performance validation
 - Compare strategies with Sharpe ratio, max drawdown
+- Grid-search optimizer (5040+ parameter combinations)
 
 **Analytics** (`src/analytics/`):
 - Portfolio performance metrics
 - Return, volatility, Sharpe ratio, win rate
 
-**AI Suggestions** (`src/ai/`):
-- ML-based rebalance timing predictions
-- Anomaly detection for price movements
+**GoClaw AI Client** (`src/ai/goclaw-client.ts`):
+- HTTP client for GoClaw `/v1/chat/completions`
+- Scheduled market insights and Telegram delivery
 
 ### 7. Notifier Service
 **Location**: `src/notifier/`
@@ -232,7 +221,6 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 - Every 4h: Emit periodic rebalance trigger
 - Every 5m: Persist portfolio snapshot to database
 - Every 60s: Clear stale price cache entries
-- Every 4h: Sync copy trading sources
 - Daily 01:00 UTC (08:00 VN): Send daily portfolio digest via GoClaw
 - Sunday 01:00 UTC (08:00 VN): Send weekly performance report via GoClaw
 - Daily 00:00 UTC (07:00 VN): Execute scheduled DCA buy (amount = `dcaAmountUsd` from config) into most underweight asset
@@ -257,12 +245,7 @@ Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange
 | `ohlcv_candles` | Historical OHLCV data for backtesting + trend filter persistence |
 | `backtest_results` | Strategy performance test results |
 | `strategy_configs` | Strategy configuration (polymorphic params, active/inactive, hot-reload) |
-| `smart_orders` | TWAP/VWAP order splitting records |
-| `grid_bots` | Grid trading bot configurations |
-| `grid_orders` | Individual grid orders |
-| `ai_suggestions` | ML model recommendations |
-| `copy_sources` | Source portfolios for copy trading |
-| `copy_sync_log` | Copy trading synchronization history |
+| `strategy_configs` | Strategy configuration (polymorphic params, hot-reload) |
 
 **Key Files**:
 - `src/db/connection.ts` - MongoDB connection with Mongoose

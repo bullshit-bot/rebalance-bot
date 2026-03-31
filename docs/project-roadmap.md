@@ -29,7 +29,7 @@ All eight major phases complete. System is production-deployed with 50+ features
 
 ### Phase 4: Advanced Strategies (✅ Complete)
 **Status**: Production-stable
-**Features**: Trailing stops, DCA scheduling, TWAP/VWAP, grid trading, copy trading, analytics, AI suggestions
+**Features**: Trailing stops, DCA scheduling, trend filter, bear protection, analytics
 **Metrics**: 3,500 LOC, all strategies tested in production
 
 ### Phase 5: Production Infrastructure (✅ Complete)
@@ -70,11 +70,7 @@ All eight major phases complete. System is production-deployed with 50+ features
 | Backtesting | ✅ | 3 | 1,015 |
 | Trailing Stops | ✅ | 4 | 175 |
 | DCA Strategy | ✅ | 4 | 235 |
-| Grid Trading | ✅ | 4 | 710 |
-| TWAP/VWAP | ✅ | 4 | 620 |
-| Copy Trading | ✅ | 4 | 510 |
 | Analytics | ✅ | 4 | 880 |
-| AI Suggestions | ✅ | 4 | 380 |
 | Docker Compose | ✅ | 5 | - |
 | MongoDB Migration | ✅ | 5 | 420 |
 | MCP Server | ✅ | 5 | 200 |
@@ -343,8 +339,8 @@ No deprecations planned for v1.x. Backward compatibility maintained.
 | Version | Date | Major Changes |
 |---------|------|---------------|
 | 1.0.0 | 2026-03-22 | Production release, all 4 phases complete |
-| 0.9.0 | 2026-02-15 | Phase 4 complete, AI suggestions |
-| 0.8.0 | 2025-12-01 | Copy trading, advanced strategies |
+| 0.9.0 | 2026-02-15 | Phase 4 complete, advanced strategies |
+| 0.8.0 | 2025-12-01 | DCA, trailing stops, analytics |
 | 0.7.0 | 2025-10-15 | Backtesting, analytics dashboard |
 | 0.6.0 | 2025-08-30 | Strategy variants (momentum, vol-adj) |
 | 0.5.0 | 2025-07-10 | Real-time monitoring, Telegram alerts |

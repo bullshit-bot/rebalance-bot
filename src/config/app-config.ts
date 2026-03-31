@@ -24,6 +24,11 @@ export const env = createEnv({
     BYBIT_API_SECRET: z.string().optional(),
 
     // Security
+    // NOTE: ENCRYPTION_KEY is validated as 32 chars here for historical reasons.
+    // The actual crypto code (src/exchange/api-key-crypto.ts) expects a 64-char
+    // hex string (32 bytes) passed directly as a parameter — it does NOT read
+    // env.ENCRYPTION_KEY at runtime. This field is effectively unused dead code;
+    // keeping validation as-is to avoid breaking existing deployments.
     ENCRYPTION_KEY: z.string().length(32),
 
     // Rebalance strategy settings

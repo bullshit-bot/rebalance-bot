@@ -45,25 +45,6 @@ describe("API Server", () => {
       expect([200, 401, 404]).toContain(res.status);
     });
 
-    it("should mount smart order routes", async () => {
-      const res = await app.request("/api/smart-order/active");
-      expect([200, 401, 404]).toContain(res.status);
-    });
-
-    it("should mount grid routes", async () => {
-      const res = await app.request("/api/grid/list");
-      expect([200, 401, 404]).toContain(res.status);
-    });
-
-    it("should mount copy trading routes", async () => {
-      const res = await app.request("/api/copy/sources");
-      expect([200, 401, 404]).toContain(res.status);
-    });
-
-    it("should mount AI routes", async () => {
-      const res = await app.request("/api/ai/suggestions");
-      expect([200, 401, 404]).toContain(res.status);
-    });
   });
 
   describe("CORS", () => {
@@ -306,11 +287,6 @@ describe("API Server", () => {
     it("should skip auth for health endpoint", async () => {
       const res = await app.request("/api/health");
       expect(res.status).toBe(200);
-    });
-
-    it("should require auth for grid routes", async () => {
-      const res = await app.request("/api/grid/list");
-      expect([401, 200]).toContain(res.status);
     });
 
     it("should require auth for analytics routes", async () => {

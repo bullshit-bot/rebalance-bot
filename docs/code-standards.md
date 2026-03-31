@@ -65,12 +65,9 @@ src/
 ├── scheduler/            # Cron tasks
 ├── trailing-stop/        # Trailing-stop strategy
 ├── dca/                  # Dollar-cost averaging
-├── twap-vwap/            # TWAP/VWAP order splitting
-├── grid/                 # Grid trading
 ├── backtesting/          # Backtesting framework
 ├── analytics/            # Performance metrics
-├── ai/                   # ML suggestions
-└── copy-trading/         # Copy trading
+└── ai/                   # GoClaw AI client
 ```
 
 ### File Naming

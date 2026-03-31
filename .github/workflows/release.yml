@@ -66,7 +66,6 @@ jobs:
         env:
           API_KEY: test-ci-key
           ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
-          PAPER_TRADING: "true"
           MONGODB_URI: "mongodb://admin:testpass@localhost:27017/rebalance-test?authSource=admin"
 
       - name: Run tests
@@ -75,7 +74,6 @@ jobs:
           API_KEY: test-ci-key
           API_PORT: "3001"
           ENCRYPTION_KEY: abcdefghijklmnopqrstuvwxyz123456
-          PAPER_TRADING: "true"
           MONGODB_URI: "mongodb://admin:testpass@localhost:27017/rebalance-test?authSource=admin"
           REBALANCE_THRESHOLD: "5"
           REBALANCE_COOLDOWN_HOURS: "1"

@@ -229,29 +229,6 @@ describe("api-server (integration)", () => {
       expect(basePrefix).toBeString();
     });
 
-    it("should mount smart order routes at /api", () => {
-      // Smart order routes use /api/smart-order
-      const basePrefix = "/api";
-      expect(basePrefix).toBeString();
-    });
-
-    it("should mount grid routes at /api", () => {
-      // Grid routes use /api/grid
-      const basePrefix = "/api";
-      expect(basePrefix).toBeString();
-    });
-
-    it("should mount AI routes at /api", () => {
-      // AI routes use /api/ai
-      const basePrefix = "/api";
-      expect(basePrefix).toBeString();
-    });
-
-    it("should mount copy trading routes at /api", () => {
-      // Copy trading routes use /api/copy-trading
-      const basePrefix = "/api";
-      expect(basePrefix).toBeString();
-    });
   });
 
   describe("404 handling", () => {

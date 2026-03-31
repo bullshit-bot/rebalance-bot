@@ -15,7 +15,7 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 
 ## Backend Architecture (~10,800 LOC)
 
-### Core Service Modules (19 modules + advanced rebalancing)
+### Core Service Modules (16 modules + advanced rebalancing)
 
 | Module | LOC | Responsibility |
 |--------|-----|-----------------|
@@ -24,18 +24,14 @@ Self-hosted cryptocurrency portfolio rebalancing and trading automation bot. Mul
 | rebalancer/ | 1,100 | Strategy mgr, drift detector, trend filter (MA + cooldown), DCA routing, cash-aware trades |
 | analytics/ | 880 | Performance metrics, reporting |
 | executor/ | 670 | Order execution via CCXT (real orders, testnet via BINANCE_SANDBOX) |
-| grid/ | 710 | Grid trading strategy implementation |
-| twap-vwap/ | 620 | Smart order routing, slippage reduction |
 | exchange/ | 350 | Multi-exchange CCXT Pro abstraction |
 | portfolio/ | 385 | Real-time balance, allocation tracking |
 | db/ | 450 | Mongoose models (15 schemas) + MongoDB connection |
 | price/ | 260 | Price aggregation, REST polling (10s interval via fetchTicker) |
-| copy-trading/ | 510 | Trade replication from sources |
-| ai/ | 380 | ML suggestions (GoClaw) |
+| ai/ | 85 | GoClaw HTTP client for AI insights and Telegram delivery |
 | dca/ | 280 | Dollar-cost averaging + crypto-only allocation calculator |
 | notifier/ | 210 | GoClaw HTTP client for Telegram notifications |
-| ai/goclaw-client.ts | 85 | OpenAI-compatible /v1/chat/completions client |
-| scheduler/ | 195 | Cron jobs (8 total: periodic rebalance, snapshots, DCA, daily/weekly reports, 12h AI insights) |
+| scheduler/ | 195 | Cron jobs (6 total: periodic rebalance, snapshots, DCA, daily/weekly reports, 12h AI insights) |
 | trailing-stop/ | 175 | Stop-loss management |
 | config/ | 110 | Environment validation (Zod) |
 | events/ | 110 | Typed event bus |
@@ -68,13 +64,7 @@ src/
 │   │   ├── exchange-config-model.ts
 │   │   ├── ohlcv-candle-model.ts
 │   │   ├── backtest-result-model.ts
-│   │   ├── smart-order-model.ts
-│   │   ├── grid-bot-model.ts
-│   │   ├── grid-order-model.ts
-│   │   ├── ai-suggestion-model.ts
-│   │   ├── copy-source-model.ts
-│   │   ├── copy-sync-log-model.ts
-│   │   └── index.ts
+│   │   │   └── index.ts
 │   ├── connection.ts       # MongoDB connection (Mongoose)
 │   ├── database.ts         # Database initialization
 │   └── test-helpers.ts     # setupTestDB / teardownTestDB
@@ -111,10 +101,7 @@ src/
 │   ├── momentum.ts         # Momentum-tilt
 │   ├── vol-adjusted.ts     # Volatility weighting
 │   ├── dca.ts              # Dollar-cost averaging
-│   ├── trailing-stop.ts    # Stop-loss
-│   ├── grid.ts             # Grid trading
-│   ├── twap-vwap.ts        # Order splitting
-│   └── copy-trading.ts     # Trade mirroring
+│   └── trailing-stop.ts    # Stop-loss
 ├── analytics/
 │   ├── metrics.ts          # Return, Sharpe, drawdown
 │   └── reporter.ts         # Performance reports
@@ -128,7 +115,7 @@ src/
 ├── events/
 │   └── event-bus.ts        # TypedEventEmitter
 ├── ai/
-│   └── suggestions.ts      # ML recommendations
+│   └── goclaw-client.ts    # GoClaw HTTP client for AI insights
 └── config/
     └── env.ts              # Zod validation
 ```
@@ -215,10 +202,6 @@ src/
 | Backtesting | Strategy testing interface |
 | Analytics | Performance metrics, charts |
 | Tax | Tax reporting integration |
-| GridTrading | Grid bot management |
-| SmartOrders | TWAP/VWAP order management |
-| CopyTrading | Source portfolio tracking |
-| AISuggestions | ML recommendations |
 | Login | API key authentication |
 
 ### Component Organization
@@ -255,12 +238,7 @@ src/
 | ohlcv_candles | Historical price data + trend filter persistence |
 | backtest_results | Strategy test results |
 | strategy_configs | Strategy config (polymorphic params, active/inactive, hot-reload) |
-| smart_orders | TWAP/VWAP split tracking |
-| grid_bots | Grid trading configurations |
-| grid_orders | Individual grid orders |
-| ai_suggestions | ML model recommendations |
-| copy_sources | Source portfolios |
-| copy_sync_log | Copy trading history |
+| strategy_configs | Strategy configuration (polymorphic params, hot-reload) |
 
 **Models Location**: `src/db/models/` (14 schema files)
 **Connection**: `src/db/connection.ts` (Mongoose connection with Docker Compose)

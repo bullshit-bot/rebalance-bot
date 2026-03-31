@@ -9,6 +9,9 @@ import type { ServerWebSocket } from "bun";
 
 const clients: Set<ServerWebSocket<unknown>> = new Set();
 
+/** Guard to prevent double-initialization of event subscriptions */
+let initialized = false;
+
 // ─── Price update throttle ────────────────────────────────────────────────────
 
 /** Timestamp of the last price broadcast — used to throttle to max 1/second */
@@ -68,9 +71,12 @@ function handleClose(ws: ServerWebSocket<unknown>): void {
 
 /**
  * Subscribes to eventBus events and relays them as WSMessages to all clients.
- * Call once at server startup — idempotency is NOT enforced, so avoid calling twice.
+ * Idempotent — safe to call multiple times; subscriptions are registered only once.
  */
 function initWebSocket(): void {
+  if (initialized) return;
+  initialized = true;
+
   // price:update — throttled to max 1 broadcast per second
   eventBus.on("price:update", () => {
     const now = Date.now();

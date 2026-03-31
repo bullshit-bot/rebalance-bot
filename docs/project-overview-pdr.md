@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange support, advanced trading strategies, and full paper trading capabilities. Enables passive income through automated portfolio management with customizable rebalancing strategies, DCA accumulation, trailing stops, and grid trading. Single developer tool with Telegram alerts and comprehensive analytics.
+Self-hosted cryptocurrency portfolio rebalance bot with real-time multi-exchange support, advanced trading strategies, and comprehensive analytics. Enables passive income through automated portfolio management with customizable rebalancing strategies, DCA accumulation, trailing stops, and trend-aware bear protection. Single developer tool with Telegram alerts via GoClaw AI.
 
 ## Project Purpose
 
@@ -18,18 +18,16 @@ Provide sophisticated portfolio management automation accessible to retail crypt
 ### Mission
 Deliver a production-ready system that:
 - Automatically rebalances portfolios across multiple exchanges
-- Executes advanced trading strategies (DCA, trailing-stop, grid trading, copy trading)
-- Provides real-time monitoring via Telegram
-- Supports complete paper trading for backtesting
+- Executes advanced trading strategies (DCA, trailing-stop, trend filter, 6 strategy types)
+- Provides real-time monitoring via Telegram (GoClaw AI agent)
 - Maintains transparent trade history and analytics
 - Encrypts all exchange credentials
 
 ### Value Proposition
 - **Hands-Off Management**: Set allocation targets, bot handles rebalancing
 - **Multi-Exchange**: Trade across Binance, OKX, Bybit simultaneously
-- **Advanced Strategies**: DCA, trailing stops, TWAP/VWAP, grid trading in one system
+- **Advanced Strategies**: DCA, trailing stops, trend filter, 6 configurable strategy types
 - **100% Private**: Self-hosted on user's VPS, no KYC required
-- **Paper Trading**: Test strategies before real money execution
 - **Complete Transparency**: All trades logged, analytics calculated locally
 
 ## Target Users
@@ -44,27 +42,23 @@ Solo crypto investor managing multi-asset portfolio across multiple exchanges.
 - Seeks sophisticated trading beyond basic buy-and-hold
 - Values privacy and self-custody
 
-## Key Features (14 Total)
+## Key Features (10 Total)
 
 ### Core Rebalancing (Phase 1-3)
 1. **Auto Rebalance** - Drift-triggered portfolio rebalancing
-2. **Multiple Strategies** - Threshold, equal-weight, momentum-tilt, vol-adjusted
-3. **Paper Trading** - Full simulation mode for backtesting strategies
-4. **Real-Time WS** - CCXT Pro WebSocket market data integration
-5. **Multi-Exchange** - Unified API across Binance, OKX, Bybit
-6. **Telegram Alerts** - Real-time notifications for trades and events
+2. **6 Strategy Types** - Threshold, equal-weight, momentum-tilt, vol-adjusted, mean-reversion, momentum-weighted
+3. **Real-Time Prices** - REST polling via CCXT Pro (10s interval)
+4. **Multi-Exchange** - Unified API across Binance, OKX, Bybit
+5. **Telegram Alerts** - Real-time notifications via GoClaw AI agent
 
-### Advanced Strategies (Phase 4)
-7. **Trailing-Stop** - Automatic position selling on price decline
-8. **DCA** - Dollar-cost averaging with scheduled buy orders
-9. **TWAP/VWAP** - Large order splitting over time to reduce slippage
-10. **Grid Trading** - Automated buy/sell at price intervals in ranges
+### Advanced Strategies (Phase 4+)
+6. **Trailing-Stop** - Automatic position selling on price decline
+7. **DCA** - Dollar-cost averaging with daily scheduled buy orders
+8. **Trend Filter** - MA-based bull/bear detection with bear cash override
 
-### Analytics & Intelligence (Phase 4+)
-11. **Backtesting** - Historical performance validation with Sharpe ratio
-12. **Analytics** - Return, volatility, drawdown, win rate metrics
-13. **Copy Trading** - Mirror trades from other portfolio sources
-14. **AI Suggestions** - ML-based timing and allocation recommendations
+### Analytics & Intelligence
+9. **Backtesting** - Historical performance validation with Sharpe ratio (5040+ combo optimizer)
+10. **Analytics** - Return, volatility, drawdown, win rate metrics
 
 ## Supported Exchanges
 
@@ -96,10 +90,11 @@ Solo crypto investor managing multi-asset portfolio across multiple exchanges.
 - Equal-weight: maintain equal allocation across assets
 - Momentum-tilt: adjust weights based on price momentum
 - Vol-adjusted: inverse volatility weighting
+- Mean-reversion: Bollinger band-based rebalancing
+- Momentum-weighted: momentum score allocation weighting
 - DCA: schedule regular buy orders
 - Trailing-stop: automatic sell on price decline
-- TWAP/VWAP: split large orders over time
-- Grid trading: place orders at price intervals
+- Trend filter: MA-based bull/bear detection with configurable bear cash override
 
 **FR4: Real-Time Monitoring**
 - WebSocket price feeds for all trading pairs
@@ -218,22 +213,19 @@ Solo crypto investor managing multi-asset portfolio across multiple exchanges.
 1. **exchange/** - Multi-exchange connectivity (CCXT Pro)
 2. **price/** - Market data processing and indicators
 3. **portfolio/** - Holdings and allocation management
-4. **rebalancer/** - Strategy execution and planning
+4. **rebalancer/** - Strategy execution and planning (6 types + trend filter)
 5. **executor/** - Trade execution and order management
 6. **db/** - Database schema and migrations
 7. **api/** - REST and WebSocket API (Hono)
-8. **notifier/** - Telegram notifications (grammy)
+8. **notifier/** - Telegram notifications (GoClaw HTTP client)
 9. **scheduler/** - Cron task execution (croner)
 10. **config/** - Configuration management
 11. **events/** - Event bus for loose coupling
 12. **trailing-stop/** - Stop-loss execution
 13. **dca/** - Dollar-cost averaging
-14. **twap-vwap/** - Order splitting strategies
-15. **grid/** - Grid trading implementation
-16. **backtesting/** - Historical performance simulation
-17. **analytics/** - Metrics calculation
-18. **ai/** - ML recommendations
-19. **copy-trading/** - Replication from other sources
+14. **backtesting/** - Historical performance simulation
+15. **analytics/** - Metrics calculation
+16. **ai/** - GoClaw AI client for insights and notifications
 
 ## Use Cases
 
@@ -369,11 +361,10 @@ Solo crypto investor managing multi-asset portfolio across multiple exchanges.
 ### Phase 4 (Complete): Advanced Strategies
 - Trailing-stop loss automation
 - DCA (Dollar-cost averaging)
-- TWAP/VWAP order splitting
-- Grid trading implementation
-- Copy trading replication
+- Trend filter (MA-based bull/bear detection)
+- Bear market protection (cash override)
 - Analytics metrics
-- AI suggestions
+- GoClaw AI insights
 
 ### Future Possibilities
 - Margin trading support
@@ -418,10 +409,9 @@ Solo crypto investor managing multi-asset portfolio across multiple exchanges.
 | Allocation | Percentage of portfolio value held in each asset |
 | Drift | Deviation between current and target allocations |
 | Slippage | Difference between expected and actual execution price |
-| TWAP | Time-weighted average price execution |
-| VWAP | Volume-weighted average price execution |
 | DCA | Dollar-cost averaging (regular small buys) |
-| Grid | Regular price interval orders |
+| Trend Filter | MA-based bull/bear market detection |
+| Bear Cash Override | Auto-sell to cash % when trend turns bearish |
 | Paper Trading | Simulated trades for backtesting |
 | Drawdown | Largest peak-to-trough portfolio decline |
 

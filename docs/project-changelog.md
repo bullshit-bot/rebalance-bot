@@ -275,11 +275,9 @@ All four major phases complete. System production-ready with 14 core features.
 **Phase 4: Advanced Strategies**
 - Trailing-stop loss automation
 - DCA (Dollar-cost averaging) with scheduling
-- TWAP/VWAP order splitting (reduce slippage)
-- Grid trading with customizable intervals
-- Copy trading (mirror from other portfolios)
+- Trend filter (MA-based bull/bear detection with bear cash override)
 - Analytics dashboard (returns, volatility, Sharpe ratio, win rate)
-- AI suggestions (ML-powered recommendations via GoClaw)
+- GoClaw AI insights (scheduled market analysis via GoClaw agent)
 
 **Phase 5: Infrastructure & Deployment**
 - Docker Compose (6-service stack: frontend, backend, MongoDB, GoClaw, ChromaDB, autoheal)
@@ -295,12 +293,12 @@ All four major phases complete. System production-ready with 14 core features.
 - Type-safe config validation (Zod schemas)
 - Strategy profiles (conservative, moderate, aggressive)
 - Per-asset allocation targets
-- Configurable rebalance thresholds, DCA intervals, grid parameters
+- Configurable rebalance thresholds, DCA intervals, strategy parameters
 
 ### Database
 
 - MongoDB 7 with Mongoose ODM
-- 14 collections: allocations, trades, snapshots, rebalances, exchange_configs, ohlcv_candles, backtest_results, smart_orders, grid_bots, grid_orders, ai_suggestions, copy_sources, copy_sync_log, health_logs
+- 10 collections: allocations, trades, snapshots, rebalances, exchange_configs, ohlcv_candles, backtest_results, strategy_configs, health_logs
 - Encryption for API credentials at rest
 - Automatic schema validation
 
@@ -346,8 +344,8 @@ All four major phases complete. System production-ready with 14 core features.
 | 1.0.2 | 2026-03-30 | Stable | DCA budget cap, crypto-only allocations, REST price feed |
 | 1.0.1 | 2026-03-28 | Archive | Trend persistence, bear protection, autoheal |
 | 1.0.0 | 2026-03-22 | Archive | Production release, all 4 phases complete |
-| 0.9.0 | 2026-02-15 | Archive | Phase 4 complete, AI suggestions |
-| 0.8.0 | 2025-12-01 | Archive | Copy trading, advanced strategies |
+| 0.9.0 | 2026-02-15 | Archive | Phase 4 complete, advanced strategies |
+| 0.8.0 | 2025-12-01 | Archive | DCA, trailing stops, analytics |
 | 0.7.0 | 2025-10-15 | Archive | Backtesting, analytics dashboard |
 | 0.6.0 | 2025-08-30 | Archive | Strategy variants (momentum, vol-adj) |
 | 0.5.0 | 2025-07-10 | Archive | Real-time monitoring, Telegram alerts |

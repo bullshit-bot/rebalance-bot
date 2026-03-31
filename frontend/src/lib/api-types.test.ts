@@ -42,19 +42,4 @@ describe('api-types.ts', () => {
     expect(true).toBe(true)
   })
 
-  it('exports GridBot and GridBotInput types', () => {
-    expect(true).toBe(true)
-  })
-
-  it('exports SmartOrderDetail and SmartOrderInput types', () => {
-    expect(true).toBe(true)
-  })
-
-  it('exports CopySource and CopySourceInput types', () => {
-    expect(true).toBe(true)
-  })
-
-  it('exports AISuggestion type', () => {
-    expect(true).toBe(true)
-  })
 })
