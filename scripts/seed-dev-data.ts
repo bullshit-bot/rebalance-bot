@@ -8,7 +8,6 @@ import {
   SnapshotModel,
   TradeModel,
   RebalanceModel,
-  AISuggestionModel,
   StrategyConfigModel,
 } from '../src/db/models'
 
@@ -22,7 +21,6 @@ async function run() {
     SnapshotModel.deleteMany({}),
     TradeModel.deleteMany({}),
     RebalanceModel.deleteMany({}),
-    AISuggestionModel.deleteMany({}),
     StrategyConfigModel.deleteMany({}),
   ])
   console.log('Cleared existing collections')
@@ -138,22 +136,6 @@ async function run() {
     completedAt: new Date(now - 3590_000),
   })
   console.log('Seeded 1 rebalance record')
-
-  // ── Seed AI suggestions ────────────────────────────────────────────────────
-  const suggestions = [
-    { _id: 'ai-01', suggestedAllocations: [{ asset: 'BTC', targetPct: 33 }, { asset: 'ETH', targetPct: 27 }], reasoning: 'BTC momentum turning bearish on 4h. ETH showing accumulation pattern. Shift 2% from BTC to ETH.', status: 'pending', agoMs: 3600_000 },
-    { _id: 'ai-02', suggestedAllocations: [{ asset: 'SOL', targetPct: 13 }, { asset: 'USDT', targetPct: 12 }], reasoning: 'SOL RSI at 78, overbought. Reduce SOL exposure by 2%.', status: 'pending', agoMs: 7200_000 },
-    { _id: 'ai-03', suggestedAllocations: [{ asset: 'BTC', targetPct: 37 }, { asset: 'AVAX', targetPct: 6 }], reasoning: 'Strong BTC dominance signal. Rotating alts to BTC.', status: 'approved', agoMs: 86400_000 },
-  ]
-  await AISuggestionModel.insertMany(suggestions.map(s => ({
-    _id: s._id,
-    source: 'goclaw',
-    suggestedAllocations: s.suggestedAllocations,
-    reasoning: s.reasoning,
-    status: s.status,
-    createdAt: new Date(now - s.agoMs),
-  })))
-  console.log(`Seeded ${suggestions.length} AI suggestions`)
 
   await disconnectDB()
   console.log('Seed complete!')
