@@ -100,46 +100,6 @@ test.describe('Advanced Pages - Responsive Design', () => {
     await expect(page.locator('h2:has-text("Tax")')).toBeVisible({ timeout: 10000 })
   })
 
-  test('Grid Trading page is responsive', async ({ page }) => {
-    await page.setViewportSize({ width: 1920, height: 1080 })
-    await page.goto('/grid')
-    await expect(page.locator('h2:has-text("Grid")')).toBeVisible({ timeout: 10000 })
-
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto('/grid')
-    await expect(page.locator('h2:has-text("Grid")')).toBeVisible({ timeout: 10000 })
-  })
-
-  test('Smart Orders page is responsive', async ({ page }) => {
-    await page.setViewportSize({ width: 1920, height: 1080 })
-    await page.goto('/smart-orders')
-    await expect(page.locator('h2:has-text("Smart Orders")')).toBeVisible({ timeout: 10000 })
-
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto('/smart-orders')
-    await expect(page.locator('h2:has-text("Smart Orders")')).toBeVisible({ timeout: 10000 })
-  })
-
-  test('Copy Trading page is responsive', async ({ page }) => {
-    await page.setViewportSize({ width: 1920, height: 1080 })
-    await page.goto('/copy-trading')
-    await expect(page.locator('h2:has-text("Copy Trading")')).toBeVisible({ timeout: 10000 })
-
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto('/copy-trading')
-    await expect(page.locator('h2:has-text("Copy Trading")')).toBeVisible({ timeout: 10000 })
-  })
-
-  test('AI Suggestions page is responsive', async ({ page }) => {
-    await page.setViewportSize({ width: 1920, height: 1080 })
-    await page.goto('/ai-suggestions')
-    await expect(page.locator('h2:has-text("AI Suggestions")')).toBeVisible({ timeout: 10000 })
-
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto('/ai-suggestions')
-    await expect(page.locator('h2:has-text("AI Suggestions")')).toBeVisible({ timeout: 10000 })
-  })
-
   test('Settings page is responsive', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 })
     await page.goto('/settings')

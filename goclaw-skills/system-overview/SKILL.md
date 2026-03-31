@@ -78,7 +78,7 @@ Price Feeds (REST polling, 10s) → PriceService → EventBus
 
 ### 4. Backtesting
 - Historical OHLCV data from Binance (5+ years available)
-- Grid search optimizer: tests 4800+ parameter combinations
+- Grid search optimizer: tests 5040+ parameter combinations
 - Metrics: return %, annualized %, Sharpe ratio, max drawdown, fees
 - Benchmark: compares strategy vs buy-and-hold
 
@@ -124,19 +124,6 @@ Current active config on production: `optimal-backtest-validated` v5
 | Strategy | update_strategy_config | Update strategy parameters |
 | Backtest | run_backtest | Run backtest simulation |
 | Backtest | list_backtests | Previous backtest results |
-| AI | get_ai_suggestions | AI allocation recommendations |
-| AI | approve_suggestion | Approve AI suggestion |
-| AI | reject_suggestion | Reject AI suggestion |
-| AI | update_ai_config | Set autoApprove flag and maxShiftPct |
-| Copy Trading | list_copy_sources | Copy trading sources being tracked |
-| Copy Trading | create_copy_source | Add new copy trading source |
-| Copy Trading | delete_copy_source | Remove copy source by ID |
-| Grid Trading | create_grid_bot | Create grid trading bot (normal/reverse) |
-| Grid Trading | list_grid_bots | Active and stopped grid bots with PnL |
-| Grid Trading | stop_grid_bot | Stop running grid bot |
-| Smart Orders | create_smart_order | TWAP/VWAP order execution |
-| Smart Orders | list_smart_orders | Active smart orders with progress |
-| Smart Orders | cancel_smart_order | Cancel pending/running smart order |
 | Config | get_config | System configuration |
 
 ## Available GoClaw Skills
@@ -147,7 +134,6 @@ Current active config on production: `optimal-backtest-validated` v5
 | auto_rebalance | Full rebalance cycle with safety checks |
 | allocation_advisor | Analyze and suggest allocation changes |
 | market_analysis | Trade history and concentration analysis |
-| crypto_news | AI suggestions with portfolio context |
 | backtest_analyzer | Run backtests, compare strategies |
 | strategy_manager | View/switch strategy configurations |
 | system_overview | This skill — system knowledge |
