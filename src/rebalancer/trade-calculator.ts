@@ -1,14 +1,14 @@
-import { env } from '@config/app-config'
-import { priceCache } from '@price/price-cache'
-import type { Allocation, ExchangeName, Portfolio, TradeOrder } from '@/types/index'
+import type { Allocation, ExchangeName, Portfolio, TradeOrder } from "@/types/index";
+import { env } from "@config/app-config";
+import { priceCache } from "@price/price-cache";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Stablecoin symbols treated as cash reserve (not traded as crypto positions). */
-export const STABLECOINS = new Set(['USDT', 'USDC', 'BUSD', 'TUSD', 'DAI', 'USD'])
+export const STABLECOINS = new Set(["USDT", "USDC", "BUSD", "TUSD", "DAI", "USD"]);
 
 /** Returns true if the asset symbol is a recognized stablecoin / cash asset. */
-const isStablecoin = (asset: string): boolean => STABLECOINS.has(asset)
+const isStablecoin = (asset: string): boolean => STABLECOINS.has(asset);
 
 // ─── calculateTrades ──────────────────────────────────────────────────────────
 
@@ -34,141 +34,141 @@ export function calculateTrades(
   portfolio: Portfolio,
   targets: Allocation[],
   priceOverrides?: Record<string, number>,
-  cashReservePct?: number,
+  cashReservePct?: number
 ): TradeOrder[] {
-  const totalUsd = portfolio.totalValueUsd
-  if (totalUsd <= 0) return []
+  const totalUsd = portfolio.totalValueUsd;
+  if (totalUsd <= 0) return [];
 
   // ─── Cash reserve setup ─────────────────────────────────────────────────────
 
-  const reservePct = cashReservePct ?? 0
-  const targetCashUsd = totalUsd * (reservePct / 100)
+  const reservePct = cashReservePct ?? 0;
+  const targetCashUsd = totalUsd * (reservePct / 100);
   // USD value of all stablecoins currently held
   const cashValueUsd = portfolio.assets
     .filter((a) => isStablecoin(a.asset))
-    .reduce((sum, a) => sum + a.valueUsd, 0)
+    .reduce((sum, a) => sum + a.valueUsd, 0);
 
   // Crypto pool is total minus cash reserve target
-  const cryptoPoolUsd = totalUsd - targetCashUsd
+  const cryptoPoolUsd = totalUsd - targetCashUsd;
 
   // ─── Target / exchange lookups ──────────────────────────────────────────────
 
-  const targetMap = new Map<string, Allocation>()
+  const targetMap = new Map<string, Allocation>();
   for (const alloc of targets) {
-    targetMap.set(alloc.asset, alloc)
+    targetMap.set(alloc.asset, alloc);
   }
 
-  const exchangeMap = new Map<string, ExchangeName>()
+  const exchangeMap = new Map<string, ExchangeName>();
   for (const held of portfolio.assets) {
-    exchangeMap.set(held.asset, held.exchange)
+    exchangeMap.set(held.asset, held.exchange);
   }
 
   // ─── Build delta list ───────────────────────────────────────────────────────
 
   type AssetDelta = {
-    asset: string
-    exchange: ExchangeName
-    deltaUsd: number   // positive = need to buy, negative = need to sell
-    absDeltaUsd: number
-  }
+    asset: string;
+    exchange: ExchangeName;
+    deltaUsd: number; // positive = need to buy, negative = need to sell
+    absDeltaUsd: number;
+  };
 
-  const deltas: AssetDelta[] = []
+  const deltas: AssetDelta[] = [];
 
   // Assets that are currently held (non-stablecoin)
   for (const held of portfolio.assets) {
-    if (isStablecoin(held.asset)) continue
+    if (isStablecoin(held.asset)) continue;
 
-    const alloc = targetMap.get(held.asset)
-    const targetPct = alloc?.targetPct ?? 0
+    const alloc = targetMap.get(held.asset);
+    const targetPct = alloc?.targetPct ?? 0;
     // Targets are percentage of cryptoPoolUsd, not totalUsd
-    const targetUsd = (targetPct / 100) * cryptoPoolUsd
-    const currentUsd = held.valueUsd
-    const deltaUsd = targetUsd - currentUsd
+    const targetUsd = (targetPct / 100) * cryptoPoolUsd;
+    const currentUsd = held.valueUsd;
+    const deltaUsd = targetUsd - currentUsd;
 
-    const minTrade = alloc?.minTradeUsd ?? env.MIN_TRADE_USD
+    const minTrade = alloc?.minTradeUsd ?? env.MIN_TRADE_USD;
 
-    if (Math.abs(deltaUsd) < minTrade) continue
+    if (Math.abs(deltaUsd) < minTrade) continue;
 
-    const exchange = alloc?.exchange ?? held.exchange
-    deltas.push({ asset: held.asset, exchange, deltaUsd, absDeltaUsd: Math.abs(deltaUsd) })
+    const exchange = alloc?.exchange ?? held.exchange;
+    deltas.push({ asset: held.asset, exchange, deltaUsd, absDeltaUsd: Math.abs(deltaUsd) });
   }
 
   // Assets in targets not yet held (pure buys)
   for (const alloc of targets) {
-    if (isStablecoin(alloc.asset)) continue
-    if (exchangeMap.has(alloc.asset)) continue // already processed above
+    if (isStablecoin(alloc.asset)) continue;
+    if (exchangeMap.has(alloc.asset)) continue; // already processed above
 
-    const targetUsd = (alloc.targetPct / 100) * cryptoPoolUsd
-    const minTrade = alloc.minTradeUsd ?? env.MIN_TRADE_USD
+    const targetUsd = (alloc.targetPct / 100) * cryptoPoolUsd;
+    const minTrade = alloc.minTradeUsd ?? env.MIN_TRADE_USD;
 
-    if (targetUsd < minTrade) continue
+    if (targetUsd < minTrade) continue;
 
-    const exchange = alloc.exchange ?? 'binance'
-    deltas.push({ asset: alloc.asset, exchange, deltaUsd: targetUsd, absDeltaUsd: targetUsd })
+    const exchange = alloc.exchange ?? "binance";
+    deltas.push({ asset: alloc.asset, exchange, deltaUsd: targetUsd, absDeltaUsd: targetUsd });
   }
 
   // ─── Cash deficit: sell overweight crypto to replenish reserve ──────────────
 
   if (reservePct > 0 && cashValueUsd < targetCashUsd) {
-    const cashDeficit = targetCashUsd - cashValueUsd
+    const cashDeficit = targetCashUsd - cashValueUsd;
     // Find assets with positive deltaUsd (overweight) and reduce them to fund cash
-    let remaining = cashDeficit
+    let remaining = cashDeficit;
     for (const d of deltas) {
-      if (remaining <= 0) break
-      if (d.deltaUsd > 0) continue // underweight — skip (it's already a buy)
+      if (remaining <= 0) break;
+      if (d.deltaUsd > 0) continue; // underweight — skip (it's already a buy)
       // d.deltaUsd < 0 means overweight; increase sell amount by cashDeficit share
-      const extra = Math.min(remaining, d.absDeltaUsd)
-      d.deltaUsd -= extra
-      d.absDeltaUsd += extra
-      remaining -= extra
+      const extra = Math.min(remaining, d.absDeltaUsd);
+      d.deltaUsd -= extra;
+      d.absDeltaUsd += extra;
+      remaining -= extra;
     }
     // If cash deficit still unmet, add sells on any overweight (positive deltaUsd) assets
     if (remaining > 0) {
       for (const d of deltas) {
-        if (remaining <= 0) break
-        if (d.deltaUsd <= 0) continue // already a sell
-        const sellExtra = Math.min(remaining, d.deltaUsd)
-        d.deltaUsd -= sellExtra
-        d.absDeltaUsd = Math.abs(d.deltaUsd)
-        remaining -= sellExtra
+        if (remaining <= 0) break;
+        if (d.deltaUsd <= 0) continue; // already a sell
+        const sellExtra = Math.min(remaining, d.deltaUsd);
+        d.deltaUsd -= sellExtra;
+        d.absDeltaUsd = Math.abs(d.deltaUsd);
+        remaining -= sellExtra;
       }
     }
   }
 
   // Sort largest absolute drift first
-  deltas.sort((a, b) => b.absDeltaUsd - a.absDeltaUsd)
+  deltas.sort((a, b) => b.absDeltaUsd - a.absDeltaUsd);
 
   // ─── Convert to TradeOrders ─────────────────────────────────────────────────
 
-  const orders: TradeOrder[] = []
+  const orders: TradeOrder[] = [];
 
   for (const d of deltas) {
     // Skip if delta collapsed to zero after cash deficit adjustment
-    if (d.absDeltaUsd < (env.MIN_TRADE_USD / 2)) continue
+    if (d.absDeltaUsd < env.MIN_TRADE_USD / 2) continue;
 
-    const pair = `${d.asset}/USDT`
+    const pair = `${d.asset}/USDT`;
 
     const price =
       priceOverrides?.[pair] ??
       priceCache.getBestPrice(pair) ??
       priceCache.getBestPrice(`${d.asset}/USD`) ??
-      priceCache.getBestPrice(`${d.asset}/USDC`)
+      priceCache.getBestPrice(`${d.asset}/USDC`);
 
     if (!price || price <= 0) {
-      console.warn(`[TradeCalculator] No price for ${pair}, skipping trade`)
-      continue
+      console.warn(`[TradeCalculator] No price for ${pair}, skipping trade`);
+      continue;
     }
 
-    const baseQty = d.absDeltaUsd / price
+    const baseQty = d.absDeltaUsd / price;
 
     orders.push({
       exchange: d.exchange,
       pair,
-      side: d.deltaUsd > 0 ? 'buy' : 'sell',
-      type: 'market',
+      side: d.deltaUsd > 0 ? "buy" : "sell",
+      type: "market",
       amount: baseQty,
-    })
+    });
   }
 
-  return orders
+  return orders;
 }

@@ -1,14 +1,14 @@
-import type { Allocation } from '@/types/index'
-import type { StrategyParams } from '@rebalancer/strategies/strategy-config-types'
-import { MeanReversionStrategy } from '@rebalancer/strategies/mean-reversion-strategy'
-import { VolAdjustedStrategy } from '@rebalancer/strategies/vol-adjusted-strategy'
-import { MomentumWeightedStrategy } from '@rebalancer/strategies/momentum-weighted-strategy'
+import type { Allocation } from "@/types/index";
+import { MeanReversionStrategy } from "@rebalancer/strategies/mean-reversion-strategy";
+import { MomentumWeightedStrategy } from "@rebalancer/strategies/momentum-weighted-strategy";
+import type { StrategyParams } from "@rebalancer/strategies/strategy-config-types";
+import { VolAdjustedStrategy } from "@rebalancer/strategies/vol-adjusted-strategy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface HoldingState {
-  amount: number
-  valueUsd: number
+  amount: number;
+  valueUsd: number;
 }
 
 // ─── StrategyBacktestAdapter ──────────────────────────────────────────────────
@@ -25,20 +25,20 @@ interface HoldingState {
  *  - Return effective allocations (momentum-weighted, equal-weight)
  */
 export class StrategyBacktestAdapter {
-  private readonly meanReversion?: MeanReversionStrategy
-  private readonly volAdjusted?: VolAdjustedStrategy
-  private readonly momentumWeighted?: MomentumWeightedStrategy
+  private readonly meanReversion?: MeanReversionStrategy;
+  private readonly volAdjusted?: VolAdjustedStrategy;
+  private readonly momentumWeighted?: MomentumWeightedStrategy;
 
   // Price history per asset (symbol without /USDT suffix) for momentum-weighted
-  private readonly priceHistories = new Map<string, number[]>()
+  private readonly priceHistories = new Map<string, number[]>();
 
   constructor(private readonly params: StrategyParams) {
-    if (params.type === 'mean-reversion') {
-      this.meanReversion = new MeanReversionStrategy()
-    } else if (params.type === 'vol-adjusted') {
-      this.volAdjusted = new VolAdjustedStrategy()
-    } else if (params.type === 'momentum-weighted') {
-      this.momentumWeighted = new MomentumWeightedStrategy()
+    if (params.type === "mean-reversion") {
+      this.meanReversion = new MeanReversionStrategy();
+    } else if (params.type === "vol-adjusted") {
+      this.volAdjusted = new VolAdjustedStrategy();
+    } else if (params.type === "momentum-weighted") {
+      this.momentumWeighted = new MomentumWeightedStrategy();
     }
     // momentum-tilt uses priceHistories for simple momentum scoring (no dedicated class needed)
   }
@@ -56,27 +56,27 @@ export class StrategyBacktestAdapter {
   updateState(
     drifts: Map<string, number>,
     currentVol: number,
-    prices: Record<string, number>,
+    prices: Record<string, number>
   ): void {
-    const p = this.params
+    const p = this.params;
 
-    if (p.type === 'mean-reversion' && this.meanReversion) {
+    if (p.type === "mean-reversion" && this.meanReversion) {
       for (const [asset, drift] of drifts) {
-        this.meanReversion.recordDrift(asset, drift, p.lookbackDays)
+        this.meanReversion.recordDrift(asset, drift, p.lookbackDays);
       }
     }
 
-    if (p.type === 'vol-adjusted' && this.volAdjusted) {
-      this.volAdjusted.recordVolatility(currentVol, p.volLookbackDays)
+    if (p.type === "vol-adjusted" && this.volAdjusted) {
+      this.volAdjusted.recordVolatility(currentVol, p.volLookbackDays);
     }
 
-    if (p.type === 'momentum-weighted' || p.type === 'momentum-tilt') {
+    if (p.type === "momentum-weighted" || p.type === "momentum-tilt") {
       // Accumulate close prices per asset (strip /USDT suffix)
       for (const [pair, price] of Object.entries(prices)) {
-        const asset = pair.replace('/USDT', '')
-        const history = this.priceHistories.get(asset) ?? []
-        history.push(price)
-        this.priceHistories.set(asset, history)
+        const asset = pair.replace("/USDT", "");
+        const history = this.priceHistories.get(asset) ?? [];
+        history.push(price);
+        this.priceHistories.set(asset, history);
       }
     }
   }
@@ -92,29 +92,30 @@ export class StrategyBacktestAdapter {
     holdings: Record<string, HoldingState>,
     allocations: Allocation[],
     totalValueUsd: number,
-    fallbackThreshold: number,
+    fallbackThreshold: number
   ): boolean {
-    if (totalValueUsd <= 0) return false
+    if (totalValueUsd <= 0) return false;
 
-    const p = this.params
+    const p = this.params;
 
-    if (p.type === 'mean-reversion' && this.meanReversion) {
+    if (p.type === "mean-reversion" && this.meanReversion) {
       // Build drift map for the strategy
-      const drifts = this._buildDrifts(holdings, allocations, totalValueUsd)
-      return this.meanReversion.shouldRebalance(drifts, p)
+      const drifts = this._buildDrifts(holdings, allocations, totalValueUsd);
+      return this.meanReversion.shouldRebalance(drifts, p);
     }
 
-    if (p.type === 'vol-adjusted' && this.volAdjusted) {
-      const threshold = this.volAdjusted.getDynamicThreshold(p)
-      return this._exceedsThreshold(holdings, allocations, totalValueUsd, threshold)
+    if (p.type === "vol-adjusted" && this.volAdjusted) {
+      const threshold = this.volAdjusted.getDynamicThreshold(p);
+      return this._exceedsThreshold(holdings, allocations, totalValueUsd, threshold);
     }
 
     // momentum-weighted, momentum-tilt, equal-weight, threshold:
     // use threshold from strategy params if available, otherwise fallback
-    const threshold = ('thresholdPct' in p && typeof p.thresholdPct === 'number')
-      ? p.thresholdPct
-      : fallbackThreshold
-    return this._exceedsThreshold(holdings, allocations, totalValueUsd, threshold)
+    const threshold =
+      "thresholdPct" in p && typeof p.thresholdPct === "number"
+        ? p.thresholdPct
+        : fallbackThreshold;
+    return this._exceedsThreshold(holdings, allocations, totalValueUsd, threshold);
   }
 
   // ─── Effective allocations ───────────────────────────────────────────────
@@ -126,21 +127,21 @@ export class StrategyBacktestAdapter {
    * For all other types: returns base allocations unchanged.
    */
   getEffectiveAllocations(baseAllocations: Allocation[]): Allocation[] {
-    const p = this.params
+    const p = this.params;
 
-    if (p.type === 'momentum-weighted' && this.momentumWeighted) {
-      return this.momentumWeighted.getAdjustedAllocations(baseAllocations, this.priceHistories, p)
+    if (p.type === "momentum-weighted" && this.momentumWeighted) {
+      return this.momentumWeighted.getAdjustedAllocations(baseAllocations, this.priceHistories, p);
     }
 
-    if (p.type === 'equal-weight') {
-      return this._equalWeightAllocations(baseAllocations)
+    if (p.type === "equal-weight") {
+      return this._equalWeightAllocations(baseAllocations);
     }
 
-    if (p.type === 'momentum-tilt') {
-      return this._momentumTiltAllocations(baseAllocations)
+    if (p.type === "momentum-tilt") {
+      return this._momentumTiltAllocations(baseAllocations);
     }
 
-    return baseAllocations
+    return baseAllocations;
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────
@@ -149,17 +150,16 @@ export class StrategyBacktestAdapter {
   private _buildDrifts(
     holdings: Record<string, HoldingState>,
     allocations: Allocation[],
-    totalValueUsd: number,
+    totalValueUsd: number
   ): Map<string, number> {
-    const drifts = new Map<string, number>()
+    const drifts = new Map<string, number>();
     for (const alloc of allocations) {
-      const pair = `${alloc.asset}/USDT`
-      const currentPct = totalValueUsd > 0
-        ? ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100
-        : 0
-      drifts.set(alloc.asset, currentPct - alloc.targetPct)
+      const pair = `${alloc.asset}/USDT`;
+      const currentPct =
+        totalValueUsd > 0 ? ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100 : 0;
+      drifts.set(alloc.asset, currentPct - alloc.targetPct);
     }
-    return drifts
+    return drifts;
   }
 
   /** Returns true if any asset exceeds `threshold` drift from its target. */
@@ -167,14 +167,14 @@ export class StrategyBacktestAdapter {
     holdings: Record<string, HoldingState>,
     allocations: Allocation[],
     totalValueUsd: number,
-    threshold: number,
+    threshold: number
   ): boolean {
     for (const alloc of allocations) {
-      const pair = `${alloc.asset}/USDT`
-      const currentPct = ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100
-      if (Math.abs(currentPct - alloc.targetPct) >= threshold) return true
+      const pair = `${alloc.asset}/USDT`;
+      const currentPct = ((holdings[pair]?.valueUsd ?? 0) / totalValueUsd) * 100;
+      if (Math.abs(currentPct - alloc.targetPct) >= threshold) return true;
     }
-    return false
+    return false;
   }
 
   /**
@@ -183,42 +183,44 @@ export class StrategyBacktestAdapter {
    * momentumWeight controls how much to shift (0=no tilt, 1=full tilt).
    */
   private _momentumTiltAllocations(allocations: Allocation[]): Allocation[] {
-    const p = this.params
-    const windowDays = ('momentumWindowDays' in p && typeof p.momentumWindowDays === 'number')
-      ? p.momentumWindowDays : 14
-    const weight = ('momentumWeight' in p && typeof p.momentumWeight === 'number')
-      ? p.momentumWeight : 0.3
+    const p = this.params;
+    const windowDays =
+      "momentumWindowDays" in p && typeof p.momentumWindowDays === "number"
+        ? p.momentumWindowDays
+        : 14;
+    const weight =
+      "momentumWeight" in p && typeof p.momentumWeight === "number" ? p.momentumWeight : 0.3;
 
     // Calculate momentum score per asset (simple % return over window)
-    const scores = new Map<string, number>()
+    const scores = new Map<string, number>();
     for (const alloc of allocations) {
-      const history = this.priceHistories.get(alloc.asset)
+      const history = this.priceHistories.get(alloc.asset);
       if (!history || history.length < windowDays + 1) {
-        scores.set(alloc.asset, 0)
-        continue
+        scores.set(alloc.asset, 0);
+        continue;
       }
-      const recent = history[history.length - 1]!
-      const past = history[history.length - 1 - windowDays]!
-      scores.set(alloc.asset, past > 0 ? (recent - past) / past : 0)
+      const recent = history[history.length - 1]!;
+      const past = history[history.length - 1 - windowDays]!;
+      scores.set(alloc.asset, past > 0 ? (recent - past) / past : 0);
     }
 
     // Tilt: shift weight from underperformers to outperformers
-    const avgScore = [...scores.values()].reduce((s, v) => s + v, 0) / scores.size
+    const avgScore = [...scores.values()].reduce((s, v) => s + v, 0) / scores.size;
     const adjusted = allocations.map((a) => {
-      const score = scores.get(a.asset) ?? 0
-      const tilt = (score - avgScore) * weight * 100 // convert to percentage points
-      return { ...a, targetPct: Math.max(1, a.targetPct + tilt) } // min 1% to avoid zero
-    })
+      const score = scores.get(a.asset) ?? 0;
+      const tilt = (score - avgScore) * weight * 100; // convert to percentage points
+      return { ...a, targetPct: Math.max(1, a.targetPct + tilt) }; // min 1% to avoid zero
+    });
 
     // Normalise to 100%
-    const total = adjusted.reduce((s, a) => s + a.targetPct, 0)
-    return adjusted.map((a) => ({ ...a, targetPct: (a.targetPct / total) * 100 }))
+    const total = adjusted.reduce((s, a) => s + a.targetPct, 0);
+    return adjusted.map((a) => ({ ...a, targetPct: (a.targetPct / total) * 100 }));
   }
 
   /** Distribute weights equally across all allocations. */
   private _equalWeightAllocations(allocations: Allocation[]): Allocation[] {
-    if (allocations.length === 0) return []
-    const equalPct = 100 / allocations.length
-    return allocations.map((a) => ({ ...a, targetPct: equalPct }))
+    if (allocations.length === 0) return [];
+    const equalPct = 100 / allocations.length;
+    return allocations.map((a) => ({ ...a, targetPct: equalPct }));
   }
 }

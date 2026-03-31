@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { eventBus } from "@/events/event-bus";
 import { AISuggestionModel, AllocationModel } from "@db/database";
 import type { IAISuggestion } from "@db/database";
-import { eventBus } from "@/events/event-bus";
 import { aiConfig } from "./ai-config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -73,7 +73,10 @@ class AISuggestionHandler {
     }
 
     // suggestedAllocations is already an object (Mongoose Mixed field)
-    const parsed = suggestion.suggestedAllocations as unknown as { asset: string; targetPct: number }[];
+    const parsed = suggestion.suggestedAllocations as unknown as {
+      asset: string;
+      targetPct: number;
+    }[];
     await this.applyAllocations(parsed);
 
     await AISuggestionModel.updateOne(
@@ -101,17 +104,12 @@ class AISuggestionHandler {
 
   /** Return all suggestions with status 'pending'. */
   async getPending(): Promise<IAISuggestion[]> {
-    return AISuggestionModel.find({ status: "pending" })
-      .sort({ createdAt: -1 })
-      .lean();
+    return AISuggestionModel.find({ status: "pending" }).sort({ createdAt: -1 }).lean();
   }
 
   /** Return suggestions ordered newest-first with optional limit (default 50). */
   async getAll(limit = 50): Promise<IAISuggestion[]> {
-    return AISuggestionModel.find()
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    return AISuggestionModel.find().sort({ createdAt: -1 }).limit(limit).lean();
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────

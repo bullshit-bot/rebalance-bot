@@ -1,23 +1,23 @@
-import { env } from '@config/app-config'
-import { eventBus } from '@events/event-bus'
-import { portfolioTracker } from '@portfolio/portfolio-tracker'
-import { strategyManager } from '@rebalancer/strategy-manager'
-import { trendFilter } from '@rebalancer/trend-filter'
-import { getExecutor } from '@executor/index'
-import { calcProportionalDCA, calcSingleTargetDCA } from '@dca/dca-allocation-calculator'
-import { STABLECOINS } from '@rebalancer/trade-calculator'
-import type { Allocation, Portfolio, TradeOrder } from '@/types/index'
+import type { Allocation, Portfolio, TradeOrder } from "@/types/index";
+import { env } from "@config/app-config";
+import { calcProportionalDCA, calcSingleTargetDCA } from "@dca/dca-allocation-calculator";
+import { eventBus } from "@events/event-bus";
+import { getExecutor } from "@executor/index";
+import { portfolioTracker } from "@portfolio/portfolio-tracker";
+import { strategyManager } from "@rebalancer/strategy-manager";
+import { STABLECOINS } from "@rebalancer/trade-calculator";
+import { trendFilter } from "@rebalancer/trend-filter";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Min % change in portfolio value to be considered a deposit (not price noise). */
-const DEPOSIT_THRESHOLD_PCT = 1
+const DEPOSIT_THRESHOLD_PCT = 1;
 
 /** Cooldown between consecutive deposit detections (ms). */
-const DEPOSIT_COOLDOWN_MS = 60_000
+const DEPOSIT_COOLDOWN_MS = 60_000;
 
 /** Fallback DCA amount when no strategy config is active. */
-const FALLBACK_DCA_AMOUNT = 20
+const FALLBACK_DCA_AMOUNT = 20;
 
 // ─── DCAService ───────────────────────────────────────────────────────────────
 
@@ -32,31 +32,31 @@ const FALLBACK_DCA_AMOUNT = 20
  */
 class DCAService {
   /** Total portfolio USD value from the previous portfolio:update snapshot */
-  private previousTotalValue: number = 0
+  private previousTotalValue = 0;
 
   /** Timestamp of the last detected deposit — used for cooldown gating */
-  private lastDepositAt: number = 0
+  private lastDepositAt = 0;
 
   /** Whether the service is actively listening for portfolio updates */
-  private running = false
+  private running = false;
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   /** Start monitoring portfolio:update events for deposit detection. */
   start(): void {
-    if (this.running) return
-    this.running = true
-    eventBus.on('portfolio:update', this.onPortfolioUpdate)
-    console.log('[DCAService] Started — monitoring portfolio for deposits')
+    if (this.running) return;
+    this.running = true;
+    eventBus.on("portfolio:update", this.onPortfolioUpdate);
+    console.log("[DCAService] Started — monitoring portfolio for deposits");
   }
 
   /** Stop monitoring and reset internal state. */
   stop(): void {
-    if (!this.running) return
-    this.running = false
-    eventBus.off('portfolio:update', this.onPortfolioUpdate)
-    this.previousTotalValue = 0
-    console.log('[DCAService] Stopped')
+    if (!this.running) return;
+    this.running = false;
+    eventBus.off("portfolio:update", this.onPortfolioUpdate);
+    this.previousTotalValue = 0;
+    console.log("[DCAService] Stopped");
   }
 
   /**
@@ -71,19 +71,21 @@ class DCAService {
   calculateDCAAllocation(
     depositAmount: number,
     portfolio: Portfolio,
-    targets: Allocation[],
+    targets: Allocation[]
   ): TradeOrder[] {
-    const minTradeUsd = env.MIN_TRADE_USD
+    const minTradeUsd = env.MIN_TRADE_USD;
 
     // Bear mode guard: when trend filter is enabled and market is bearish,
     // do not route DCA into crypto — hold deposit as cash
-    const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
+    const gs = strategyManager.getActiveConfig()?.globalSettings as
+      | Record<string, unknown>
+      | undefined;
     if (gs?.trendFilterEnabled) {
-      const maPeriod = typeof gs.trendFilterMA === 'number' ? gs.trendFilterMA : 100
-      const buffer = typeof gs.trendFilterBuffer === 'number' ? gs.trendFilterBuffer : 2
+      const maPeriod = typeof gs.trendFilterMA === "number" ? gs.trendFilterMA : 100;
+      const buffer = typeof gs.trendFilterBuffer === "number" ? gs.trendFilterBuffer : 2;
       if (!trendFilter.isBullish(maPeriod, buffer)) {
-        console.log('[DCAService] Bear market detected — DCA deposit held as cash, no crypto buys')
-        return []
+        console.log("[DCAService] Bear market detected — DCA deposit held as cash, no crypto buys");
+        return [];
       }
     }
 
@@ -92,32 +94,35 @@ class DCAService {
       // When crypto holdings are small, distribute proportionally to build initial positions
       const cryptoValue = portfolio.assets
         .filter((a) => !STABLECOINS.has(a.asset))
-        .reduce((sum, a) => sum + a.valueUsd, 0)
+        .reduce((sum, a) => sum + a.valueUsd, 0);
 
-      const configDcaAmount = typeof gs.dcaAmountUsd === 'number' ? gs.dcaAmountUsd : FALLBACK_DCA_AMOUNT
+      const configDcaAmount =
+        typeof gs.dcaAmountUsd === "number" ? gs.dcaAmountUsd : FALLBACK_DCA_AMOUNT;
       if (cryptoValue < configDcaAmount) {
         // Not enough crypto to compare ratios — spread proportionally
-        console.log(`[DCAService] Crypto $${cryptoValue.toFixed(0)} < configured DCA $${configDcaAmount} — proportional mode`)
-        const orders = calcProportionalDCA(depositAmount, portfolio, targets, minTradeUsd)
-        if (orders.length > 0) return orders
+        console.log(
+          `[DCAService] Crypto $${cryptoValue.toFixed(0)} < configured DCA $${configDcaAmount} — proportional mode`
+        );
+        const orders = calcProportionalDCA(depositAmount, portfolio, targets, minTradeUsd);
+        if (orders.length > 0) return orders;
       }
 
       // Enough crypto to compare — concentrate on most underweight asset
-      const dcaTarget = strategyManager.getDCATarget(portfolio, targets)
+      const dcaTarget = strategyManager.getDCATarget(portfolio, targets);
       if (dcaTarget !== null) {
-        return calcSingleTargetDCA(dcaTarget, depositAmount, portfolio, targets, minTradeUsd)
+        return calcSingleTargetDCA(dcaTarget, depositAmount, portfolio, targets, minTradeUsd);
       }
 
-      console.log('[DCAService] Rebalance mode: portfolio crypto is balanced — no DCA needed')
-      return []
+      console.log("[DCAService] Rebalance mode: portfolio crypto is balanced — no DCA needed");
+      return [];
     }
 
     // Default (proportional mode): spread across all underweight assets
-    const orders = calcProportionalDCA(depositAmount, portfolio, targets, minTradeUsd)
+    const orders = calcProportionalDCA(depositAmount, portfolio, targets, minTradeUsd);
     if (orders.length === 0) {
-      console.log('[DCAService] Portfolio is balanced — no DCA orders needed')
+      console.log("[DCAService] Portfolio is balanced — no DCA orders needed");
     }
-    return orders
+    return orders;
   }
 
   /**
@@ -126,35 +131,40 @@ class DCAService {
    * In paper mode, logs the order but doesn't execute.
    */
   async executeScheduledDCA(amountUsd?: number): Promise<TradeOrder[]> {
-    const portfolio = portfolioTracker.getPortfolio()
+    const portfolio = portfolioTracker.getPortfolio();
     if (!portfolio) {
-      console.log('[DCAService] Scheduled DCA skipped — portfolio not ready')
-      return []
+      console.log("[DCAService] Scheduled DCA skipped — portfolio not ready");
+      return [];
     }
 
-    const targets = await portfolioTracker.getTargetAllocations()
-    const configAmount = (strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined)?.dcaAmountUsd as number | undefined
-    const amount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT
-    const orders = this.calculateDCAAllocation(amount, portfolio, targets)
+    const targets = await portfolioTracker.getTargetAllocations();
+    const configAmount = (
+      strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
+    )?.dcaAmountUsd as number | undefined;
+    const amount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT;
+    const orders = this.calculateDCAAllocation(amount, portfolio, targets);
 
     if (orders.length > 0) {
-      console.log(`[DCAService] Scheduled DCA: $${amount} →`)
+      console.log(`[DCAService] Scheduled DCA: $${amount} →`);
       for (const order of orders) {
-        console.log(`  BUY ${order.amount.toFixed(6)} ${order.pair} on ${order.exchange}`)
+        console.log(`  BUY ${order.amount.toFixed(6)} ${order.pair} on ${order.exchange}`);
       }
       // Execute via paper/live executor
       try {
-        const executor = getExecutor()
-        const results = await executor.executeBatch(orders)
-        console.log(`[DCAService] DCA executed: ${results.length} orders`)
+        const executor = getExecutor();
+        const results = await executor.executeBatch(orders);
+        console.log(`[DCAService] DCA executed: ${results.length} orders`);
       } catch (err) {
-        console.error('[DCAService] DCA execution failed:', err instanceof Error ? err.message : err)
+        console.error(
+          "[DCAService] DCA execution failed:",
+          err instanceof Error ? err.message : err
+        );
       }
     } else {
-      console.log(`[DCAService] Scheduled DCA: $${amount} — no orders (balanced or bear)`)
+      console.log(`[DCAService] Scheduled DCA: $${amount} — no orders (balanced or bear)`);
     }
 
-    return orders
+    return orders;
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
@@ -172,55 +182,62 @@ class DCAService {
    */
   private readonly onPortfolioUpdate = (portfolio: Portfolio): void => {
     // Skip incomplete portfolio data (e.g. only USDT loaded, crypto prices pending)
-    if (portfolio.totalValueUsd < 100) return
+    if (portfolio.totalValueUsd < 100) return;
 
     if (this.previousTotalValue === 0) {
-      this.previousTotalValue = portfolio.totalValueUsd
-      console.log(`[DCAService] Baseline portfolio value set: $${portfolio.totalValueUsd.toFixed(2)}`)
-      return
+      this.previousTotalValue = portfolio.totalValueUsd;
+      console.log(
+        `[DCAService] Baseline portfolio value set: $${portfolio.totalValueUsd.toFixed(2)}`
+      );
+      return;
     }
 
-    const diff = portfolio.totalValueUsd - this.previousTotalValue
+    const diff = portfolio.totalValueUsd - this.previousTotalValue;
 
     if (diff <= 0) {
-      this.previousTotalValue = portfolio.totalValueUsd
-      return
+      this.previousTotalValue = portfolio.totalValueUsd;
+      return;
     }
 
-    const diffPct = (diff / this.previousTotalValue) * 100
-    const minTradeUsd = env.MIN_TRADE_USD
-    const now = Date.now()
-    const cooldownElapsed = now - this.lastDepositAt > DEPOSIT_COOLDOWN_MS
-    const isLikelyDeposit = diff > minTradeUsd && diffPct > DEPOSIT_THRESHOLD_PCT && cooldownElapsed
+    const diffPct = (diff / this.previousTotalValue) * 100;
+    const minTradeUsd = env.MIN_TRADE_USD;
+    const now = Date.now();
+    const cooldownElapsed = now - this.lastDepositAt > DEPOSIT_COOLDOWN_MS;
+    const isLikelyDeposit =
+      diff > minTradeUsd && diffPct > DEPOSIT_THRESHOLD_PCT && cooldownElapsed;
 
     if (isLikelyDeposit) {
-      this.lastDepositAt = now
-      console.log(`[DCAService] Possible deposit detected: +$${diff.toFixed(2)} (+${diffPct.toFixed(2)}%)`)
+      this.lastDepositAt = now;
+      console.log(
+        `[DCAService] Possible deposit detected: +$${diff.toFixed(2)} (+${diffPct.toFixed(2)}%)`
+      );
 
       portfolioTracker
         .getTargetAllocations()
         .then((targets) => {
-          const orders = this.calculateDCAAllocation(diff, portfolio, targets)
+          const orders = this.calculateDCAAllocation(diff, portfolio, targets);
           if (orders.length === 0) {
-            console.log('[DCAService] Portfolio balanced — no DCA suggestions')
+            console.log("[DCAService] Portfolio balanced — no DCA suggestions");
           } else {
-            console.log(`[DCAService] Suggested DCA orders for $${diff.toFixed(2)} deposit:`)
+            console.log(`[DCAService] Suggested DCA orders for $${diff.toFixed(2)} deposit:`);
             for (const order of orders) {
-              console.log(`  BUY ${order.amount.toFixed(6)} ${order.pair} on ${order.exchange} (market)`)
+              console.log(
+                `  BUY ${order.amount.toFixed(6)} ${order.pair} on ${order.exchange} (market)`
+              );
             }
           }
         })
         .catch((err: unknown) => {
-          console.error('[DCAService] Failed to fetch target allocations:', err)
-        })
+          console.error("[DCAService] Failed to fetch target allocations:", err);
+        });
     }
 
-    this.previousTotalValue = portfolio.totalValueUsd
-  }
+    this.previousTotalValue = portfolio.totalValueUsd;
+  };
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const dcaService = new DCAService()
+export const dcaService = new DCAService();
 
-export { DCAService }
+export { DCAService };

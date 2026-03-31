@@ -1,14 +1,14 @@
-import { Schema, model } from 'mongoose'
+import { Schema, model } from "mongoose";
 
 export interface IGridOrder {
-  gridBotId: string
-  level: number
-  price: number
-  amount: number
-  side: string
-  status: string // 'open' | 'filled' | 'cancelled'
-  exchangeOrderId: string | null
-  filledAt: Date | null
+  gridBotId: string;
+  level: number;
+  price: number;
+  amount: number;
+  side: string;
+  status: string; // 'open' | 'filled' | 'cancelled'
+  exchangeOrderId: string | null;
+  filledAt: Date | null;
 }
 
 const gridOrderSchema = new Schema<IGridOrder>({
@@ -20,10 +20,10 @@ const gridOrderSchema = new Schema<IGridOrder>({
   status: { type: String, required: true },
   exchangeOrderId: { type: String, default: null },
   filledAt: { type: Date, default: null },
-})
+});
 
-gridOrderSchema.index({ gridBotId: 1 })
+gridOrderSchema.index({ gridBotId: 1 });
 
-export const GridOrderModel = model<IGridOrder>('GridOrder', gridOrderSchema)
-export type GridOrder = IGridOrder & { _id: string }
-export type NewGridOrder = IGridOrder
+export const GridOrderModel = model<IGridOrder>("GridOrder", gridOrderSchema);
+export type GridOrder = IGridOrder & { _id: string };
+export type NewGridOrder = IGridOrder;

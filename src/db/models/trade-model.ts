@@ -1,23 +1,23 @@
-import { Schema, model } from 'mongoose'
+import { Schema, model } from "mongoose";
 
 export interface ITrade {
-  exchange: string
-  pair: string
-  side: 'buy' | 'sell'
-  amount: number
-  price: number
-  costUsd: number
-  fee: number | null
-  feeCurrency: string | null
-  orderId: string | null
-  rebalanceId: string | null
-  executedAt: Date
+  exchange: string;
+  pair: string;
+  side: "buy" | "sell";
+  amount: number;
+  price: number;
+  costUsd: number;
+  fee: number | null;
+  feeCurrency: string | null;
+  orderId: string | null;
+  rebalanceId: string | null;
+  executedAt: Date;
 }
 
 const tradeSchema = new Schema<ITrade>({
   exchange: { type: String, required: true },
   pair: { type: String, required: true },
-  side: { type: String, enum: ['buy', 'sell'], required: true },
+  side: { type: String, enum: ["buy", "sell"], required: true },
   amount: { type: Number, required: true },
   price: { type: Number, required: true },
   costUsd: { type: Number, required: true },
@@ -26,10 +26,10 @@ const tradeSchema = new Schema<ITrade>({
   orderId: { type: String, default: null },
   rebalanceId: { type: String, default: null },
   executedAt: { type: Date, default: Date.now },
-})
+});
 
-tradeSchema.index({ rebalanceId: 1 })
+tradeSchema.index({ rebalanceId: 1 });
 
-export const TradeModel = model<ITrade>('Trade', tradeSchema)
-export type Trade = ITrade & { _id: string }
-export type NewTrade = Omit<ITrade, 'executedAt'> & { executedAt?: Date }
+export const TradeModel = model<ITrade>("Trade", tradeSchema);
+export type Trade = ITrade & { _id: string };
+export type NewTrade = Omit<ITrade, "executedAt"> & { executedAt?: Date };

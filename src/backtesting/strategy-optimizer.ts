@@ -1,52 +1,52 @@
-import { backtestSimulator } from './backtest-simulator'
-import type { BacktestConfig } from './backtest-simulator'
-import { generateParameterGrid, generateCashDCAGrid } from './optimizer-parameter-grids'
-import type { StrategyType } from '@rebalancer/strategies/strategy-config-types'
-import type { Allocation } from '@/types/index'
+import type { Allocation } from "@/types/index";
+import type { StrategyType } from "@rebalancer/strategies/strategy-config-types";
+import { backtestSimulator } from "./backtest-simulator";
+import type { BacktestConfig } from "./backtest-simulator";
+import { generateCashDCAGrid, generateParameterGrid } from "./optimizer-parameter-grids";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface OptimizationBaseConfig {
-  exchange: string
-  pairs: string[]
-  timeframe: '1h' | '1d'
-  startDate: number
-  endDate: number
-  initialBalance: number
-  allocations: Allocation[]
-  feePct: number
+  exchange: string;
+  pairs: string[];
+  timeframe: "1h" | "1d";
+  startDate: number;
+  endDate: number;
+  initialBalance: number;
+  allocations: Allocation[];
+  feePct: number;
 }
 
 export interface OptimizationRequest extends OptimizationBaseConfig {
   /** Filter to specific strategy types; omit for all */
-  strategyTypes?: StrategyType[]
+  strategyTypes?: StrategyType[];
   /** Number of top results to return (default 20) */
-  topN?: number
+  topN?: number;
   /** When true, appends cash-reserve + DCA routing scenarios to the grid */
-  includeCashScenarios?: boolean
+  includeCashScenarios?: boolean;
 }
 
 export interface OptimizationResultItem {
-  rank: number
-  label: string
-  strategyType: string
-  params: Record<string, unknown>
-  totalReturn: number
-  sharpeRatio: number
-  maxDrawdown: number
-  totalTrades: number
-  compositeScore: number
-  cashReservePct?: number | undefined
-  dcaRebalanceEnabled?: boolean | undefined
+  rank: number;
+  label: string;
+  strategyType: string;
+  params: Record<string, unknown>;
+  totalReturn: number;
+  sharpeRatio: number;
+  maxDrawdown: number;
+  totalTrades: number;
+  compositeScore: number;
+  cashReservePct?: number | undefined;
+  dcaRebalanceEnabled?: boolean | undefined;
 }
 
 export interface OptimizationResult {
-  results: OptimizationResultItem[]
-  bestStrategy: string
-  totalCombinations: number
-  ranCombinations: number
-  skippedCombinations: number
-  elapsedMs: number
+  results: OptimizationResultItem[];
+  bestStrategy: string;
+  totalCombinations: number;
+  ranCombinations: number;
+  skippedCombinations: number;
+  elapsedMs: number;
 }
 
 // ─── StrategyOptimizer ────────────────────────────────────────────────────────
@@ -61,37 +61,39 @@ export interface OptimizationResult {
 class StrategyOptimizer {
   async optimize(
     request: OptimizationRequest,
-    onProgress?: (completed: number, total: number) => void,
+    onProgress?: (completed: number, total: number) => void
   ): Promise<OptimizationResult> {
-    const { strategyTypes, topN = 20, includeCashScenarios = false, ...baseConfig } = request
+    const { strategyTypes, topN = 20, includeCashScenarios = false, ...baseConfig } = request;
     const grid = [
       ...generateParameterGrid(strategyTypes),
       ...(includeCashScenarios ? generateCashDCAGrid() : []),
-    ]
-    const total = grid.length
-    const startMs = Date.now()
+    ];
+    const total = grid.length;
+    const startMs = Date.now();
 
-    const results: OptimizationResultItem[] = []
-    let skipped = 0
+    const results: OptimizationResultItem[] = [];
+    let skipped = 0;
 
     for (let i = 0; i < grid.length; i++) {
-      const combo = grid[i]!
-      onProgress?.(i, total)
+      const combo = grid[i]!;
+      onProgress?.(i, total);
 
       try {
         // Build a full BacktestConfig for this combo
         const config: BacktestConfig = {
           ...baseConfig,
-          exchange: baseConfig.exchange as import('@/types/index').ExchangeName,
+          exchange: baseConfig.exchange as import("@/types/index").ExchangeName,
           threshold: 5, // fallback threshold; strategies use their own params
           strategyType: combo.strategyType,
-          strategyParams: combo.strategyParams as import('@rebalancer/strategies/strategy-config-types').StrategyParams,
+          strategyParams: combo.strategyParams as import(
+            "@rebalancer/strategies/strategy-config-types"
+          ).StrategyParams,
           cashReservePct: combo.cashReservePct ?? 0,
           dcaRebalanceEnabled: combo.dcaRebalanceEnabled ?? false,
-        }
+        };
 
-        const result = await backtestSimulator.run(config)
-        const m = result.metrics
+        const result = await backtestSimulator.run(config);
+        const m = result.metrics;
 
         results.push({
           rank: 0, // assigned after sorting
@@ -105,48 +107,48 @@ class StrategyOptimizer {
           compositeScore: 0, // computed below
           cashReservePct: combo.cashReservePct,
           dcaRebalanceEnabled: combo.dcaRebalanceEnabled ?? false,
-        })
+        });
       } catch (err) {
-        skipped++
+        skipped++;
         console.warn(
           `[Optimizer] ${combo.label} failed:`,
-          err instanceof Error ? err.message : String(err),
-        )
+          err instanceof Error ? err.message : String(err)
+        );
       }
     }
 
-    onProgress?.(total, total)
+    onProgress?.(total, total);
 
     // Compute composite scores and assign ranks
-    const maxReturn = Math.max(...results.map((r) => r.totalReturn), 1)
+    const maxReturn = Math.max(...results.map((r) => r.totalReturn), 1);
     for (const r of results) {
-      const normReturn = Math.max(0, r.totalReturn) / maxReturn
-      const normDD = 1 - Math.min(Math.abs(r.maxDrawdown), 100) / 100
-      r.compositeScore = 0.4 * r.sharpeRatio + 0.3 * normReturn + 0.3 * normDD
+      const normReturn = Math.max(0, r.totalReturn) / maxReturn;
+      const normDD = 1 - Math.min(Math.abs(r.maxDrawdown), 100) / 100;
+      r.compositeScore = 0.4 * r.sharpeRatio + 0.3 * normReturn + 0.3 * normDD;
     }
 
     // Sort descending by composite score
-    results.sort((a, b) => b.compositeScore - a.compositeScore)
+    results.sort((a, b) => b.compositeScore - a.compositeScore);
 
     // Assign ranks (1-based)
     results.forEach((r, idx) => {
-      r.rank = idx + 1
-    })
+      r.rank = idx + 1;
+    });
 
-    const topResults = results.slice(0, topN)
+    const topResults = results.slice(0, topN);
 
     return {
       results: topResults,
-      bestStrategy: topResults[0]?.label ?? 'none',
+      bestStrategy: topResults[0]?.label ?? "none",
       totalCombinations: total,
       ranCombinations: results.length,
       skippedCombinations: skipped,
       elapsedMs: Date.now() - startMs,
-    }
+    };
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const strategyOptimizer = new StrategyOptimizer()
-export { StrategyOptimizer }
+export const strategyOptimizer = new StrategyOptimizer();
+export { StrategyOptimizer };

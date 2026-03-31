@@ -1,31 +1,31 @@
-import { randomUUID } from 'node:crypto'
-import { BacktestResultModel } from '@db/database'
-import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from '@/types/index'
-import { calculateTrades } from '@rebalancer/trade-calculator'
-import { historicalDataLoader } from './historical-data-loader'
-import type { OHLCVCandle } from './historical-data-loader'
-import { metricsCalculator } from './metrics-calculator'
-import type { BacktestConfig, BacktestMetrics, SimulatedTrade } from './metrics-calculator'
-import { benchmarkComparator } from './benchmark-comparator'
-import type { BenchmarkResult } from './benchmark-comparator'
-import { StrategyBacktestAdapter } from './strategy-backtest-adapter'
+import { randomUUID } from "node:crypto";
+import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from "@/types/index";
+import { BacktestResultModel } from "@db/database";
+import { calculateTrades } from "@rebalancer/trade-calculator";
+import { benchmarkComparator } from "./benchmark-comparator";
+import type { BenchmarkResult } from "./benchmark-comparator";
+import { historicalDataLoader } from "./historical-data-loader";
+import type { OHLCVCandle } from "./historical-data-loader";
+import { metricsCalculator } from "./metrics-calculator";
+import type { BacktestConfig, BacktestMetrics, SimulatedTrade } from "./metrics-calculator";
+import { StrategyBacktestAdapter } from "./strategy-backtest-adapter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface BacktestResult {
-  id: string
-  config: BacktestConfig
-  metrics: BacktestMetrics
-  trades: SimulatedTrade[]
-  equityCurve: { timestamp: number; value: number }[]
-  finalPortfolio: Record<string, { amount: number; valueUsd: number }>
-  benchmark: BenchmarkResult
+  id: string;
+  config: BacktestConfig;
+  metrics: BacktestMetrics;
+  trades: SimulatedTrade[];
+  equityCurve: { timestamp: number; value: number }[];
+  finalPortfolio: Record<string, { amount: number; valueUsd: number }>;
+  benchmark: BenchmarkResult;
 }
 
 /** Per-asset holding tracked during simulation. */
 interface HoldingState {
-  amount: number    // base asset quantity
-  valueUsd: number  // current USD value
+  amount: number; // base asset quantity
+  valueUsd: number; // current USD value
 }
 
 // ─── BacktestSimulator ────────────────────────────────────────────────────────
@@ -45,78 +45,79 @@ interface HoldingState {
 class BacktestSimulator {
   async run(config: BacktestConfig): Promise<BacktestResult> {
     // ── 1. Load OHLCV data for all pairs ──────────────────────────────────────
-    const ohlcvData = await this._loadAllPairs(config)
+    const ohlcvData = await this._loadAllPairs(config);
 
     // ── 2. Build a merged, chronological candle timeline ──────────────────────
-    const timeline = this._buildTimeline(ohlcvData)
+    const timeline = this._buildTimeline(ohlcvData);
     if (timeline.length === 0) {
-      throw new Error('[BacktestSimulator] No candle data found for the given config')
+      throw new Error("[BacktestSimulator] No candle data found for the given config");
     }
 
     // ── 3. Initialise virtual portfolio ───────────────────────────────────────
     // Buy at the close price of the very first candle per target allocation.
-    const firstPrices = this._pricesAtTimestamp(ohlcvData, timeline[0]!)
-    const holdings = this._initHoldings(config, firstPrices)
+    const firstPrices = this._pricesAtTimestamp(ohlcvData, timeline[0]!);
+    const holdings = this._initHoldings(config, firstPrices);
 
     // Create strategy adapter when a non-default strategy is configured
-    const adapter = config.strategyType && config.strategyType !== 'threshold' && config.strategyParams
-      ? new StrategyBacktestAdapter(config.strategyParams)
-      : null
+    const adapter =
+      config.strategyType && config.strategyType !== "threshold" && config.strategyParams
+        ? new StrategyBacktestAdapter(config.strategyParams)
+        : null;
 
     // Rolling window of recent daily returns for per-candle volatility estimate
-    const recentReturns: number[] = []
-    let prevTotalValue: number | null = null
+    const recentReturns: number[] = [];
+    let prevTotalValue: number | null = null;
 
-    const trades: SimulatedTrade[] = []
-    const equityCurve: { timestamp: number; value: number }[] = []
+    const trades: SimulatedTrade[] = [];
+    const equityCurve: { timestamp: number; value: number }[] = [];
 
     // ── DCA + Trend filter state ──────────────────────────────────────────────
-    const dcaAmountUsd = config.dcaAmountUsd ?? 0
-    const dcaIntervalCandles = config.dcaIntervalCandles ?? 1
-    const trendMaPeriod = config.trendFilterMaPeriod ?? 0
-    const trendBearCashPct = config.trendFilterBearCashPct ?? 90
-    const trendCooldown = config.trendFilterCooldownCandles ?? 3
-    const cashReservePct = config.cashReservePct ?? 0
+    const dcaAmountUsd = config.dcaAmountUsd ?? 0;
+    const dcaIntervalCandles = config.dcaIntervalCandles ?? 1;
+    const trendMaPeriod = config.trendFilterMaPeriod ?? 0;
+    const trendBearCashPct = config.trendFilterBearCashPct ?? 90;
+    const trendCooldown = config.trendFilterCooldownCandles ?? 3;
+    const cashReservePct = config.cashReservePct ?? 0;
 
     // BTC close prices accumulated for SMA calculation
-    const btcCloses: number[] = []
-    const btcPair = 'BTC/USDT'
+    const btcCloses: number[] = [];
+    const btcPair = "BTC/USDT";
 
     // Bear mode state: inBearMode = true when BTC < MA; cooldownRemaining prevents whipsaw
-    let inBearMode = false
-    let trendCooldownRemaining = 0
+    let inBearMode = false;
+    let trendCooldownRemaining = 0;
 
     // Cash balance: used for cash reserve + bear mode proceeds
-    let cashUsd = 0
+    let cashUsd = 0;
 
     // Total DCA injected (sum of all DCA deposits, excluding initial balance)
-    let totalDcaInjected = 0
+    let totalDcaInjected = 0;
 
-    let candleIndex = 0
+    let candleIndex = 0;
 
     // ── 4. Iterate through candles ────────────────────────────────────────────
     for (const ts of timeline) {
-      const prices = this._pricesAtTimestamp(ohlcvData, ts)
+      const prices = this._pricesAtTimestamp(ohlcvData, ts);
 
       // Update USD values from current close prices
       for (const [pair, state] of Object.entries(holdings)) {
-        const price = prices[pair]
-        if (price !== undefined) state.valueUsd = state.amount * price
+        const price = prices[pair];
+        if (price !== undefined) state.valueUsd = state.amount * price;
       }
 
       // Accumulate BTC close for trend filter SMA
       if (trendMaPeriod > 0) {
-        const btcClose = prices[btcPair]
-        if (btcClose !== undefined) btcCloses.push(btcClose)
+        const btcClose = prices[btcPair];
+        if (btcClose !== undefined) btcCloses.push(btcClose);
       }
 
-      let totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+      let totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
 
       // ── DCA injection (skip candle 0 = initial buy-in) ───────────────────
       if (candleIndex > 0 && dcaAmountUsd > 0 && candleIndex % dcaIntervalCandles === 0) {
         if (inBearMode) {
           // In bear mode: DCA goes to cash reserve
-          cashUsd += dcaAmountUsd
+          cashUsd += dcaAmountUsd;
         } else {
           // In bull mode: buy most underweight asset
           this._dcaInjectBullMode(
@@ -126,60 +127,60 @@ class BacktestSimulator {
             dcaAmountUsd,
             cashReservePct,
             totalValueUsd,
-            config.feePct,
-          )
+            config.feePct
+          );
         }
-        totalDcaInjected += dcaAmountUsd
-        totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+        totalDcaInjected += dcaAmountUsd;
+        totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
       }
 
       // ── Trend filter: detect bull/bear transition ─────────────────────────
       if (trendMaPeriod > 0 && btcCloses.length >= trendMaPeriod) {
-        const ma = btcCloses.slice(-trendMaPeriod).reduce((s, v) => s + v, 0) / trendMaPeriod
-        const btcCurrentPrice = btcCloses[btcCloses.length - 1]!
+        const ma = btcCloses.slice(-trendMaPeriod).reduce((s, v) => s + v, 0) / trendMaPeriod;
+        const btcCurrentPrice = btcCloses[btcCloses.length - 1]!;
         // Apply buffer: only bear if price is buffer% below MA (matches live trend-filter)
-        const trendBuffer = config.trendFilterBuffer ?? 2
-        const nowBear = btcCurrentPrice < ma * (1 - trendBuffer / 100)
+        const trendBuffer = config.trendFilterBuffer ?? 2;
+        const nowBear = btcCurrentPrice < ma * (1 - trendBuffer / 100);
 
         if (trendCooldownRemaining > 0) {
-          trendCooldownRemaining--
+          trendCooldownRemaining--;
         } else if (nowBear !== inBearMode) {
           // State flip; apply cooldown before accepting next flip
-          inBearMode = nowBear
-          trendCooldownRemaining = trendCooldown
+          inBearMode = nowBear;
+          trendCooldownRemaining = trendCooldown;
 
           if (inBearMode) {
             // Transition to bear: sell holdings down to (100 - trendBearCashPct)% crypto
-            const targetCashPct = trendBearCashPct / 100
-            const targetCashUsd = totalValueUsd * targetCashPct
-            const cryptoValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0)
+            const targetCashPct = trendBearCashPct / 100;
+            const targetCashUsd = totalValueUsd * targetCashPct;
+            const cryptoValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0);
             if (cashUsd < targetCashUsd && cryptoValueUsd > 0) {
-              const sellRatio = Math.min(1, (targetCashUsd - cashUsd) / cryptoValueUsd)
+              const sellRatio = Math.min(1, (targetCashUsd - cashUsd) / cryptoValueUsd);
               for (const [pair, holding] of Object.entries(holdings)) {
-                const price = prices[pair]
-                if (!price || price <= 0 || holding.amount <= 0) continue
-                const sellQty = holding.amount * sellRatio
-                const proceeds = sellQty * price
-                const fee = proceeds * config.feePct
-                holding.amount -= sellQty
-                holding.valueUsd = holding.amount * price
-                cashUsd += proceeds - fee
+                const price = prices[pair];
+                if (!price || price <= 0 || holding.amount <= 0) continue;
+                const sellQty = holding.amount * sellRatio;
+                const proceeds = sellQty * price;
+                const fee = proceeds * config.feePct;
+                holding.amount -= sellQty;
+                holding.valueUsd = holding.amount * price;
+                cashUsd += proceeds - fee;
                 trades.push({
                   timestamp: ts,
                   pair,
-                  side: 'sell',
+                  side: "sell",
                   amount: sellQty,
                   price,
                   costUsd: proceeds,
                   fee,
-                })
+                });
               }
-              totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+              totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
             }
           } else {
             // Transition to bull: re-deploy excess cash above cashReservePct
-            const normalCashUsd = totalValueUsd * (cashReservePct / 100)
-            const excessCash = cashUsd - normalCashUsd
+            const normalCashUsd = totalValueUsd * (cashReservePct / 100);
+            const excessCash = cashUsd - normalCashUsd;
             if (excessCash > 0) {
               this._deployCash(
                 holdings,
@@ -189,10 +190,10 @@ class BacktestSimulator {
                 config.feePct,
                 totalValueUsd,
                 trades,
-                ts,
-              )
-              cashUsd -= excessCash
-              totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
+                ts
+              );
+              cashUsd -= excessCash;
+              totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
             }
           }
         }
@@ -200,53 +201,52 @@ class BacktestSimulator {
 
       // Maintain rolling return window for volatility calculation
       if (prevTotalValue !== null && prevTotalValue > 0) {
-        recentReturns.push((totalValueUsd - prevTotalValue) / prevTotalValue)
+        recentReturns.push((totalValueUsd - prevTotalValue) / prevTotalValue);
         // Keep a 30-sample window (≈30 candles)
-        if (recentReturns.length > 30) recentReturns.shift()
+        if (recentReturns.length > 30) recentReturns.shift();
       }
-      prevTotalValue = totalValueUsd
+      prevTotalValue = totalValueUsd;
 
       // Compute current annualised volatility from recent returns
-      const currentVol = this._annualisedVol(recentReturns)
+      const currentVol = this._annualisedVol(recentReturns);
 
       // ── Rebalance check (skipped in bear mode when trend filter active) ───
-      let shouldRebalance: boolean
-      let effectiveAllocations: Allocation[] = config.allocations
+      let shouldRebalance: boolean;
+      let effectiveAllocations: Allocation[] = config.allocations;
 
-      const skipRebalanceInBear = trendMaPeriod > 0 && inBearMode
+      const skipRebalanceInBear = trendMaPeriod > 0 && inBearMode;
 
       // For rebalance calculations, use only the crypto portion (exclude cash)
       // This prevents the rebalancer from treating cash as drift
-      const cryptoOnlyValue = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0)
+      const cryptoOnlyValue = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0);
 
       if (!skipRebalanceInBear && cryptoOnlyValue > 0) {
         if (adapter) {
-          const drifts = new Map<string, number>()
+          const drifts = new Map<string, number>();
           for (const alloc of config.allocations) {
-            const pair = `${alloc.asset}/USDT`
-            const currentPct = cryptoOnlyValue > 0
-              ? ((holdings[pair]?.valueUsd ?? 0) / cryptoOnlyValue) * 100
-              : 0
-            drifts.set(alloc.asset, currentPct - alloc.targetPct)
+            const pair = `${alloc.asset}/USDT`;
+            const currentPct =
+              cryptoOnlyValue > 0 ? ((holdings[pair]?.valueUsd ?? 0) / cryptoOnlyValue) * 100 : 0;
+            drifts.set(alloc.asset, currentPct - alloc.targetPct);
           }
 
-          adapter.updateState(drifts, currentVol, prices)
+          adapter.updateState(drifts, currentVol, prices);
           shouldRebalance = adapter.needsRebalance(
             holdings,
             config.allocations,
             cryptoOnlyValue,
-            config.threshold,
-          )
+            config.threshold
+          );
           if (shouldRebalance) {
-            effectiveAllocations = adapter.getEffectiveAllocations(config.allocations)
+            effectiveAllocations = adapter.getEffectiveAllocations(config.allocations);
           }
         } else {
           shouldRebalance = this._needsRebalance(
             holdings,
             config.allocations,
             cryptoOnlyValue,
-            config.threshold,
-          )
+            config.threshold
+          );
         }
 
         if (shouldRebalance) {
@@ -256,44 +256,52 @@ class BacktestSimulator {
             prices,
             cryptoOnlyValue,
             ts,
-            effectiveAllocations,
-          )
-          trades.push(...rebalanceTrades)
+            effectiveAllocations
+          );
+          trades.push(...rebalanceTrades);
         }
       }
 
       // Record equity after any rebalance (crypto holdings + cash)
-      const equity = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd
-      equityCurve.push({ timestamp: ts, value: equity })
-      candleIndex++
+      const equity = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
+      equityCurve.push({ timestamp: ts, value: equity });
+      candleIndex++;
     }
 
     // ── 5. Build final portfolio snapshot ────────────────────────────────────
-    const finalPortfolio: Record<string, { amount: number; valueUsd: number }> = {}
+    const finalPortfolio: Record<string, { amount: number; valueUsd: number }> = {};
     for (const [pair, state] of Object.entries(holdings)) {
-      finalPortfolio[pair] = { amount: state.amount, valueUsd: state.valueUsd }
+      finalPortfolio[pair] = { amount: state.amount, valueUsd: state.valueUsd };
     }
     // Include cash position if non-zero
     if (cashUsd > 0) {
-      finalPortfolio['USDT'] = { amount: cashUsd, valueUsd: cashUsd }
+      finalPortfolio["USDT"] = { amount: cashUsd, valueUsd: cashUsd };
     }
 
     // ── 6. Compute metrics ────────────────────────────────────────────────────
-    const metrics = metricsCalculator.calculate(equityCurve, trades, config, totalDcaInjected)
+    const metrics = metricsCalculator.calculate(equityCurve, trades, config, totalDcaInjected);
 
     // ── 7. Benchmark comparison ───────────────────────────────────────────────
     const benchmark = benchmarkComparator.compare(
       { config, metrics, trades, equityCurve },
-      ohlcvData,
-    )
+      ohlcvData
+    );
 
-    const id = randomUUID()
-    const result: BacktestResult = { id, config, metrics, trades, equityCurve, finalPortfolio, benchmark }
+    const id = randomUUID();
+    const result: BacktestResult = {
+      id,
+      config,
+      metrics,
+      trades,
+      equityCurve,
+      finalPortfolio,
+      benchmark,
+    };
 
     // ── 8. Persist to DB ──────────────────────────────────────────────────────
-    await this._persist(result)
+    await this._persist(result);
 
-    return result
+    return result;
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
@@ -303,7 +311,7 @@ class BacktestSimulator {
    * loadData (exchange fetch + DB write) when cache is empty.
    */
   private async _loadAllPairs(config: BacktestConfig): Promise<Record<string, OHLCVCandle[]>> {
-    const result: Record<string, OHLCVCandle[]> = {}
+    const result: Record<string, OHLCVCandle[]> = {};
 
     for (const pair of config.pairs) {
       let candles = await historicalDataLoader.getCachedData({
@@ -312,7 +320,7 @@ class BacktestSimulator {
         timeframe: config.timeframe,
         since: config.startDate,
         until: config.endDate,
-      })
+      });
 
       if (candles.length === 0) {
         candles = await historicalDataLoader.loadData({
@@ -321,16 +329,16 @@ class BacktestSimulator {
           timeframe: config.timeframe,
           since: config.startDate,
           until: config.endDate,
-        })
+        });
       }
 
       // Filter to requested date range
       result[pair] = candles.filter(
-        (c) => c.timestamp >= config.startDate && c.timestamp <= config.endDate,
-      )
+        (c) => c.timestamp >= config.startDate && c.timestamp <= config.endDate
+      );
     }
 
-    return result
+    return result;
   }
 
   /**
@@ -338,31 +346,31 @@ class BacktestSimulator {
    * Only timestamps where ALL pairs have a candle are included (inner join).
    */
   private _buildTimeline(ohlcvData: Record<string, OHLCVCandle[]>): number[] {
-    const pairs = Object.keys(ohlcvData)
-    if (pairs.length === 0) return []
+    const pairs = Object.keys(ohlcvData);
+    if (pairs.length === 0) return [];
 
     // Start with timestamps from first pair, intersect with the rest
-    let common = new Set(ohlcvData[pairs[0]!]!.map((c) => c.timestamp))
+    let common = new Set(ohlcvData[pairs[0]!]!.map((c) => c.timestamp));
 
     for (let i = 1; i < pairs.length; i++) {
-      const pairTs = new Set(ohlcvData[pairs[i]!]!.map((c) => c.timestamp))
-      common = new Set([...common].filter((ts) => pairTs.has(ts)))
+      const pairTs = new Set(ohlcvData[pairs[i]!]!.map((c) => c.timestamp));
+      common = new Set([...common].filter((ts) => pairTs.has(ts)));
     }
 
-    return [...common].sort((a, b) => a - b)
+    return [...common].sort((a, b) => a - b);
   }
 
   /** Extracts a pair → close-price map for a given timestamp. */
   private _pricesAtTimestamp(
     ohlcvData: Record<string, OHLCVCandle[]>,
-    ts: number,
+    ts: number
   ): Record<string, number> {
-    const prices: Record<string, number> = {}
+    const prices: Record<string, number> = {};
     for (const [pair, candles] of Object.entries(ohlcvData)) {
-      const candle = candles.find((c) => c.timestamp === ts)
-      if (candle) prices[pair] = candle.close
+      const candle = candles.find((c) => c.timestamp === ts);
+      if (candle) prices[pair] = candle.close;
     }
-    return prices
+    return prices;
   }
 
   /**
@@ -371,23 +379,23 @@ class BacktestSimulator {
    */
   private _initHoldings(
     config: BacktestConfig,
-    prices: Record<string, number>,
+    prices: Record<string, number>
   ): Record<string, HoldingState> {
-    const holdings: Record<string, HoldingState> = {}
+    const holdings: Record<string, HoldingState> = {};
 
     for (const alloc of config.allocations) {
-      const pair = `${alloc.asset}/USDT`
-      const price = prices[pair]
-      if (!price || price <= 0) continue
+      const pair = `${alloc.asset}/USDT`;
+      const price = prices[pair];
+      if (!price || price <= 0) continue;
 
-      const usdAlloc = (alloc.targetPct / 100) * config.initialBalance
+      const usdAlloc = (alloc.targetPct / 100) * config.initialBalance;
       holdings[pair] = {
         amount: usdAlloc / price,
         valueUsd: usdAlloc,
-      }
+      };
     }
 
-    return holdings
+    return holdings;
   }
 
   /**
@@ -395,10 +403,10 @@ class BacktestSimulator {
    * Returns 0 when fewer than 2 samples are available.
    */
   private _annualisedVol(returns: number[]): number {
-    if (returns.length < 2) return 0
-    const mean = returns.reduce((s, r) => s + r, 0) / returns.length
-    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length
-    return Math.sqrt(variance) * Math.sqrt(365)
+    if (returns.length < 2) return 0;
+    const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length;
+    return Math.sqrt(variance) * Math.sqrt(365);
   }
 
   /**
@@ -409,19 +417,19 @@ class BacktestSimulator {
     holdings: Record<string, HoldingState>,
     allocations: Allocation[],
     totalValueUsd: number,
-    threshold: number,
+    threshold: number
   ): boolean {
-    if (totalValueUsd <= 0) return false
+    if (totalValueUsd <= 0) return false;
 
     for (const alloc of allocations) {
-      const pair = `${alloc.asset}/USDT`
-      const currentUsd = holdings[pair]?.valueUsd ?? 0
-      const currentPct = (currentUsd / totalValueUsd) * 100
-      const drift = Math.abs(currentPct - alloc.targetPct)
-      if (drift >= threshold) return true
+      const pair = `${alloc.asset}/USDT`;
+      const currentUsd = holdings[pair]?.valueUsd ?? 0;
+      const currentPct = (currentUsd / totalValueUsd) * 100;
+      const drift = Math.abs(currentPct - alloc.targetPct);
+      if (drift >= threshold) return true;
     }
 
-    return false
+    return false;
   }
 
   /**
@@ -440,7 +448,7 @@ class BacktestSimulator {
     prices: Record<string, number>,
     totalValueUsd: number,
     ts: number,
-    effectiveAllocations: Allocation[] = config.allocations,
+    effectiveAllocations: Allocation[] = config.allocations
   ): SimulatedTrade[] {
     // Build Portfolio shape expected by calculateTrades
     const portfolio: Portfolio = {
@@ -448,12 +456,12 @@ class BacktestSimulator {
       updatedAt: ts,
       assets: effectiveAllocations
         .map((alloc): PortfolioAsset | null => {
-          const pair = `${alloc.asset}/USDT`
-          const holding = holdings[pair]
-          const price = prices[pair]
-          if (!holding || !price) return null
+          const pair = `${alloc.asset}/USDT`;
+          const holding = holdings[pair];
+          const price = prices[pair];
+          if (!holding || !price) return null;
 
-          const currentPct = totalValueUsd > 0 ? (holding.valueUsd / totalValueUsd) * 100 : 0
+          const currentPct = totalValueUsd > 0 ? (holding.valueUsd / totalValueUsd) * 100 : 0;
           return {
             asset: alloc.asset,
             amount: holding.amount,
@@ -462,40 +470,40 @@ class BacktestSimulator {
             targetPct: alloc.targetPct,
             driftPct: currentPct - alloc.targetPct,
             exchange: (alloc.exchange ?? config.exchange) as ExchangeName,
-          }
+          };
         })
         .filter((a): a is PortfolioAsset => a !== null),
-    }
+    };
 
-    const orders = calculateTrades(portfolio, effectiveAllocations, prices)
-    const simTrades: SimulatedTrade[] = []
+    const orders = calculateTrades(portfolio, effectiveAllocations, prices);
+    const simTrades: SimulatedTrade[] = [];
 
     for (const order of orders) {
-      const price = prices[order.pair]
-      if (!price || price <= 0) continue
+      const price = prices[order.pair];
+      if (!price || price <= 0) continue;
 
       // order.amount is in base asset units (e.g., 0.5 BTC), convert to USD
-      const assetAmount = order.amount
-      const costUsd = assetAmount * price
-      const fee = costUsd * config.feePct
+      const assetAmount = order.amount;
+      const costUsd = assetAmount * price;
+      const fee = costUsd * config.feePct;
 
       // Apply trade to holdings
-      const holding = holdings[order.pair]
-      if (order.side === 'buy') {
+      const holding = holdings[order.pair];
+      if (order.side === "buy") {
         if (holding) {
-          holding.amount += assetAmount
-          holding.valueUsd += costUsd - fee
+          holding.amount += assetAmount;
+          holding.valueUsd += costUsd - fee;
         } else {
           holdings[order.pair] = {
             amount: assetAmount,
             valueUsd: costUsd - fee,
-          }
+          };
         }
       } else {
         // sell
         if (holding) {
-          holding.amount = Math.max(0, holding.amount - assetAmount)
-          holding.valueUsd = Math.max(0, holding.valueUsd - costUsd)
+          holding.amount = Math.max(0, holding.amount - assetAmount);
+          holding.valueUsd = Math.max(0, holding.valueUsd - costUsd);
         }
       }
 
@@ -507,10 +515,10 @@ class BacktestSimulator {
         price,
         costUsd,
         fee,
-      })
+      });
     }
 
-    return simTrades
+    return simTrades;
   }
 
   /**
@@ -526,39 +534,39 @@ class BacktestSimulator {
     dcaAmountUsd: number,
     cashReservePct: number,
     totalValueUsd: number,
-    feePct: number = 0.001,
+    feePct = 0.001
   ): void {
     // Investable pool excludes cash reserve
-    const cryptoPool = totalValueUsd * (1 - cashReservePct / 100)
+    const cryptoPool = totalValueUsd * (1 - cashReservePct / 100);
 
-    let maxDrift = -Infinity
-    let targetAsset: string | null = null
+    let maxDrift = Number.NEGATIVE_INFINITY;
+    let targetAsset: string | null = null;
 
     for (const alloc of allocations) {
-      const pair = `${alloc.asset}/USDT`
-      const heldUsd = holdings[pair]?.valueUsd ?? 0
-      const targetUsd = alloc.targetPct / 100 * (cryptoPool > 0 ? cryptoPool : totalValueUsd)
-      const drift = targetUsd - heldUsd
+      const pair = `${alloc.asset}/USDT`;
+      const heldUsd = holdings[pair]?.valueUsd ?? 0;
+      const targetUsd = (alloc.targetPct / 100) * (cryptoPool > 0 ? cryptoPool : totalValueUsd);
+      const drift = targetUsd - heldUsd;
       if (drift > maxDrift) {
-        maxDrift = drift
-        targetAsset = pair
+        maxDrift = drift;
+        targetAsset = pair;
       }
     }
 
     if (targetAsset && maxDrift > 0) {
-      const price = prices[targetAsset]
+      const price = prices[targetAsset];
       if (price && price > 0) {
-        const fee = dcaAmountUsd * feePct
-        const netAmount = dcaAmountUsd - fee
-        const holding = holdings[targetAsset]
+        const fee = dcaAmountUsd * feePct;
+        const netAmount = dcaAmountUsd - fee;
+        const holding = holdings[targetAsset];
         if (holding) {
-          holding.amount += netAmount / price
-          holding.valueUsd += netAmount
+          holding.amount += netAmount / price;
+          holding.valueUsd += netAmount;
         } else {
           holdings[targetAsset] = {
             amount: netAmount / price,
             valueUsd: netAmount,
-          }
+          };
         }
       }
     }
@@ -578,37 +586,37 @@ class BacktestSimulator {
     feePct: number,
     _totalValueUsd: number,
     trades: SimulatedTrade[],
-    ts: number,
+    ts: number
   ): void {
     // Distribute excess cash across all assets by target allocation weight
     for (const alloc of allocations) {
-      const pair = `${alloc.asset}/USDT`
-      const price = prices[pair]
-      if (!price || price <= 0) continue
+      const pair = `${alloc.asset}/USDT`;
+      const price = prices[pair];
+      if (!price || price <= 0) continue;
 
-      const buyAmount = excessCash * (alloc.targetPct / 100)
-      if (buyAmount <= 0) continue
+      const buyAmount = excessCash * (alloc.targetPct / 100);
+      if (buyAmount <= 0) continue;
 
-      const fee = buyAmount * feePct
-      const assetQty = (buyAmount - fee) / price
+      const fee = buyAmount * feePct;
+      const assetQty = (buyAmount - fee) / price;
 
-      const holding = holdings[pair]
+      const holding = holdings[pair];
       if (holding) {
-        holding.amount += assetQty
-        holding.valueUsd += buyAmount - fee
+        holding.amount += assetQty;
+        holding.valueUsd += buyAmount - fee;
       } else {
-        holdings[pair] = { amount: assetQty, valueUsd: buyAmount - fee }
+        holdings[pair] = { amount: assetQty, valueUsd: buyAmount - fee };
       }
 
       trades.push({
         timestamp: ts,
         pair,
-        side: 'buy',
+        side: "buy",
         amount: assetQty,
         price,
         costUsd: buyAmount,
         fee,
-      })
+      });
     }
   }
 
@@ -621,18 +629,18 @@ class BacktestSimulator {
         metrics: result.metrics as unknown as Record<string, unknown>,
         trades: result.trades as unknown as Record<string, unknown>[],
         benchmark: result.benchmark as unknown as Record<string, unknown>,
-      })
+      });
     } catch (err) {
       // Non-fatal: log but don't crash the simulation
-      console.error('[BacktestSimulator] Failed to persist result:', err)
+      console.error("[BacktestSimulator] Failed to persist result:", err);
     }
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const backtestSimulator = new BacktestSimulator()
-export { BacktestSimulator }
+export const backtestSimulator = new BacktestSimulator();
+export { BacktestSimulator };
 
 // Re-export types consumed downstream
-export type { BacktestConfig, BacktestMetrics, SimulatedTrade, BenchmarkResult }
+export type { BacktestConfig, BacktestMetrics, SimulatedTrade, BenchmarkResult };

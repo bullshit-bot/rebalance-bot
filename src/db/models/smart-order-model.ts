@@ -1,22 +1,22 @@
-import { Schema, model } from 'mongoose'
+import { Schema, model } from "mongoose";
 
 export interface ISmartOrder {
-  _id: string
-  type: string // 'twap' | 'vwap'
-  exchange: string
-  pair: string
-  side: string // 'buy' | 'sell'
-  totalAmount: number
-  filledAmount: number
-  avgPrice: number | null
-  slicesTotal: number
-  slicesCompleted: number
-  durationMs: number
-  status: string // 'active' | 'paused' | 'completed' | 'cancelled'
-  config: Record<string, unknown>
-  rebalanceId: string | null
-  createdAt: Date
-  completedAt: Date | null
+  _id: string;
+  type: string; // 'twap' | 'vwap'
+  exchange: string;
+  pair: string;
+  side: string; // 'buy' | 'sell'
+  totalAmount: number;
+  filledAmount: number;
+  avgPrice: number | null;
+  slicesTotal: number;
+  slicesCompleted: number;
+  durationMs: number;
+  status: string; // 'active' | 'paused' | 'completed' | 'cancelled'
+  config: Record<string, unknown>;
+  rebalanceId: string | null;
+  createdAt: Date;
+  completedAt: Date | null;
 }
 
 const smartOrderSchema = new Schema<ISmartOrder>({
@@ -36,10 +36,17 @@ const smartOrderSchema = new Schema<ISmartOrder>({
   rebalanceId: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
   completedAt: { type: Date, default: null },
-})
+});
 
-export const SmartOrderModel = model<ISmartOrder>('SmartOrder', smartOrderSchema)
-export type SmartOrder = ISmartOrder
-export type NewSmartOrder = Omit<ISmartOrder, 'filledAmount' | 'avgPrice' | 'slicesCompleted' | 'createdAt' | 'completedAt'> & {
-  filledAmount?: number; avgPrice?: number | null; slicesCompleted?: number; createdAt?: Date; completedAt?: Date | null
-}
+export const SmartOrderModel = model<ISmartOrder>("SmartOrder", smartOrderSchema);
+export type SmartOrder = ISmartOrder;
+export type NewSmartOrder = Omit<
+  ISmartOrder,
+  "filledAmount" | "avgPrice" | "slicesCompleted" | "createdAt" | "completedAt"
+> & {
+  filledAmount?: number;
+  avgPrice?: number | null;
+  slicesCompleted?: number;
+  createdAt?: Date;
+  completedAt?: Date | null;
+};

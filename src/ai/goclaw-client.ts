@@ -1,4 +1,4 @@
-import { env } from '@config/app-config'
+import { env } from "@config/app-config";
 
 // ─── GoClaw Client ───────────────────────────────────────────────────────────
 
@@ -8,14 +8,14 @@ import { env } from '@config/app-config'
  * GoClaw handles Telegram delivery — backend just sends prompts.
  */
 class GoClawClient {
-  private readonly baseUrl: string
-  private readonly token: string
-  private readonly enabled: boolean
+  private readonly baseUrl: string;
+  private readonly token: string;
+  private readonly enabled: boolean;
 
   constructor() {
-    this.baseUrl = env.GOCLAW_URL ?? 'http://goclaw:18790'
-    this.token = env.GOCLAW_GATEWAY_TOKEN ?? ''
-    this.enabled = !!this.token
+    this.baseUrl = env.GOCLAW_URL ?? "http://goclaw:18790";
+    this.token = env.GOCLAW_GATEWAY_TOKEN ?? "";
+    this.enabled = !!this.token;
   }
 
   /**
@@ -25,59 +25,59 @@ class GoClawClient {
    */
   async chat(prompt: string, maxTokens = 1000): Promise<string | null> {
     if (!this.enabled) {
-      console.warn('[GoClawClient] Disabled — GOCLAW_GATEWAY_TOKEN not set')
-      return null
+      console.warn("[GoClawClient] Disabled — GOCLAW_GATEWAY_TOKEN not set");
+      return null;
     }
 
     try {
       const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`,
-          'X-GoClaw-User-Id': 'scheduler-bot',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.token}`,
+          "X-GoClaw-User-Id": "scheduler-bot",
         },
         body: JSON.stringify({
-          model: 'goclaw:fox-spirit',
-          messages: [{ role: 'user', content: prompt }],
+          model: "goclaw:fox-spirit",
+          messages: [{ role: "user", content: prompt }],
           stream: false,
           temperature: 0.7,
           max_tokens: maxTokens,
         }),
         signal: AbortSignal.timeout(60_000), // 60s timeout — GoClaw may call MCP tools
-      })
+      });
 
       if (!response.ok) {
-        console.error(`[GoClawClient] HTTP ${response.status}: ${await response.text()}`)
-        return null
+        console.error(`[GoClawClient] HTTP ${response.status}: ${await response.text()}`);
+        return null;
       }
 
-      const data = await response.json() as {
-        choices?: Array<{ message?: { content?: string } }>
-      }
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
 
-      return data.choices?.[0]?.message?.content ?? null
+      return data.choices?.[0]?.message?.content ?? null;
     } catch (err) {
-      console.error('[GoClawClient] Request failed:', err instanceof Error ? err.message : err)
-      return null
+      console.error("[GoClawClient] Request failed:", err instanceof Error ? err.message : err);
+      return null;
     }
   }
 
   /** Check if GoClaw is reachable */
   async isAvailable(): Promise<boolean> {
-    if (!this.enabled) return false
+    if (!this.enabled) return false;
     try {
       const res = await fetch(`${this.baseUrl}/v1/agents`, {
-        headers: { 'Authorization': `Bearer ${this.token}` },
+        headers: { Authorization: `Bearer ${this.token}` },
         signal: AbortSignal.timeout(5_000),
-      })
-      return res.ok
+      });
+      return res.ok;
     } catch {
-      return false
+      return false;
     }
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const goClawClient = new GoClawClient()
+export const goClawClient = new GoClawClient();

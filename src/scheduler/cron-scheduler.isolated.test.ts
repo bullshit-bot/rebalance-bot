@@ -1,37 +1,37 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
-mock.module('@events/event-bus', () => ({
+mock.module("@events/event-bus", () => ({
   eventBus: {
     emit: () => {},
     on: () => {},
     off: () => {},
   },
-}))
+}));
 
-import { cronScheduler } from '@scheduler/cron-scheduler'
+import { cronScheduler } from "@scheduler/cron-scheduler";
 
-describe('CronScheduler', () => {
+describe("CronScheduler", () => {
   beforeEach(() => {
     // Reset before each test
-    cronScheduler.stop()
-  })
+    cronScheduler.stop();
+  });
 
-  it('should create scheduler instance', () => {
-    expect(cronScheduler).toBeDefined()
-  })
+  it("should create scheduler instance", () => {
+    expect(cronScheduler).toBeDefined();
+  });
 
-  it('should start scheduler', () => {
-    cronScheduler.start()
-    expect(true).toBe(true)
-  })
+  it("should start scheduler", () => {
+    cronScheduler.start();
+    expect(true).toBe(true);
+  });
 
-  it('should stop scheduler', () => {
-    cronScheduler.start()
-    cronScheduler.stop()
-    expect(true).toBe(true)
-  })
+  it("should stop scheduler", () => {
+    cronScheduler.start();
+    cronScheduler.stop();
+    expect(true).toBe(true);
+  });
 
   afterEach(() => {
-    cronScheduler.stop()
-  })
-})
+    cronScheduler.stop();
+  });
+});

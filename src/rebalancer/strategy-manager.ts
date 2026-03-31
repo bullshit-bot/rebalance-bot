@@ -1,18 +1,18 @@
 import type { Allocation, Portfolio } from "@/types/index";
 import { env } from "@config/app-config";
-import { momentumCalculator } from "@rebalancer/momentum-calculator";
-import { volatilityTracker } from "@rebalancer/volatility-tracker";
-import { StrategyConfigModel, type IStrategyConfig } from "@db/database";
+import { type IStrategyConfig, StrategyConfigModel } from "@db/database";
 import { eventBus } from "@events/event-bus";
-import { meanReversionStrategy } from "@rebalancer/strategies/mean-reversion-strategy";
-import { volAdjustedStrategy } from "@rebalancer/strategies/vol-adjusted-strategy";
-import { momentumWeightedStrategy } from "@rebalancer/strategies/momentum-weighted-strategy";
 import { getDCATarget } from "@rebalancer/dca-target-resolver";
-import {
+import { momentumCalculator } from "@rebalancer/momentum-calculator";
+import { meanReversionStrategy } from "@rebalancer/strategies/mean-reversion-strategy";
+import { momentumWeightedStrategy } from "@rebalancer/strategies/momentum-weighted-strategy";
+import type {
   MeanReversionParamsSchema,
-  VolAdjustedParamsSchema,
   MomentumWeightedParamsSchema,
+  VolAdjustedParamsSchema,
 } from "@rebalancer/strategies/strategy-config-types";
+import { volAdjustedStrategy } from "@rebalancer/strategies/vol-adjusted-strategy";
+import { volatilityTracker } from "@rebalancer/volatility-tracker";
 import type { z } from "zod";
 
 type MeanReversionParams = z.infer<typeof MeanReversionParamsSchema>;
@@ -21,7 +21,13 @@ type MomentumWeightedParams = z.infer<typeof MomentumWeightedParamsSchema>;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type StrategyMode = "threshold" | "equal-weight" | "momentum-tilt" | "vol-adjusted" | "mean-reversion" | "momentum-weighted";
+export type StrategyMode =
+  | "threshold"
+  | "equal-weight"
+  | "momentum-tilt"
+  | "vol-adjusted"
+  | "mean-reversion"
+  | "momentum-weighted";
 
 export interface StrategyInfo {
   mode: StrategyMode;
@@ -52,7 +58,7 @@ class StrategyManager {
   constructor() {
     this.mode = env.STRATEGY_MODE as StrategyMode;
     // Listen for config changes via EventBus
-    eventBus.on('strategy:config-changed', (config) => {
+    eventBus.on("strategy:config-changed", (config) => {
       this.applyConfig(config);
     });
   }
@@ -63,12 +69,14 @@ class StrategyManager {
       const config = await StrategyConfigModel.findOne({ isActive: true }).lean();
       if (config) {
         this.applyConfig(config);
-        console.log(`[StrategyManager] Loaded active config "${config.name}" (${(config.params as Record<string, unknown>).type})`);
+        console.log(
+          `[StrategyManager] Loaded active config "${config.name}" (${(config.params as Record<string, unknown>).type})`
+        );
       } else {
         console.log(`[StrategyManager] No active DB config — using env defaults (${this.mode})`);
       }
     } catch (err) {
-      console.warn('[StrategyManager] Failed to load from DB, using env defaults:', err);
+      console.warn("[StrategyManager] Failed to load from DB, using env defaults:", err);
     }
   }
 
@@ -94,7 +102,7 @@ class StrategyManager {
    */
   getEffectiveAllocations(
     baseAllocations: Allocation[],
-    priceHistories?: Map<string, number[]>,
+    priceHistories?: Map<string, number[]>
   ): Allocation[] {
     switch (this.mode) {
       case "equal-weight":
@@ -106,7 +114,11 @@ class StrategyManager {
       case "momentum-weighted": {
         const params = this.activeConfig?.params as MomentumWeightedParams | undefined;
         if (!params || !priceHistories) return baseAllocations;
-        return momentumWeightedStrategy.getAdjustedAllocations(baseAllocations, priceHistories, params);
+        return momentumWeightedStrategy.getAdjustedAllocations(
+          baseAllocations,
+          priceHistories,
+          params
+        );
       }
 
       default:
@@ -167,9 +179,9 @@ class StrategyManager {
    * Delegates drift calculation to dca-target-resolver.
    */
   getDCATarget(portfolio: Portfolio, allocations: Allocation[]): string | null {
-    const gs = this.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
-    if (!gs?.dcaRebalanceEnabled) return null
-    return getDCATarget(portfolio, allocations)
+    const gs = this.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+    if (!gs?.dcaRebalanceEnabled) return null;
+    return getDCATarget(portfolio, allocations);
   }
 
   /** Hot-swap the strategy mode at runtime (e.g. from an API endpoint). */

@@ -2,21 +2,21 @@
 // Tracks daily BTC closes and determines bull/bear regime.
 // Persists daily closes to MongoDB for restart resilience.
 
-import { OhlcvCandleModel } from '@db/models/ohlcv-candle-model'
-import { eventBus } from '@events/event-bus'
+import { OhlcvCandleModel } from "@db/models/ohlcv-candle-model";
+import { eventBus } from "@events/event-bus";
 
 class TrendFilter {
   /** Rolling daily BTC close prices (capped at 400 entries) */
-  private dailyCloses: number[] = []
+  private dailyCloses: number[] = [];
 
   /** Day number (floor(epoch_ms / 86400000)) of the last recorded entry */
-  private lastRecordedDay = 0
+  private lastRecordedDay = 0;
 
   /** Previous bull/bear state — null until first evaluation (avoids false flip on startup) */
-  private lastBullish: boolean | null = null
+  private lastBullish: boolean | null = null;
 
   /** Epoch ms of last bull/bear flip — 0 means never flipped */
-  private lastFlipTimestamp = 0
+  private lastFlipTimestamp = 0;
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -27,35 +27,39 @@ class TrendFilter {
   async loadFromDb(): Promise<void> {
     try {
       const candles = await OhlcvCandleModel.find({
-        exchange: 'trend-filter',
-        pair: 'BTC/USDT',
-        timeframe: '1d',
+        exchange: "trend-filter",
+        pair: "BTC/USDT",
+        timeframe: "1d",
       })
         .sort({ timestamp: 1 })
         .limit(400)
-        .lean()
+        .lean();
 
       if (candles.length === 0) {
-        console.info('[TrendFilter] No persisted candles found — starting fresh')
-        return
+        console.info("[TrendFilter] No persisted candles found — starting fresh");
+        return;
       }
 
-      this.dailyCloses = candles.map((c) => c.close)
-      this.lastRecordedDay = Math.floor(candles[candles.length - 1]!.timestamp / 86_400_000)
+      this.dailyCloses = candles.map((c) => c.close);
+      this.lastRecordedDay = Math.floor(candles[candles.length - 1]!.timestamp / 86_400_000);
 
       // Restore lastFlipTimestamp from the metadata candle (volume field used as slot)
       const metaCandle = await OhlcvCandleModel.findOne({
-        exchange: 'trend-filter-meta',
-        pair: 'BTC/USDT',
-        timeframe: '1d',
-      }).lean()
+        exchange: "trend-filter-meta",
+        pair: "BTC/USDT",
+        timeframe: "1d",
+      }).lean();
       if (metaCandle && metaCandle.volume > 0) {
-        this.lastFlipTimestamp = metaCandle.volume
+        this.lastFlipTimestamp = metaCandle.volume;
       }
 
-      console.info('[TrendFilter] Loaded %d data points from DB (lastFlip=%d)', candles.length, this.lastFlipTimestamp)
+      console.info(
+        "[TrendFilter] Loaded %d data points from DB (lastFlip=%d)",
+        candles.length,
+        this.lastFlipTimestamp
+      );
     } catch (err) {
-      console.error('[TrendFilter] Failed to load from DB — starting fresh:', err)
+      console.error("[TrendFilter] Failed to load from DB — starting fresh:", err);
     }
   }
 
@@ -65,25 +69,25 @@ class TrendFilter {
    * Persists new day entries to MongoDB (fire-and-forget).
    */
   recordPrice(btcPrice: number): void {
-    const today = Math.floor(Date.now() / 86_400_000)
+    const today = Math.floor(Date.now() / 86_400_000);
     if (today === this.lastRecordedDay) {
       // Update today's close with the latest price
-      this.dailyCloses[this.dailyCloses.length - 1] = btcPrice
+      this.dailyCloses[this.dailyCloses.length - 1] = btcPrice;
     } else {
-      this.dailyCloses.push(btcPrice)
-      this.lastRecordedDay = today
+      this.dailyCloses.push(btcPrice);
+      this.lastRecordedDay = today;
       // Cap at 400 entries — more than any MA period we'd use
-      if (this.dailyCloses.length > 400) this.dailyCloses.shift()
+      if (this.dailyCloses.length > 400) this.dailyCloses.shift();
 
       // Persist new day entry to MongoDB (fire-and-forget)
-      const dayStartMs = today * 86_400_000
+      const dayStartMs = today * 86_400_000;
       OhlcvCandleModel.updateOne(
-        { exchange: 'trend-filter', pair: 'BTC/USDT', timeframe: '1d', timestamp: dayStartMs },
+        { exchange: "trend-filter", pair: "BTC/USDT", timeframe: "1d", timestamp: dayStartMs },
         { $set: { open: btcPrice, high: btcPrice, low: btcPrice, close: btcPrice, volume: 0 } },
-        { upsert: true },
+        { upsert: true }
       ).catch((err) => {
-        console.error('[TrendFilter] Failed to persist daily close:', err)
-      })
+        console.error("[TrendFilter] Failed to persist daily close:", err);
+      });
     }
   }
 
@@ -100,32 +104,32 @@ class TrendFilter {
    */
   isBullishWithCooldown(maPeriod = 100, bufferPct = 2, cooldownDays = 3): boolean {
     // Capture previous state BEFORE isBullish() mutates it
-    const previousBullish = this.lastBullish
-    const rawBullish = this.isBullish(maPeriod, bufferPct)
+    const previousBullish = this.lastBullish;
+    const rawBullish = this.isBullish(maPeriod, bufferPct);
 
     // No previous state means first evaluation — use raw signal as-is
-    if (previousBullish === null) return rawBullish
+    if (previousBullish === null) return rawBullish;
 
     // State is identical — no flip candidate, cooldown irrelevant
-    if (rawBullish === previousBullish) return rawBullish
+    if (rawBullish === previousBullish) return rawBullish;
 
     // Flip candidate detected — check cooldown
     if (cooldownDays > 0 && this.lastFlipTimestamp > 0) {
-      const elapsed = (Date.now() - this.lastFlipTimestamp) / 86_400_000
+      const elapsed = (Date.now() - this.lastFlipTimestamp) / 86_400_000;
       if (elapsed < cooldownDays) {
         // Suppress the flip — revert lastBullish to previous value
-        this.lastBullish = previousBullish
-        return previousBullish
+        this.lastBullish = previousBullish;
+        return previousBullish;
       }
     }
 
     // Allow the flip — record timestamp and persist (fire-and-forget)
-    this.lastFlipTimestamp = Date.now()
+    this.lastFlipTimestamp = Date.now();
     this.persistFlipTimestamp().catch((err) => {
-      console.error('[TrendFilter] Failed to persist flip timestamp:', err)
-    })
+      console.error("[TrendFilter] Failed to persist flip timestamp:", err);
+    });
 
-    return rawBullish
+    return rawBullish;
   }
 
   /**
@@ -136,19 +140,19 @@ class TrendFilter {
    * @param bufferPct % below MA still treated as bull (default 2)
    */
   isBullish(maPeriod = 100, bufferPct = 2): boolean {
-    const ma = this.sma(maPeriod)
-    if (ma === null) return true // not enough data → assume bull (safe default)
-    const currentPrice = this.dailyCloses[this.dailyCloses.length - 1] ?? 0
+    const ma = this.sma(maPeriod);
+    if (ma === null) return true; // not enough data → assume bull (safe default)
+    const currentPrice = this.dailyCloses[this.dailyCloses.length - 1] ?? 0;
     // Bull if price >= MA * (1 - buffer/100)
-    const bullish = currentPrice >= ma * (1 - bufferPct / 100)
+    const bullish = currentPrice >= ma * (1 - bufferPct / 100);
 
     // Emit trend:changed only on actual state flip (skip first evaluation)
     if (this.lastBullish !== null && bullish !== this.lastBullish) {
-      eventBus.emit('trend:changed', { bullish, price: currentPrice, ma })
+      eventBus.emit("trend:changed", { bullish, price: currentPrice, ma });
     }
-    this.lastBullish = bullish
+    this.lastBullish = bullish;
 
-    return bullish
+    return bullish;
   }
 
   /**
@@ -156,30 +160,30 @@ class TrendFilter {
    * Use this in health endpoints, status displays, and startup messages.
    */
   isBullishReadOnly(maPeriod = 100, bufferPct = 2): boolean {
-    const ma = this.sma(maPeriod)
-    if (ma === null) return true
-    const currentPrice = this.dailyCloses[this.dailyCloses.length - 1] ?? 0
-    return currentPrice >= ma * (1 - bufferPct / 100)
+    const ma = this.sma(maPeriod);
+    if (ma === null) return true;
+    const currentPrice = this.dailyCloses[this.dailyCloses.length - 1] ?? 0;
+    return currentPrice >= ma * (1 - bufferPct / 100);
   }
 
   /** Current MA value, or null if not enough data points. */
   getMA(period: number): number | null {
-    return this.sma(period)
+    return this.sma(period);
   }
 
   /** Most recently recorded BTC price (0 if none). */
   getCurrentPrice(): number {
-    return this.dailyCloses[this.dailyCloses.length - 1] ?? 0
+    return this.dailyCloses[this.dailyCloses.length - 1] ?? 0;
   }
 
   /** Number of daily data points collected. */
   getDataPoints(): number {
-    return this.dailyCloses.length
+    return this.dailyCloses.length;
   }
 
   /** Epoch ms of the last bull/bear flip (0 = never flipped). */
   getLastFlipTimestamp(): number {
-    return this.lastFlipTimestamp
+    return this.lastFlipTimestamp;
   }
 
   /**
@@ -187,19 +191,19 @@ class TrendFilter {
    * Call during graceful shutdown to avoid losing intra-day price updates.
    */
   async persistCurrentClose(): Promise<void> {
-    if (this.dailyCloses.length === 0 || this.lastRecordedDay === 0) return
+    if (this.dailyCloses.length === 0 || this.lastRecordedDay === 0) return;
 
-    const price = this.dailyCloses[this.dailyCloses.length - 1]!
-    const dayStartMs = this.lastRecordedDay * 86_400_000
+    const price = this.dailyCloses[this.dailyCloses.length - 1]!;
+    const dayStartMs = this.lastRecordedDay * 86_400_000;
 
     try {
       await OhlcvCandleModel.updateOne(
-        { exchange: 'trend-filter', pair: 'BTC/USDT', timeframe: '1d', timestamp: dayStartMs },
+        { exchange: "trend-filter", pair: "BTC/USDT", timeframe: "1d", timestamp: dayStartMs },
         { $set: { close: price } },
-        { upsert: true },
-      )
+        { upsert: true }
+      );
     } catch (err) {
-      console.error('[TrendFilter] Failed to persist close on shutdown:', err)
+      console.error("[TrendFilter] Failed to persist close on shutdown:", err);
     }
   }
 
@@ -211,25 +215,25 @@ class TrendFilter {
    */
   private async persistFlipTimestamp(): Promise<void> {
     await OhlcvCandleModel.updateOne(
-      { exchange: 'trend-filter-meta', pair: 'BTC/USDT', timeframe: '1d', timestamp: 0 },
+      { exchange: "trend-filter-meta", pair: "BTC/USDT", timeframe: "1d", timestamp: 0 },
       { $set: { open: 0, high: 0, low: 0, close: 0, volume: this.lastFlipTimestamp } },
-      { upsert: true },
-    )
+      { upsert: true }
+    );
   }
 
   /** Simple Moving Average over the last `period` closes. Null if insufficient data. */
   private sma(period: number): number | null {
-    if (this.dailyCloses.length < period) return null
-    let sum = 0
+    if (this.dailyCloses.length < period) return null;
+    let sum = 0;
     for (let i = this.dailyCloses.length - period; i < this.dailyCloses.length; i++) {
-      sum += this.dailyCloses[i]!
+      sum += this.dailyCloses[i]!;
     }
-    return sum / period
+    return sum / period;
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const trendFilter = new TrendFilter()
+export const trendFilter = new TrendFilter();
 
-export { TrendFilter }
+export { TrendFilter };

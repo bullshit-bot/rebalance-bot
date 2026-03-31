@@ -1,259 +1,278 @@
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
-import { setupTestDB, teardownTestDB } from '@db/test-helpers'
-import { SnapshotModel, TradeModel } from '@db/database'
-import { marketSummaryService } from './market-summary-service'
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { SnapshotModel, TradeModel } from "@db/database";
+import { setupTestDB, teardownTestDB } from "@db/test-helpers";
+import { marketSummaryService } from "./market-summary-service";
 
 beforeAll(async () => {
-  await setupTestDB()
-  const now = new Date()
-  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000)
+  await setupTestDB();
+  const now = new Date();
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000);
 
   // Seed snapshots so portfolio section has data
   await SnapshotModel.insertMany([
     { totalValueUsd: 10000, holdings: {}, allocations: {}, createdAt: hoursAgo(12) },
     { totalValueUsd: 10250, holdings: {}, allocations: {}, createdAt: hoursAgo(1) },
-  ])
+  ]);
 
   // Seed trades so trade section has data
   await TradeModel.insertMany([
-    { exchange: 'binance', pair: 'BTC/USDT', side: 'buy', amount: 0.1, price: 60000, costUsd: 6000, executedAt: hoursAgo(6) },
-    { exchange: 'binance', pair: 'ETH/USDT', side: 'sell', amount: 1, price: 3000, costUsd: 3000, executedAt: hoursAgo(3) },
-  ])
-})
+    {
+      exchange: "binance",
+      pair: "BTC/USDT",
+      side: "buy",
+      amount: 0.1,
+      price: 60000,
+      costUsd: 6000,
+      executedAt: hoursAgo(6),
+    },
+    {
+      exchange: "binance",
+      pair: "ETH/USDT",
+      side: "sell",
+      amount: 1,
+      price: 3000,
+      costUsd: 3000,
+      executedAt: hoursAgo(3),
+    },
+  ]);
+});
 
-afterAll(async () => { await teardownTestDB() })
+afterAll(async () => {
+  await teardownTestDB();
+});
 
-describe('MarketSummaryService', () => {
-  describe('generateSummary', () => {
-    it('should generate summary string', async () => {
-      const summary = await marketSummaryService.generateSummary()
+describe("MarketSummaryService", () => {
+  describe("generateSummary", () => {
+    it("should generate summary string", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(typeof summary).toBe('string')
-      expect(summary.length).toBeGreaterThan(0)
-    })
+      expect(typeof summary).toBe("string");
+      expect(summary.length).toBeGreaterThan(0);
+    });
 
-    it('should include portfolio section', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should include portfolio section", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(summary).toContain('Portfolio')
-    })
+      expect(summary).toContain("Portfolio");
+    });
 
-    it('should include trades section', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should include trades section", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
       // Vietnamese: "Giao Dịch" or fallback English "Trade"
-      const hasTrades = summary.includes('Giao Dịch') || summary.toLowerCase().includes('trade')
-      expect(hasTrades).toBe(true)
-    })
+      const hasTrades = summary.includes("Giao Dịch") || summary.toLowerCase().includes("trade");
+      expect(hasTrades).toBe(true);
+    });
 
-    it('should include daily header', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should include daily header", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
       // Vietnamese header: "Báo Cáo Portfolio Hàng Ngày"
-      const hasHeader = summary.includes('Hàng Ngày') || summary.includes('Daily')
-      expect(hasHeader).toBe(true)
-    })
+      const hasHeader = summary.includes("Hàng Ngày") || summary.includes("Daily");
+      expect(hasHeader).toBe(true);
+    });
 
-    it('should use HTML formatting', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should use HTML formatting", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(summary).toContain('<b>')
-      expect(summary).toContain('</b>')
-    })
+      expect(summary).toContain("<b>");
+      expect(summary).toContain("</b>");
+    });
 
-    it('should include portfolio change indicators', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should include portfolio change indicators", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(summary.toLowerCase()).toContain('portfolio')
-    })
+      expect(summary.toLowerCase()).toContain("portfolio");
+    });
 
-    it('should include trade counts', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should include trade counts", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(summary.toLowerCase()).toMatch(/trade|giao dịch/i)
-    })
+      expect(summary.toLowerCase()).toMatch(/trade|giao dịch/i);
+    });
 
-    it('should handle zero trades', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should handle zero trades", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(typeof summary).toBe('string')
-      expect(summary.length).toBeGreaterThan(0)
-    })
+      expect(typeof summary).toBe("string");
+      expect(summary.length).toBeGreaterThan(0);
+    });
 
-    it('should handle no snapshot data', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should handle no snapshot data", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(typeof summary).toBe('string')
-      expect(summary).toContain('Portfolio')
-    })
+      expect(typeof summary).toBe("string");
+      expect(summary).toContain("Portfolio");
+    });
 
-    it('should include trade summary in output', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should include trade summary in output", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
       // Vietnamese output groups by side — verify summary is valid string
-      expect(typeof summary).toBe('string')
-      expect(summary.length).toBeGreaterThan(0)
-    })
+      expect(typeof summary).toBe("string");
+      expect(summary.length).toBeGreaterThan(0);
+    });
 
-    it('should format USD values correctly', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should format USD values correctly", async () => {
+      const summary = await marketSummaryService.generateSummary();
 
-      expect(summary).toContain('$')
-    })
+      expect(summary).toContain("$");
+    });
 
-    it('should handle error gracefully', async () => {
+    it("should handle error gracefully", async () => {
       try {
-        const summary = await marketSummaryService.generateSummary()
-        expect(typeof summary).toBe('string')
-        expect(summary.length).toBeGreaterThan(0)
+        const summary = await marketSummaryService.generateSummary();
+        expect(typeof summary).toBe("string");
+        expect(summary.length).toBeGreaterThan(0);
       } catch (err) {
         // If error, should be an Error instance
-        expect(err).toBeInstanceOf(Error)
+        expect(err).toBeInstanceOf(Error);
       }
-    })
-  })
+    });
+  });
 
-  describe('getSummary method', () => {
-    it('should return market summary data', async () => {
-      const result = await marketSummaryService.generateSummary()
-      expect(result).toBeDefined()
-      expect(typeof result).toBe('string')
-    })
+  describe("getSummary method", () => {
+    it("should return market summary data", async () => {
+      const result = await marketSummaryService.generateSummary();
+      expect(result).toBeDefined();
+      expect(typeof result).toBe("string");
+    });
 
-    it('should have predictable structure', async () => {
-      const result = await marketSummaryService.generateSummary()
-      if (result && typeof result === 'object') {
-        expect(result).not.toBeNull()
+    it("should have predictable structure", async () => {
+      const result = await marketSummaryService.generateSummary();
+      if (result && typeof result === "object") {
+        expect(result).not.toBeNull();
       }
-    })
+    });
 
-    it('should handle missing API key gracefully', async () => {
+    it("should handle missing API key gracefully", async () => {
       try {
-        const summary = await marketSummaryService.generateSummary()
+        const summary = await marketSummaryService.generateSummary();
         // Should still generate something even without full API integration
-        expect(typeof summary).toBe('string')
+        expect(typeof summary).toBe("string");
       } catch (err) {
         // Expected when API is not configured
         if (err instanceof Error) {
-          expect(err).toBeInstanceOf(Error)
+          expect(err).toBeInstanceOf(Error);
         }
       }
-    })
-  })
+    });
+  });
 
-  describe('buildPortfolioSection error handling', () => {
-    it('should generate summary even if portfolio section fails', async () => {
+  describe("buildPortfolioSection error handling", () => {
+    it("should generate summary even if portfolio section fails", async () => {
       try {
-        const summary = await marketSummaryService.generateSummary()
-        expect(typeof summary).toBe('string')
+        const summary = await marketSummaryService.generateSummary();
+        expect(typeof summary).toBe("string");
         // Vietnamese header
-        const hasHeader = summary.includes('Hàng Ngày') || summary.includes('Daily')
-        expect(hasHeader).toBe(true)
+        const hasHeader = summary.includes("Hàng Ngày") || summary.includes("Daily");
+        expect(hasHeader).toBe(true);
       } catch (err) {
         // If service fails, should throw properly
-        expect(err).toBeInstanceOf(Error)
+        expect(err).toBeInstanceOf(Error);
       }
-    })
+    });
 
-    it('should handle empty snapshot data', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should handle empty snapshot data", async () => {
+      const summary = await marketSummaryService.generateSummary();
       // Should still generate a valid summary
-      expect(typeof summary).toBe('string')
-      expect(summary.length).toBeGreaterThan(0)
-    })
-  })
+      expect(typeof summary).toBe("string");
+      expect(summary.length).toBeGreaterThan(0);
+    });
+  });
 
-  describe('buildTradeSection error handling', () => {
-    it('should generate summary even if trade section fails', async () => {
+  describe("buildTradeSection error handling", () => {
+    it("should generate summary even if trade section fails", async () => {
       try {
-        const summary = await marketSummaryService.generateSummary()
-        expect(typeof summary).toBe('string')
+        const summary = await marketSummaryService.generateSummary();
+        expect(typeof summary).toBe("string");
         // Vietnamese: "Giao Dịch" or fallback English "Trade"
-        const hasTrades = summary.includes('Giao Dịch') || summary.toLowerCase().includes('trade')
-        expect(hasTrades).toBe(true)
+        const hasTrades = summary.includes("Giao Dịch") || summary.toLowerCase().includes("trade");
+        expect(hasTrades).toBe(true);
       } catch (err) {
         // If service fails, should throw properly
-        expect(err).toBeInstanceOf(Error)
+        expect(err).toBeInstanceOf(Error);
       }
-    })
+    });
 
-    it('should handle zero trades', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should handle zero trades", async () => {
+      const summary = await marketSummaryService.generateSummary();
       // Should still return valid summary
-      expect(typeof summary).toBe('string')
-      expect(summary).toContain('Portfolio')
-    })
+      expect(typeof summary).toBe("string");
+      expect(summary).toContain("Portfolio");
+    });
 
-    it('should handle database query failures', async () => {
+    it("should handle database query failures", async () => {
       try {
-        const summary = await marketSummaryService.generateSummary()
+        const summary = await marketSummaryService.generateSummary();
         // Should be string or throw error
-        expect(typeof summary).toBe('string')
+        expect(typeof summary).toBe("string");
       } catch (err) {
         // Database errors should be caught
-        expect(err).toBeInstanceOf(Error)
+        expect(err).toBeInstanceOf(Error);
       }
-    })
-  })
+    });
+  });
 
-  describe('Daily summary structure validation', () => {
-    it('should include date in output', async () => {
-      const summary = await marketSummaryService.generateSummary()
+  describe("Daily summary structure validation", () => {
+    it("should include date in output", async () => {
+      const summary = await marketSummaryService.generateSummary();
       // Should include a UTC date string
-      expect(summary.toLowerCase()).toContain('portfolio')
-    })
+      expect(summary.toLowerCase()).toContain("portfolio");
+    });
 
-    it('should format numbers with 2 decimals', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should format numbers with 2 decimals", async () => {
+      const summary = await marketSummaryService.generateSummary();
       // Should use proper formatting
-      expect(typeof summary).toBe('string')
-      expect(summary.length).toBeGreaterThan(0)
-    })
+      expect(typeof summary).toBe("string");
+      expect(summary.length).toBeGreaterThan(0);
+    });
 
-    it('should use HTML formatting tags', async () => {
-      const summary = await marketSummaryService.generateSummary()
-      expect(summary).toContain('<b>')
-      expect(summary).toContain('</b>')
-    })
+    it("should use HTML formatting tags", async () => {
+      const summary = await marketSummaryService.generateSummary();
+      expect(summary).toContain("<b>");
+      expect(summary).toContain("</b>");
+    });
 
-    it('should include code formatting for values', async () => {
-      const summary = await marketSummaryService.generateSummary()
-      expect(summary).toContain('<code>')
-    })
+    it("should include code formatting for values", async () => {
+      const summary = await marketSummaryService.generateSummary();
+      expect(summary).toContain("<code>");
+    });
 
-    it('should handle both positive and negative changes', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should handle both positive and negative changes", async () => {
+      const summary = await marketSummaryService.generateSummary();
       // Should properly handle up/down arrows
-      expect(typeof summary).toBe('string')
-    })
-  })
+      expect(typeof summary).toBe("string");
+    });
+  });
 
-  describe('Service error scenarios', () => {
-    it('should handle concurrent summary requests', async () => {
+  describe("Service error scenarios", () => {
+    it("should handle concurrent summary requests", async () => {
       const [summary1, summary2] = await Promise.all([
         marketSummaryService.generateSummary(),
         marketSummaryService.generateSummary(),
-      ])
+      ]);
 
-      expect(typeof summary1).toBe('string')
-      expect(typeof summary2).toBe('string')
-    })
+      expect(typeof summary1).toBe("string");
+      expect(typeof summary2).toBe("string");
+    });
 
-    it('should handle rapid successive calls', async () => {
-      const summary1 = await marketSummaryService.generateSummary()
-      const summary2 = await marketSummaryService.generateSummary()
+    it("should handle rapid successive calls", async () => {
+      const summary1 = await marketSummaryService.generateSummary();
+      const summary2 = await marketSummaryService.generateSummary();
 
-      expect(typeof summary1).toBe('string')
-      expect(typeof summary2).toBe('string')
-    })
+      expect(typeof summary1).toBe("string");
+      expect(typeof summary2).toBe("string");
+    });
 
-    it('should maintain consistent format', async () => {
-      const summary = await marketSummaryService.generateSummary()
+    it("should maintain consistent format", async () => {
+      const summary = await marketSummaryService.generateSummary();
       // Vietnamese: "Portfolio" appears in header; "Giao Dịch" is trade section
-      const hasPortfolioSection = summary.includes('Portfolio')
-      const hasTradeSection = summary.includes('Giao Dịch') || summary.toLowerCase().includes('trade')
+      const hasPortfolioSection = summary.includes("Portfolio");
+      const hasTradeSection =
+        summary.includes("Giao Dịch") || summary.toLowerCase().includes("trade");
 
-      expect(hasPortfolioSection || hasTradeSection).toBe(true)
-    })
-  })
-})
+      expect(hasPortfolioSection || hasTradeSection).toBe(true);
+    });
+  });
+});

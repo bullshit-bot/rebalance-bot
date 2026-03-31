@@ -1,68 +1,74 @@
-import { Hono } from 'hono'
-import { StrategyConfigModel, STRATEGY_PRESETS } from '@db/database'
-import { eventBus } from '@events/event-bus'
+import { STRATEGY_PRESETS, StrategyConfigModel } from "@db/database";
+import { eventBus } from "@events/event-bus";
 import {
   CreateStrategyConfigSchema,
   UpdateStrategyConfigSchema,
-} from '@rebalancer/strategies/strategy-config-types'
+} from "@rebalancer/strategies/strategy-config-types";
+import { Hono } from "hono";
 
-const strategyConfigRoutes = new Hono()
+const strategyConfigRoutes = new Hono();
 
 /** GET / — active config + list of all configs */
-strategyConfigRoutes.get('/', async (c) => {
+strategyConfigRoutes.get("/", async (c) => {
   try {
-    const configs = await StrategyConfigModel.find({}, 'name description isActive params.type version updatedAt').lean()
-    const active = await StrategyConfigModel.findOne({ isActive: true }).lean()
-    return c.json({ active, configs })
+    const configs = await StrategyConfigModel.find(
+      {},
+      "name description isActive params.type version updatedAt"
+    ).lean();
+    const active = await StrategyConfigModel.findOne({ isActive: true }).lean();
+    return c.json({ active, configs });
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
-})
+});
 
 /** GET /presets — built-in preset configs */
-strategyConfigRoutes.get('/presets', (c) => {
-  return c.json(STRATEGY_PRESETS)
-})
+strategyConfigRoutes.get("/presets", (c) => {
+  return c.json(STRATEGY_PRESETS);
+});
 
 /** GET /:name — full config by name */
-strategyConfigRoutes.get('/:name', async (c) => {
+strategyConfigRoutes.get("/:name", async (c) => {
   try {
-    const config = await StrategyConfigModel.findOne({ name: c.req.param('name') }).lean()
-    if (!config) return c.json({ error: 'Config not found' }, 404)
-    return c.json(config)
+    const config = await StrategyConfigModel.findOne({ name: c.req.param("name") }).lean();
+    if (!config) return c.json({ error: "Config not found" }, 404);
+    return c.json(config);
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
-})
+});
 
 /** POST / — create new config */
-strategyConfigRoutes.post('/', async (c) => {
+strategyConfigRoutes.post("/", async (c) => {
   try {
-    const body = await c.req.json()
-    const parsed = CreateStrategyConfigSchema.safeParse(body)
-    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400)
+    const body = await c.req.json();
+    const parsed = CreateStrategyConfigSchema.safeParse(body);
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
 
-    const existing = await StrategyConfigModel.findOne({ name: parsed.data.name })
-    if (existing) return c.json({ error: 'Config with this name already exists' }, 409)
+    const existing = await StrategyConfigModel.findOne({ name: parsed.data.name });
+    if (existing) return c.json({ error: "Config with this name already exists" }, 409);
 
     const config = new StrategyConfigModel({
       ...parsed.data,
       history: [{ params: parsed.data.params, changedAt: new Date() }],
-    })
-    await config.save()
-    return c.json(config, 201)
+    });
+    await config.save();
+    return c.json(config, 201);
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
-})
+});
 
 /** POST /from-preset — create config from preset */
-strategyConfigRoutes.post('/from-preset', async (c) => {
+strategyConfigRoutes.post("/from-preset", async (c) => {
   try {
-    const { presetName, configName } = await c.req.json() as { presetName: string; configName: string }
-    const preset = STRATEGY_PRESETS[presetName as keyof typeof STRATEGY_PRESETS]
-    if (!preset) return c.json({ error: `Unknown preset: ${presetName}` }, 400)
-    if (!configName) return c.json({ error: 'configName required' }, 400)
+    const { presetName, configName } = (await c.req.json()) as {
+      presetName: string;
+      configName: string;
+    };
+    const preset = STRATEGY_PRESETS[presetName as keyof typeof STRATEGY_PRESETS];
+    if (!preset) return c.json({ error: `Unknown preset: ${presetName}` }, 400);
+    if (!configName) return c.json({ error: "configName required" }, 400);
 
     const config = await StrategyConfigModel.create({
       name: configName,
@@ -71,83 +77,89 @@ strategyConfigRoutes.post('/from-preset', async (c) => {
       globalSettings: preset.globalSettings,
       presetName,
       history: [{ params: preset.params, changedAt: new Date() }],
-    })
-    return c.json(config, 201)
+    });
+    return c.json(config, 201);
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
-})
+});
 
 /** PUT /:name — update existing config */
-strategyConfigRoutes.put('/:name', async (c) => {
+strategyConfigRoutes.put("/:name", async (c) => {
   try {
-    const body = await c.req.json()
-    const parsed = UpdateStrategyConfigSchema.safeParse(body)
-    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400)
+    const body = await c.req.json();
+    const parsed = UpdateStrategyConfigSchema.safeParse(body);
+    if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
 
-    const config = await StrategyConfigModel.findOne({ name: c.req.param('name') })
-    if (!config) return c.json({ error: 'Config not found' }, 404)
+    const config = await StrategyConfigModel.findOne({ name: c.req.param("name") });
+    if (!config) return c.json({ error: "Config not found" }, 404);
 
     if (parsed.data.params) {
-      config.params = parsed.data.params as Record<string, unknown>
-      config.history.push({ params: parsed.data.params as Record<string, unknown>, changedAt: new Date() })
+      config.params = parsed.data.params as Record<string, unknown>;
+      config.history.push({
+        params: parsed.data.params as Record<string, unknown>,
+        changedAt: new Date(),
+      });
     }
-    if (parsed.data.description !== undefined) config.description = parsed.data.description
+    if (parsed.data.description !== undefined) config.description = parsed.data.description;
     if (parsed.data.globalSettings) {
-      config.globalSettings = { ...config.globalSettings, ...parsed.data.globalSettings } as Record<string, unknown>
+      config.globalSettings = { ...config.globalSettings, ...parsed.data.globalSettings } as Record<
+        string,
+        unknown
+      >;
     }
-    config.version += 1
-    config.updatedAt = new Date()
-    await config.save()
+    config.version += 1;
+    config.updatedAt = new Date();
+    await config.save();
 
     // Notify if this is the active config
     if (config.isActive) {
-      eventBus.emit('strategy:config-changed', config.toObject())
+      eventBus.emit("strategy:config-changed", config.toObject());
     }
-    return c.json(config)
+    return c.json(config);
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
-})
+});
 
 /** DELETE /:name — delete config (cannot delete active) */
-strategyConfigRoutes.delete('/:name', async (c) => {
+strategyConfigRoutes.delete("/:name", async (c) => {
   try {
-    const config = await StrategyConfigModel.findOne({ name: c.req.param('name') })
-    if (!config) return c.json({ error: 'Config not found' }, 404)
-    if (config.isActive) return c.json({ error: 'Cannot delete active config' }, 400)
-    await config.deleteOne()
-    return c.json({ deleted: config.name })
+    const config = await StrategyConfigModel.findOne({ name: c.req.param("name") });
+    if (!config) return c.json({ error: "Config not found" }, 404);
+    if (config.isActive) return c.json({ error: "Cannot delete active config" }, 400);
+    await config.deleteOne();
+    return c.json({ deleted: config.name });
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
-})
+});
 
 /** POST /:name/activate — deactivate all others, activate target atomically */
-strategyConfigRoutes.post('/:name/activate', async (c) => {
+strategyConfigRoutes.post("/:name/activate", async (c) => {
   try {
-    const name = c.req.param('name')
+    const name = c.req.param("name");
 
     // Verify the target config exists before making any changes
-    const exists = await StrategyConfigModel.exists({ name })
-    if (!exists) return c.json({ error: 'Config not found' }, 404)
+    const exists = await StrategyConfigModel.exists({ name });
+    if (!exists) return c.json({ error: "Config not found" }, 404);
 
     // Atomic: deactivate all + activate target in single bulkWrite
     await StrategyConfigModel.bulkWrite([
       { updateMany: { filter: { isActive: true }, update: { isActive: false } } },
       { updateOne: { filter: { name }, update: { isActive: true, updatedAt: new Date() } } },
-    ])
+    ]);
 
-    const target = await StrategyConfigModel.findOne({ name }).lean()
-    if (!target) return c.json({ error: 'Config not found' }, 404)
+    const target = await StrategyConfigModel.findOne({ name }).lean();
+    if (!target) return c.json({ error: "Config not found" }, 404);
 
     // Emit event for hot-reload
-    eventBus.emit('strategy:config-changed', target)
+    eventBus.emit("strategy:config-changed", target);
 
-    return c.json({ activated: target.name, params: target.params })
+    return c.json({ activated: target.name, params: target.params });
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
-})
+});
 
-export { strategyConfigRoutes }
+export { strategyConfigRoutes };

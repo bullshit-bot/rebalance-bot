@@ -1,18 +1,18 @@
+import type { ExchangeName } from "@/types/index";
 // ccxt.pro classes exist at runtime but are not exposed in the TS declarations.
 // We import the runtime default (which has .pro.*) and the named namespace for types.
-import ccxtDefault from 'ccxt'
-import type * as ccxt from 'ccxt'
-import type { ExchangeName } from '@/types/index'
+import ccxtDefault from "ccxt";
+import type * as ccxt from "ccxt";
 
 // ─── Exchange creation config ─────────────────────────────────────────────────
 
 export interface ExchangeCredentials {
-  apiKey: string
-  secret: string
+  apiKey: string;
+  secret: string;
   /** Required by OKX */
-  password?: string
+  password?: string;
   /** When true, connects to the exchange testnet/sandbox */
-  sandbox?: boolean
+  sandbox?: boolean;
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
@@ -32,46 +32,51 @@ export function createExchange(name: ExchangeName, config: ExchangeCredentials):
     apiKey: config.apiKey,
     secret: config.secret,
     enableRateLimit: true,
-  }
+  };
 
   // ccxt.pro.* classes exist at runtime; cast through unknown to satisfy TS
-  const pro = ccxtDefault.pro as Record<string, new (opts: Record<string, unknown>) => ccxt.Exchange>
+  const pro = ccxtDefault.pro as Record<
+    string,
+    new (
+      opts: Record<string, unknown>
+    ) => ccxt.Exchange
+  >;
 
-  let exchange: ccxt.Exchange
+  let exchange: ccxt.Exchange;
 
   switch (name) {
-    case 'binance': {
-      const ExchangeClass = pro['binance']
-      if (!ExchangeClass) throw new Error('ccxt.pro.binance not found')
-      exchange = new ExchangeClass({ ...baseOptions, options: { defaultType: 'spot' } })
-      break
+    case "binance": {
+      const ExchangeClass = pro["binance"];
+      if (!ExchangeClass) throw new Error("ccxt.pro.binance not found");
+      exchange = new ExchangeClass({ ...baseOptions, options: { defaultType: "spot" } });
+      break;
     }
 
-    case 'okx': {
-      const ExchangeClass = pro['okx']
-      if (!ExchangeClass) throw new Error('ccxt.pro.okx not found')
+    case "okx": {
+      const ExchangeClass = pro["okx"];
+      if (!ExchangeClass) throw new Error("ccxt.pro.okx not found");
       // OKX requires a passphrase in addition to key+secret
-      exchange = new ExchangeClass({ ...baseOptions, password: config.password ?? '' })
-      break
+      exchange = new ExchangeClass({ ...baseOptions, password: config.password ?? "" });
+      break;
     }
 
-    case 'bybit': {
-      const ExchangeClass = pro['bybit']
-      if (!ExchangeClass) throw new Error('ccxt.pro.bybit not found')
-      exchange = new ExchangeClass({ ...baseOptions })
-      break
+    case "bybit": {
+      const ExchangeClass = pro["bybit"];
+      if (!ExchangeClass) throw new Error("ccxt.pro.bybit not found");
+      exchange = new ExchangeClass({ ...baseOptions });
+      break;
     }
 
     default: {
       // Exhaustiveness check — TypeScript will catch unknown ExchangeName values
-      const _exhaustive: never = name
-      throw new Error(`Unsupported exchange: ${_exhaustive}`)
+      const _exhaustive: never = name;
+      throw new Error(`Unsupported exchange: ${_exhaustive}`);
     }
   }
 
   if (config.sandbox) {
-    exchange.setSandboxMode(true)
+    exchange.setSandboxMode(true);
   }
 
-  return exchange
+  return exchange;
 }

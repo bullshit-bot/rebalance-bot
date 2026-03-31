@@ -1,5 +1,5 @@
-import { equityCurveBuilder } from './equity-curve-builder'
-import type { EquityPoint } from './equity-curve-builder'
+import { equityCurveBuilder } from "./equity-curve-builder";
+import type { EquityPoint } from "./equity-curve-builder";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -8,8 +8,8 @@ import type { EquityPoint } from './equity-curve-builder'
  * drawdownPct is negative (e.g. -0.15 means -15% from peak).
  */
 export interface DrawdownPoint {
-  timestamp: number
-  drawdownPct: number
+  timestamp: number;
+  drawdownPct: number;
 }
 
 /**
@@ -18,21 +18,21 @@ export interface DrawdownPoint {
  */
 export interface DrawdownResult {
   /** Largest peak-to-trough decline as a fraction (e.g. -0.25 = -25%) */
-  maxDrawdownPct: number
+  maxDrawdownPct: number;
   /** Largest peak-to-trough decline in absolute USD */
-  maxDrawdownUsd: number
+  maxDrawdownUsd: number;
   /** Portfolio value at the peak of the max drawdown period */
-  peakValue: number
+  peakValue: number;
   /** Portfolio value at the trough of the max drawdown period */
-  troughValue: number
+  troughValue: number;
   /** Timestamp (Unix seconds) when the peak occurred */
-  peakDate: number
+  peakDate: number;
   /** Timestamp (Unix seconds) when the trough occurred */
-  troughDate: number
+  troughDate: number;
   /** Current drawdown from the most recent all-time high, as a fraction */
-  currentDrawdownPct: number
+  currentDrawdownPct: number;
   /** Per-point drawdown series for charting */
-  drawdownSeries: DrawdownPoint[]
+  drawdownSeries: DrawdownPoint[];
 }
 
 // ─── DrawdownAnalyzer ─────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ class DrawdownAnalyzer {
    * @param to   - End timestamp, Unix epoch seconds (inclusive)
    */
   async analyze(from: number, to: number): Promise<DrawdownResult> {
-    const curve: EquityPoint[] = await equityCurveBuilder.build(from, to)
+    const curve: EquityPoint[] = await equityCurveBuilder.build(from, to);
 
     const empty: DrawdownResult = {
       maxDrawdownPct: 0,
@@ -61,63 +61,62 @@ class DrawdownAnalyzer {
       troughDate: 0,
       currentDrawdownPct: 0,
       drawdownSeries: [],
-    }
+    };
 
-    if (curve.length < 2) return empty
+    if (curve.length < 2) return empty;
 
     // Running state for max-drawdown tracking
-    let runningPeak = curve[0]!.valueUsd
-    let runningPeakTs = curve[0]!.timestamp
+    let runningPeak = curve[0]!.valueUsd;
+    let runningPeakTs = curve[0]!.timestamp;
 
     // State for the worst drawdown window found so far
-    let maxDrawdownPct = 0
-    let maxDrawdownUsd = 0
-    let peakValue = runningPeak
-    let troughValue = runningPeak
-    let peakDate = runningPeakTs
-    let troughDate = runningPeakTs
+    let maxDrawdownPct = 0;
+    let maxDrawdownUsd = 0;
+    let peakValue = runningPeak;
+    let troughValue = runningPeak;
+    let peakDate = runningPeakTs;
+    let troughDate = runningPeakTs;
 
     // Candidate trough for the current drawdown window
-    let candidateTroughValue = runningPeak
-    let candidateTroughTs = runningPeakTs
+    let candidateTroughValue = runningPeak;
+    let candidateTroughTs = runningPeakTs;
 
-    const drawdownSeries: DrawdownPoint[] = []
+    const drawdownSeries: DrawdownPoint[] = [];
 
     for (const point of curve) {
       // Update running peak when a new high is reached
       if (point.valueUsd > runningPeak) {
-        runningPeak = point.valueUsd
-        runningPeakTs = point.timestamp
-        candidateTroughValue = point.valueUsd
-        candidateTroughTs = point.timestamp
+        runningPeak = point.valueUsd;
+        runningPeakTs = point.timestamp;
+        candidateTroughValue = point.valueUsd;
+        candidateTroughTs = point.timestamp;
       }
 
       // Track the lowest point since the current peak
       if (point.valueUsd < candidateTroughValue) {
-        candidateTroughValue = point.valueUsd
-        candidateTroughTs = point.timestamp
+        candidateTroughValue = point.valueUsd;
+        candidateTroughTs = point.timestamp;
       }
 
-      const dd = runningPeak > 0 ? (point.valueUsd - runningPeak) / runningPeak : 0
-      drawdownSeries.push({ timestamp: point.timestamp, drawdownPct: dd })
+      const dd = runningPeak > 0 ? (point.valueUsd - runningPeak) / runningPeak : 0;
+      drawdownSeries.push({ timestamp: point.timestamp, drawdownPct: dd });
 
       // Check if this window is the worst drawdown seen so far
-      const windowDdPct =
-        runningPeak > 0 ? (candidateTroughValue - runningPeak) / runningPeak : 0
+      const windowDdPct = runningPeak > 0 ? (candidateTroughValue - runningPeak) / runningPeak : 0;
       if (windowDdPct < maxDrawdownPct) {
-        maxDrawdownPct = windowDdPct
-        maxDrawdownUsd = candidateTroughValue - runningPeak
-        peakValue = runningPeak
-        troughValue = candidateTroughValue
-        peakDate = runningPeakTs
-        troughDate = candidateTroughTs
+        maxDrawdownPct = windowDdPct;
+        maxDrawdownUsd = candidateTroughValue - runningPeak;
+        peakValue = runningPeak;
+        troughValue = candidateTroughValue;
+        peakDate = runningPeakTs;
+        troughDate = candidateTroughTs;
       }
     }
 
     // Current drawdown is the last point's drawdown relative to the all-time peak in range
-    const allTimePeak = Math.max(...curve.map((p) => p.valueUsd))
-    const lastValue = curve[curve.length - 1]!.valueUsd
-    const currentDrawdownPct = allTimePeak > 0 ? (lastValue - allTimePeak) / allTimePeak : 0
+    const allTimePeak = Math.max(...curve.map((p) => p.valueUsd));
+    const lastValue = curve[curve.length - 1]!.valueUsd;
+    const currentDrawdownPct = allTimePeak > 0 ? (lastValue - allTimePeak) / allTimePeak : 0;
 
     return {
       maxDrawdownPct,
@@ -128,12 +127,12 @@ class DrawdownAnalyzer {
       troughDate,
       currentDrawdownPct,
       drawdownSeries,
-    }
+    };
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const drawdownAnalyzer = new DrawdownAnalyzer()
+export const drawdownAnalyzer = new DrawdownAnalyzer();
 
-export { DrawdownAnalyzer }
+export { DrawdownAnalyzer };

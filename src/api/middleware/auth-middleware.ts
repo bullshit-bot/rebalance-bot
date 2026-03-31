@@ -1,6 +1,6 @@
-import { timingSafeEqual } from 'node:crypto'
-import type { Context, Next } from 'hono'
-import { env } from '@config/app-config'
+import { timingSafeEqual } from "node:crypto";
+import { env } from "@config/app-config";
+import type { Context, Next } from "hono";
 
 /**
  * API key authentication middleware.
@@ -9,13 +9,13 @@ import { env } from '@config/app-config'
  * Returns 401 for missing or invalid keys.
  */
 export async function authMiddleware(c: Context, next: Next): Promise<Response | void> {
-  const apiKey = c.req.header('X-API-Key')
+  const apiKey = c.req.header("X-API-Key");
 
   if (!apiKey || !isApiKeyValid(apiKey)) {
-    return c.json({ error: 'Unauthorized' }, 401)
+    return c.json({ error: "Unauthorized" }, 401);
   }
 
-  await next()
+  await next();
 }
 
 /**
@@ -24,12 +24,12 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
  */
 function isApiKeyValid(provided: string): boolean {
   try {
-    const expected = Buffer.from(env.API_KEY, 'utf8')
-    const actual = Buffer.from(provided, 'utf8')
+    const expected = Buffer.from(env.API_KEY, "utf8");
+    const actual = Buffer.from(provided, "utf8");
     // timingSafeEqual throws if buffer lengths differ — treat that as mismatch
-    if (expected.length !== actual.length) return false
-    return timingSafeEqual(expected, actual)
+    if (expected.length !== actual.length) return false;
+    return timingSafeEqual(expected, actual);
   } catch {
-    return false
+    return false;
   }
 }

@@ -150,10 +150,7 @@ class MarketSummaryService {
     const signal = isBull ? "🟢 BULL" : "🔴 BEAR";
     const dataStatus = dataPoints < 100 ? ` (${dataPoints}/100 điểm dữ liệu)` : "";
 
-    return [
-      "<b>📉 Trend Filter</b>",
-      `Tín hiệu: ${signal}${dataStatus}`,
-    ].join("\n");
+    return ["<b>📉 Trend Filter</b>", `Tín hiệu: ${signal}${dataStatus}`].join("\n");
   }
 
   private async buildTradeSection(since: Date): Promise<string> {

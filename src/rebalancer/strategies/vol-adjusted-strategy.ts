@@ -1,7 +1,7 @@
-import type { z } from 'zod'
-import type { VolAdjustedParamsSchema } from '@rebalancer/strategies/strategy-config-types'
+import type { VolAdjustedParamsSchema } from "@rebalancer/strategies/strategy-config-types";
+import type { z } from "zod";
 
-type VolAdjustedParams = z.infer<typeof VolAdjustedParamsSchema>
+type VolAdjustedParams = z.infer<typeof VolAdjustedParamsSchema>;
 
 // ─── VolAdjustedStrategy ─────────────────────────────────────────────────────
 
@@ -17,21 +17,21 @@ type VolAdjustedParams = z.infer<typeof VolAdjustedParamsSchema>
  */
 class VolAdjustedStrategy {
   /** Rolling volatility readings (one per update cycle). */
-  private volHistory: number[] = []
+  private volHistory: number[] = [];
 
   /**
    * Record a volatility reading.
    * Capped at volLookbackDays samples (1 sample ≈ 1 day approximation).
    */
   recordVolatility(vol: number, lookbackDays = 30): void {
-    this.volHistory.push(vol)
-    if (this.volHistory.length > lookbackDays) this.volHistory.shift()
+    this.volHistory.push(vol);
+    if (this.volHistory.length > lookbackDays) this.volHistory.shift();
   }
 
   /** Average volatility across the recorded history. Returns 0 when empty. */
   getAverageVol(): number {
-    if (this.volHistory.length === 0) return 0
-    return this.volHistory.reduce((s, v) => s + v, 0) / this.volHistory.length
+    if (this.volHistory.length === 0) return 0;
+    return this.volHistory.reduce((s, v) => s + v, 0) / this.volHistory.length;
   }
 
   /**
@@ -43,27 +43,27 @@ class VolAdjustedStrategy {
    * Falls back to baseThresholdPct when no history is available.
    */
   getDynamicThreshold(params: VolAdjustedParams): number {
-    const avgVol = this.getAverageVol()
+    const avgVol = this.getAverageVol();
 
     // No history yet — return base threshold unclamped
     if (avgVol === 0 || this.volHistory.length === 0) {
-      return params.baseThresholdPct
+      return params.baseThresholdPct;
     }
 
-    const currentVol = this.volHistory[this.volHistory.length - 1]
-    const raw = params.baseThresholdPct * (currentVol / avgVol)
+    const currentVol = this.volHistory[this.volHistory.length - 1];
+    const raw = params.baseThresholdPct * (currentVol / avgVol);
 
-    return Math.min(Math.max(raw, params.minThresholdPct), params.maxThresholdPct)
+    return Math.min(Math.max(raw, params.minThresholdPct), params.maxThresholdPct);
   }
 
   /** Reset vol history (useful for testing or on config change). */
   reset(): void {
-    this.volHistory = []
+    this.volHistory = [];
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const volAdjustedStrategy = new VolAdjustedStrategy()
+export const volAdjustedStrategy = new VolAdjustedStrategy();
 
-export { VolAdjustedStrategy }
+export { VolAdjustedStrategy };

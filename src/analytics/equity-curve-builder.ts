@@ -1,4 +1,4 @@
-import { SnapshotModel } from '@db/database'
+import { SnapshotModel } from "@db/database";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -7,8 +7,8 @@ import { SnapshotModel } from '@db/database'
  * timestamp is Unix epoch seconds.
  */
 export interface EquityPoint {
-  timestamp: number
-  valueUsd: number
+  timestamp: number;
+  valueUsd: number;
 }
 
 // ─── EquityCurveBuilder ───────────────────────────────────────────────────────
@@ -32,19 +32,19 @@ class EquityCurveBuilder {
         $lte: new Date(to * 1000),
       },
     })
-      .select('createdAt totalValueUsd')
+      .select("createdAt totalValueUsd")
       .sort({ createdAt: 1 })
-      .lean()
+      .lean();
 
     return rows.map((row) => ({
       timestamp: Math.floor(new Date(row.createdAt).getTime() / 1000),
       valueUsd: row.totalValueUsd,
-    }))
+    }));
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const equityCurveBuilder = new EquityCurveBuilder()
+export const equityCurveBuilder = new EquityCurveBuilder();
 
-export { EquityCurveBuilder }
+export { EquityCurveBuilder };

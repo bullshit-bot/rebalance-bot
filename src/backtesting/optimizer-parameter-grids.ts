@@ -1,15 +1,15 @@
-import type { StrategyType } from '@rebalancer/strategies/strategy-config-types'
+import type { StrategyType } from "@rebalancer/strategies/strategy-config-types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ParamCombination {
-  strategyType: StrategyType
-  strategyParams: Record<string, unknown>
-  label: string
+  strategyType: StrategyType;
+  strategyParams: Record<string, unknown>;
+  label: string;
   /** Fraction of portfolio to hold as cash reserve (0–100). Default: 0 */
-  cashReservePct?: number
+  cashReservePct?: number;
   /** Route sells through DCA instead of immediate execution. Requires cashReservePct > 0. */
-  dcaRebalanceEnabled?: boolean
+  dcaRebalanceEnabled?: boolean;
 }
 
 // ─── Grid generators ──────────────────────────────────────────────────────────
@@ -20,10 +20,10 @@ export interface ParamCombination {
  */
 function thresholdGrid(): ParamCombination[] {
   return [2, 3, 5, 8, 10, 15].map((t) => ({
-    strategyType: 'threshold' as StrategyType,
-    strategyParams: { type: 'threshold', thresholdPct: t, minTradeUsd: 10 },
+    strategyType: "threshold" as StrategyType,
+    strategyParams: { type: "threshold", thresholdPct: t, minTradeUsd: 10 },
     label: `threshold-${t}%`,
-  }))
+  }));
 }
 
 /**
@@ -32,10 +32,10 @@ function thresholdGrid(): ParamCombination[] {
  */
 function equalWeightGrid(): ParamCombination[] {
   return [2, 3, 5, 8, 10, 15].map((t) => ({
-    strategyType: 'equal-weight' as StrategyType,
-    strategyParams: { type: 'equal-weight', thresholdPct: t, minTradeUsd: 10 },
+    strategyType: "equal-weight" as StrategyType,
+    strategyParams: { type: "equal-weight", thresholdPct: t, minTradeUsd: 10 },
     label: `ew-${t}%`,
-  }))
+  }));
 }
 
 /**
@@ -43,19 +43,25 @@ function equalWeightGrid(): ParamCombination[] {
  * lookbackDays [14, 30, 60] × bandWidthSigma [1, 1.5, 2] × minDriftPct [2, 3, 5] = 27 combos
  */
 function meanReversionGrid(): ParamCombination[] {
-  const combos: ParamCombination[] = []
+  const combos: ParamCombination[] = [];
   for (const lb of [14, 30, 60]) {
     for (const bw of [1, 1.5, 2]) {
       for (const md of [2, 3, 5]) {
         combos.push({
-          strategyType: 'mean-reversion' as StrategyType,
-          strategyParams: { type: 'mean-reversion', lookbackDays: lb, bandWidthSigma: bw, minDriftPct: md, minTradeUsd: 10 },
+          strategyType: "mean-reversion" as StrategyType,
+          strategyParams: {
+            type: "mean-reversion",
+            lookbackDays: lb,
+            bandWidthSigma: bw,
+            minDriftPct: md,
+            minTradeUsd: 10,
+          },
           label: `mr-${lb}d-${bw}σ-${md}%`,
-        })
+        });
       }
     }
   }
-  return combos
+  return combos;
 }
 
 /**
@@ -63,21 +69,28 @@ function meanReversionGrid(): ParamCombination[] {
  * baseThresholdPct [3, 5, 8] × volLookbackDays [14, 30] × minThresholdPct [2, 3] × maxThresholdPct [15, 20] = 24 combos
  */
 function volAdjustedGrid(): ParamCombination[] {
-  const combos: ParamCombination[] = []
+  const combos: ParamCombination[] = [];
   for (const base of [3, 5, 8]) {
     for (const vlb of [14, 30]) {
       for (const min of [2, 3]) {
         for (const max of [15, 20]) {
           combos.push({
-            strategyType: 'vol-adjusted' as StrategyType,
-            strategyParams: { type: 'vol-adjusted', baseThresholdPct: base, volLookbackDays: vlb, minThresholdPct: min, maxThresholdPct: max, minTradeUsd: 10 },
+            strategyType: "vol-adjusted" as StrategyType,
+            strategyParams: {
+              type: "vol-adjusted",
+              baseThresholdPct: base,
+              volLookbackDays: vlb,
+              minThresholdPct: min,
+              maxThresholdPct: max,
+              minTradeUsd: 10,
+            },
             label: `va-${base}%-${vlb}d-min${min}-max${max}`,
-          })
+          });
         }
       }
     }
   }
-  return combos
+  return combos;
 }
 
 /**
@@ -85,19 +98,29 @@ function volAdjustedGrid(): ParamCombination[] {
  * rsiPeriod [7, 14] × macdSets [12/26, 8/21] × weightFactor [0.2, 0.4] = 8 combos
  */
 function momentumWeightedGrid(): ParamCombination[] {
-  const combos: ParamCombination[] = []
+  const combos: ParamCombination[] = [];
   for (const rsi of [7, 14]) {
-    for (const [fast, slow] of [[12, 26], [8, 21]]) {
+    for (const [fast, slow] of [
+      [12, 26],
+      [8, 21],
+    ]) {
       for (const wf of [0.2, 0.4]) {
         combos.push({
-          strategyType: 'momentum-weighted' as StrategyType,
-          strategyParams: { type: 'momentum-weighted', rsiPeriod: rsi, macdFast: fast, macdSlow: slow, weightFactor: wf, minTradeUsd: 10 },
+          strategyType: "momentum-weighted" as StrategyType,
+          strategyParams: {
+            type: "momentum-weighted",
+            rsiPeriod: rsi,
+            macdFast: fast,
+            macdSlow: slow,
+            weightFactor: wf,
+            minTradeUsd: 10,
+          },
           label: `mw-rsi${rsi}-${fast}/${slow}-w${wf}`,
-        })
+        });
       }
     }
   }
-  return combos
+  return combos;
 }
 
 /**
@@ -105,19 +128,25 @@ function momentumWeightedGrid(): ParamCombination[] {
  * thresholdPct [3, 5, 8] × momentumWindowDays [7, 14, 30] × momentumWeight [0.3, 0.5, 0.7] = 27 combos
  */
 function momentumTiltGrid(): ParamCombination[] {
-  const combos: ParamCombination[] = []
+  const combos: ParamCombination[] = [];
   for (const t of [3, 5, 8]) {
     for (const w of [7, 14, 30]) {
       for (const mw of [0.3, 0.5, 0.7]) {
         combos.push({
-          strategyType: 'momentum-tilt' as StrategyType,
-          strategyParams: { type: 'momentum-tilt', thresholdPct: t, momentumWindowDays: w, momentumWeight: mw, minTradeUsd: 10 },
+          strategyType: "momentum-tilt" as StrategyType,
+          strategyParams: {
+            type: "momentum-tilt",
+            thresholdPct: t,
+            momentumWindowDays: w,
+            momentumWeight: mw,
+            minTradeUsd: 10,
+          },
           label: `mt-${t}%-${w}d-${mw}wt`,
-        })
+        });
       }
     }
   }
-  return combos
+  return combos;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -136,10 +165,10 @@ export function generateParameterGrid(strategyTypes?: StrategyType[]): ParamComb
     ...volAdjustedGrid(),
     ...momentumWeightedGrid(),
     ...momentumTiltGrid(),
-  ]
+  ];
 
-  if (!strategyTypes || strategyTypes.length === 0) return all
-  return all.filter((c) => strategyTypes.includes(c.strategyType))
+  if (!strategyTypes || strategyTypes.length === 0) return all;
+  return all.filter((c) => strategyTypes.includes(c.strategyType));
 }
 
 /**
@@ -150,32 +179,32 @@ export function generateParameterGrid(strategyTypes?: StrategyType[]): ParamComb
  * Total: 4 bases × (3 cashPct + 2 dca variants with cash>0) = ~20 combos
  */
 export function generateCashDCAGrid(): ParamCombination[] {
-  const combos: ParamCombination[] = []
+  const combos: ParamCombination[] = [];
 
   const baseStrategies = [
-    { type: 'threshold' as StrategyType, thresholdPct: 5, minTradeUsd: 10 },
-    { type: 'threshold' as StrategyType, thresholdPct: 15, minTradeUsd: 10 },
-    { type: 'equal-weight' as StrategyType, thresholdPct: 2, minTradeUsd: 10 },
-    { type: 'equal-weight' as StrategyType, thresholdPct: 5, minTradeUsd: 10 },
-  ]
+    { type: "threshold" as StrategyType, thresholdPct: 5, minTradeUsd: 10 },
+    { type: "threshold" as StrategyType, thresholdPct: 15, minTradeUsd: 10 },
+    { type: "equal-weight" as StrategyType, thresholdPct: 2, minTradeUsd: 10 },
+    { type: "equal-weight" as StrategyType, thresholdPct: 5, minTradeUsd: 10 },
+  ];
 
   for (const base of baseStrategies) {
     for (const cashPct of [0, 10, 20]) {
       for (const dcaRoute of [false, true]) {
-        if (dcaRoute && cashPct === 0) continue // DCA routing requires a cash reserve
-        const prefix = base.type === 'equal-weight' ? 'ew' : 't'
-        const dcaSuffix = dcaRoute ? '-dca' : ''
-        const label = `${prefix}-${base.thresholdPct}%-cash${cashPct}${dcaSuffix}`
+        if (dcaRoute && cashPct === 0) continue; // DCA routing requires a cash reserve
+        const prefix = base.type === "equal-weight" ? "ew" : "t";
+        const dcaSuffix = dcaRoute ? "-dca" : "";
+        const label = `${prefix}-${base.thresholdPct}%-cash${cashPct}${dcaSuffix}`;
         combos.push({
           strategyType: base.type,
           strategyParams: { ...base },
           label,
           cashReservePct: cashPct,
           dcaRebalanceEnabled: dcaRoute,
-        })
+        });
       }
     }
   }
 
-  return combos
+  return combos;
 }

@@ -1,5 +1,5 @@
-import { createEnv } from '@t3-oss/env-core'
-import { z } from 'zod'
+import { createEnv } from "@t3-oss/env-core";
+import { z } from "zod";
 
 /**
  * Validated environment configuration using @t3-oss/env-core + zod.
@@ -38,7 +38,9 @@ export const env = createEnv({
     GOCLAW_GATEWAY_TOKEN: z.string().optional(),
 
     // Advanced strategy settings
-    STRATEGY_MODE: z.enum(['threshold', 'equal-weight', 'momentum-tilt', 'vol-adjusted']).default('threshold'),
+    STRATEGY_MODE: z
+      .enum(["threshold", "equal-weight", "momentum-tilt", "vol-adjusted"])
+      .default("threshold"),
     MOMENTUM_WINDOW_DAYS: z.coerce.number().int().positive().default(30),
     VOLATILITY_THRESHOLD: z.coerce.number().positive().default(50),
     DYNAMIC_THRESHOLD_LOW: z.coerce.number().positive().default(3),
@@ -50,41 +52,41 @@ export const env = createEnv({
    * We runtimeEnv all keys explicitly so env-core can validate them.
    */
   runtimeEnv: {
-    API_PORT: process.env['API_PORT'],
-    API_KEY: process.env['API_KEY'],
+    API_PORT: process.env["API_PORT"],
+    API_KEY: process.env["API_KEY"],
 
-    BINANCE_API_KEY: process.env['BINANCE_API_KEY'],
-    BINANCE_API_SECRET: process.env['BINANCE_API_SECRET'],
-    BINANCE_SANDBOX: process.env['BINANCE_SANDBOX'],
+    BINANCE_API_KEY: process.env["BINANCE_API_KEY"],
+    BINANCE_API_SECRET: process.env["BINANCE_API_SECRET"],
+    BINANCE_SANDBOX: process.env["BINANCE_SANDBOX"],
 
-    OKX_API_KEY: process.env['OKX_API_KEY'],
-    OKX_API_SECRET: process.env['OKX_API_SECRET'],
-    OKX_PASSPHRASE: process.env['OKX_PASSPHRASE'],
+    OKX_API_KEY: process.env["OKX_API_KEY"],
+    OKX_API_SECRET: process.env["OKX_API_SECRET"],
+    OKX_PASSPHRASE: process.env["OKX_PASSPHRASE"],
 
-    BYBIT_API_KEY: process.env['BYBIT_API_KEY'],
-    BYBIT_API_SECRET: process.env['BYBIT_API_SECRET'],
+    BYBIT_API_KEY: process.env["BYBIT_API_KEY"],
+    BYBIT_API_SECRET: process.env["BYBIT_API_SECRET"],
 
-    ENCRYPTION_KEY: process.env['ENCRYPTION_KEY'],
+    ENCRYPTION_KEY: process.env["ENCRYPTION_KEY"],
 
-    REBALANCE_THRESHOLD: process.env['REBALANCE_THRESHOLD'],
-    REBALANCE_COOLDOWN_HOURS: process.env['REBALANCE_COOLDOWN_HOURS'],
-    MIN_TRADE_USD: process.env['MIN_TRADE_USD'],
-    MAX_TRADE_USD: process.env['MAX_TRADE_USD'],
-    DAILY_LOSS_LIMIT_PCT: process.env['DAILY_LOSS_LIMIT_PCT'],
+    REBALANCE_THRESHOLD: process.env["REBALANCE_THRESHOLD"],
+    REBALANCE_COOLDOWN_HOURS: process.env["REBALANCE_COOLDOWN_HOURS"],
+    MIN_TRADE_USD: process.env["MIN_TRADE_USD"],
+    MAX_TRADE_USD: process.env["MAX_TRADE_USD"],
+    DAILY_LOSS_LIMIT_PCT: process.env["DAILY_LOSS_LIMIT_PCT"],
 
-    STRATEGY_MODE: process.env['STRATEGY_MODE'],
-    MOMENTUM_WINDOW_DAYS: process.env['MOMENTUM_WINDOW_DAYS'],
-    VOLATILITY_THRESHOLD: process.env['VOLATILITY_THRESHOLD'],
-    DYNAMIC_THRESHOLD_LOW: process.env['DYNAMIC_THRESHOLD_LOW'],
-    DYNAMIC_THRESHOLD_HIGH: process.env['DYNAMIC_THRESHOLD_HIGH'],
+    STRATEGY_MODE: process.env["STRATEGY_MODE"],
+    MOMENTUM_WINDOW_DAYS: process.env["MOMENTUM_WINDOW_DAYS"],
+    VOLATILITY_THRESHOLD: process.env["VOLATILITY_THRESHOLD"],
+    DYNAMIC_THRESHOLD_LOW: process.env["DYNAMIC_THRESHOLD_LOW"],
+    DYNAMIC_THRESHOLD_HIGH: process.env["DYNAMIC_THRESHOLD_HIGH"],
 
-    GOCLAW_URL: process.env['GOCLAW_URL'],
-    GOCLAW_GATEWAY_TOKEN: process.env['GOCLAW_GATEWAY_TOKEN'],
+    GOCLAW_URL: process.env["GOCLAW_URL"],
+    GOCLAW_GATEWAY_TOKEN: process.env["GOCLAW_GATEWAY_TOKEN"],
   },
 
   // Skip validation during tests to avoid needing real env vars
-  skipValidation: process.env['NODE_ENV'] === 'test',
+  skipValidation: process.env["NODE_ENV"] === "test",
 
   // Treat empty strings as undefined so optional fields degrade gracefully
   emptyStringAsUndefined: true,
-})
+});

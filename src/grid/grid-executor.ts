@@ -2,20 +2,26 @@ import type { ExchangeName } from "@/types/index";
 import { GridBotModel, GridOrderModel } from "@db/database";
 import { exchangeManager } from "@exchange/exchange-manager";
 import { getExecutor } from "@executor/index";
+import type { IOrderExecutor } from "@executor/order-executor";
 import type { GridLevel } from "@grid/grid-calculator";
 import { gridPnLTracker } from "@grid/grid-pnl-tracker";
-import type { IOrderExecutor } from "@executor/order-executor";
 
 // ─── Dependency injection interfaces ─────────────────────────────────────────
 
 export interface IExchangeManagerDepGE {
-  getEnabledExchanges(): Map<string, { fetchOrder(id: string): Promise<Record<string, unknown>>; cancelOrder(id: string): Promise<unknown> }>
+  getEnabledExchanges(): Map<
+    string,
+    {
+      fetchOrder(id: string): Promise<Record<string, unknown>>;
+      cancelOrder(id: string): Promise<unknown>;
+    }
+  >;
 }
 
 export interface GridExecutorDeps {
-  exchangeManager: IExchangeManagerDepGE
+  exchangeManager: IExchangeManagerDepGE;
   /** Injectable executor factory — defaults to getExecutor(). */
-  getExecutor: () => IOrderExecutor
+  getExecutor: () => IOrderExecutor;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -39,9 +45,10 @@ class GridExecutor {
 
   constructor(deps?: Partial<GridExecutorDeps>) {
     this.deps = {
-      exchangeManager: deps?.exchangeManager ?? (exchangeManager as unknown as IExchangeManagerDepGE),
+      exchangeManager:
+        deps?.exchangeManager ?? (exchangeManager as unknown as IExchangeManagerDepGE),
       getExecutor: deps?.getExecutor ?? getExecutor,
-    }
+    };
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────────
@@ -93,10 +100,10 @@ class GridExecutor {
 
         // Stop monitoring on exchange auth failure — retrying is pointless and may spam logs
         const isAuthError =
-          msg.toLowerCase().includes('apikey') ||
-          msg.toLowerCase().includes('unauthorized') ||
-          msg.toLowerCase().includes('auth') ||
-          msg.toLowerCase().includes('invalid key');
+          msg.toLowerCase().includes("apikey") ||
+          msg.toLowerCase().includes("unauthorized") ||
+          msg.toLowerCase().includes("auth") ||
+          msg.toLowerCase().includes("invalid key");
 
         if (isAuthError) {
           console.error(`[GridExecutor] Auth failure detected for bot ${botId} — stopping monitor`);

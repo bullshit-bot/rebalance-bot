@@ -1,20 +1,20 @@
-import { Schema, model } from 'mongoose'
+import { Schema, model } from "mongoose";
 
 export interface IGridBot {
-  _id: string
-  exchange: string
-  pair: string
-  gridType: string // 'normal' | 'reverse'
-  priceLower: number
-  priceUpper: number
-  gridLevels: number
-  investment: number
-  status: string // 'active' | 'stopped'
-  totalProfit: number
-  totalTrades: number
-  config: Record<string, unknown>
-  createdAt: Date
-  stoppedAt: Date | null
+  _id: string;
+  exchange: string;
+  pair: string;
+  gridType: string; // 'normal' | 'reverse'
+  priceLower: number;
+  priceUpper: number;
+  gridLevels: number;
+  investment: number;
+  status: string; // 'active' | 'stopped'
+  totalProfit: number;
+  totalTrades: number;
+  config: Record<string, unknown>;
+  createdAt: Date;
+  stoppedAt: Date | null;
 }
 
 const gridBotSchema = new Schema<IGridBot>({
@@ -32,10 +32,16 @@ const gridBotSchema = new Schema<IGridBot>({
   config: { type: Schema.Types.Mixed, required: true },
   createdAt: { type: Date, default: Date.now },
   stoppedAt: { type: Date, default: null },
-})
+});
 
-export const GridBotModel = model<IGridBot>('GridBot', gridBotSchema)
-export type GridBot = IGridBot
-export type NewGridBot = Omit<IGridBot, 'totalProfit' | 'totalTrades' | 'createdAt' | 'stoppedAt'> & {
-  totalProfit?: number; totalTrades?: number; createdAt?: Date; stoppedAt?: Date | null
-}
+export const GridBotModel = model<IGridBot>("GridBot", gridBotSchema);
+export type GridBot = IGridBot;
+export type NewGridBot = Omit<
+  IGridBot,
+  "totalProfit" | "totalTrades" | "createdAt" | "stoppedAt"
+> & {
+  totalProfit?: number;
+  totalTrades?: number;
+  createdAt?: Date;
+  stoppedAt?: Date | null;
+};

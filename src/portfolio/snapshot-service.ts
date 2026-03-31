@@ -1,6 +1,6 @@
-import { SnapshotModel } from '@db/database'
-import type { ISnapshot } from '@db/database'
-import type { Portfolio } from '@/types/index'
+import type { Portfolio } from "@/types/index";
+import { SnapshotModel } from "@db/database";
+import type { ISnapshot } from "@db/database";
 
 // ─── SnapshotService ──────────────────────────────────────────────────────────
 
@@ -16,27 +16,30 @@ class SnapshotService {
    */
   async saveSnapshot(portfolio: Portfolio): Promise<void> {
     // Build compact holdings map: asset -> { amount, valueUsd }
-    const holdingsMap: Record<string, { amount: number; valueUsd: number; exchange: string }> = {}
-    const allocationsMap: Record<string, { currentPct: number; targetPct: number; driftPct: number }> = {}
+    const holdingsMap: Record<string, { amount: number; valueUsd: number; exchange: string }> = {};
+    const allocationsMap: Record<
+      string,
+      { currentPct: number; targetPct: number; driftPct: number }
+    > = {};
 
     for (const asset of portfolio.assets) {
       holdingsMap[asset.asset] = {
         amount: asset.amount,
         valueUsd: asset.valueUsd,
         exchange: asset.exchange,
-      }
+      };
       allocationsMap[asset.asset] = {
         currentPct: asset.currentPct,
         targetPct: asset.targetPct,
         driftPct: asset.driftPct,
-      }
+      };
     }
 
     await SnapshotModel.create({
       totalValueUsd: portfolio.totalValueUsd,
       holdings: holdingsMap,
       allocations: allocationsMap,
-    })
+    });
   }
 
   /**
@@ -54,19 +57,19 @@ class SnapshotService {
       },
     })
       .sort({ createdAt: 1 })
-      .lean()
+      .lean();
   }
 
   /**
    * Fetches the most recently inserted snapshot row, or null if none exist.
    */
   async getLatest(): Promise<ISnapshot | null> {
-    return SnapshotModel.findOne().sort({ createdAt: -1 }).lean()
+    return SnapshotModel.findOne().sort({ createdAt: -1 }).lean();
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const snapshotService = new SnapshotService()
+export const snapshotService = new SnapshotService();
 
-export { SnapshotService }
+export { SnapshotService };

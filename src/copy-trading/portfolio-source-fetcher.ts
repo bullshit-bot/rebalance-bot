@@ -6,18 +6,18 @@
  * SSRF protection: only HTTPS URLs are allowed; private/loopback IP ranges are blocked.
  */
 
-const FETCH_TIMEOUT_MS = 10_000
+const FETCH_TIMEOUT_MS = 10_000;
 
 // Private/loopback IP ranges to block (SSRF protection)
 const PRIVATE_IP_PATTERNS = [
-  /^127\./,                          // 127.0.0.0/8 — loopback
-  /^10\./,                           // 10.0.0.0/8 — private class A
-  /^172\.(1[6-9]|2\d|3[01])\./,     // 172.16.0.0/12 — private class B
-  /^192\.168\./,                     // 192.168.0.0/16 — private class C
-  /^0\./,                            // 0.0.0.0/8
-]
+  /^127\./, // 127.0.0.0/8 — loopback
+  /^10\./, // 10.0.0.0/8 — private class A
+  /^172\.(1[6-9]|2\d|3[01])\./, // 172.16.0.0/12 — private class B
+  /^192\.168\./, // 192.168.0.0/16 — private class C
+  /^0\./, // 0.0.0.0/8
+];
 
-const BLOCKED_HOSTNAMES = new Set(['localhost', '::1', '0.0.0.0'])
+const BLOCKED_HOSTNAMES = new Set(["localhost", "::1", "0.0.0.0"]);
 
 /**
  * Validates the URL to prevent SSRF attacks.
@@ -25,70 +25,70 @@ const BLOCKED_HOSTNAMES = new Set(['localhost', '::1', '0.0.0.0'])
  * - Blocks private IP ranges and loopback hostnames
  */
 function validateUrl(rawUrl: string): void {
-  let parsed: URL
+  let parsed: URL;
   try {
-    parsed = new URL(rawUrl)
+    parsed = new URL(rawUrl);
   } catch {
-    throw new Error(`Invalid URL: "${rawUrl}"`)
+    throw new Error(`Invalid URL: "${rawUrl}"`);
   }
 
-  if (parsed.protocol !== 'https:') {
-    throw new Error(`Only HTTPS URLs are allowed. Got: "${parsed.protocol}"`)
+  if (parsed.protocol !== "https:") {
+    throw new Error(`Only HTTPS URLs are allowed. Got: "${parsed.protocol}"`);
   }
 
-  const hostname = parsed.hostname
+  const hostname = parsed.hostname;
 
   if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase())) {
-    throw new Error(`URL hostname "${hostname}" is not allowed (loopback/private)`)
+    throw new Error(`URL hostname "${hostname}" is not allowed (loopback/private)`);
   }
 
   for (const pattern of PRIVATE_IP_PATTERNS) {
     if (pattern.test(hostname)) {
-      throw new Error(`URL hostname "${hostname}" resolves to a private IP range (SSRF blocked)`)
+      throw new Error(`URL hostname "${hostname}" resolves to a private IP range (SSRF blocked)`);
     }
   }
 }
 
 export interface SourceAllocation {
-  asset: string
-  targetPct: number
+  asset: string;
+  targetPct: number;
 }
 
 // Shape variants the remote source might return
 interface WrappedResponse {
-  allocations: unknown[]
+  allocations: unknown[];
 }
 
 function isWrapped(data: unknown): data is WrappedResponse {
   return (
-    typeof data === 'object' &&
+    typeof data === "object" &&
     data !== null &&
-    'allocations' in data &&
+    "allocations" in data &&
     Array.isArray((data as WrappedResponse).allocations)
-  )
+  );
 }
 
 function parseAllocations(raw: unknown[]): SourceAllocation[] {
   return raw.map((item, i) => {
-    if (typeof item !== 'object' || item === null) {
-      throw new Error(`Item at index ${i} is not an object`)
+    if (typeof item !== "object" || item === null) {
+      throw new Error(`Item at index ${i} is not an object`);
     }
-    const obj = item as Record<string, unknown>
-    if (typeof obj['asset'] !== 'string' || obj['asset'].trim() === '') {
-      throw new Error(`Item at index ${i} missing valid "asset" string`)
+    const obj = item as Record<string, unknown>;
+    if (typeof obj["asset"] !== "string" || obj["asset"].trim() === "") {
+      throw new Error(`Item at index ${i} missing valid "asset" string`);
     }
-    const pct = Number(obj['targetPct'])
+    const pct = Number(obj["targetPct"]);
     if (!Number.isFinite(pct) || pct < 0) {
-      throw new Error(`Item at index ${i} has invalid "targetPct": ${obj['targetPct']}`)
+      throw new Error(`Item at index ${i} has invalid "targetPct": ${obj["targetPct"]}`);
     }
-    return { asset: obj['asset'].trim().toUpperCase(), targetPct: pct }
-  })
+    return { asset: obj["asset"].trim().toUpperCase(), targetPct: pct };
+  });
 }
 
 function validateSum(allocations: SourceAllocation[]): void {
-  const total = allocations.reduce((sum, a) => sum + a.targetPct, 0)
+  const total = allocations.reduce((sum, a) => sum + a.targetPct, 0);
   if (Math.abs(total - 100) > 2) {
-    throw new Error(`Allocation percentages sum to ${total.toFixed(2)}%, expected ~100%`)
+    throw new Error(`Allocation percentages sum to ${total.toFixed(2)}%, expected ~100%`);
   }
 }
 
@@ -100,31 +100,31 @@ class PortfolioSourceFetcher {
    */
   async fetch(url: string): Promise<SourceAllocation[]> {
     // Validate URL before making any network request (SSRF guard)
-    validateUrl(url)
+    validateUrl(url);
 
-    let response: Response
+    let response: Response;
     try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        response = await fetch(url, { signal: controller.signal })
+        response = await fetch(url, { signal: controller.signal });
       } finally {
-        clearTimeout(timer)
+        clearTimeout(timer);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Failed to fetch source URL "${url}": ${msg}`)
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to fetch source URL "${url}": ${msg}`);
     }
 
     if (!response.ok) {
-      throw new Error(`Source URL returned HTTP ${response.status} for "${url}"`)
+      throw new Error(`Source URL returned HTTP ${response.status} for "${url}"`);
     }
 
-    let data: unknown
+    let data: unknown;
     try {
-      data = await response.json()
+      data = await response.json();
     } catch {
-      throw new Error(`Source URL "${url}" did not return valid JSON`)
+      throw new Error(`Source URL "${url}" did not return valid JSON`);
     }
 
     // Accept { allocations: [...] } or a bare array
@@ -132,17 +132,19 @@ class PortfolioSourceFetcher {
       ? data.allocations
       : Array.isArray(data)
         ? data
-        : (() => { throw new Error(`Unexpected response shape from "${url}"`) })()
+        : (() => {
+            throw new Error(`Unexpected response shape from "${url}"`);
+          })();
 
     if (rawArray.length === 0) {
-      throw new Error(`Source "${url}" returned empty allocations array`)
+      throw new Error(`Source "${url}" returned empty allocations array`);
     }
 
-    const allocations = parseAllocations(rawArray)
-    validateSum(allocations)
+    const allocations = parseAllocations(rawArray);
+    validateSum(allocations);
 
-    return allocations
+    return allocations;
   }
 }
 
-export const portfolioSourceFetcher = new PortfolioSourceFetcher()
+export const portfolioSourceFetcher = new PortfolioSourceFetcher();

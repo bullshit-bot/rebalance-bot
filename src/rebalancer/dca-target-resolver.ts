@@ -1,5 +1,5 @@
-import type { Allocation, Portfolio } from '@/types/index'
-import { STABLECOINS } from '@rebalancer/trade-calculator'
+import type { Allocation, Portfolio } from "@/types/index";
+import { STABLECOINS } from "@rebalancer/trade-calculator";
 
 // ─── getDCATarget ─────────────────────────────────────────────────────────────
 
@@ -14,41 +14,38 @@ import { STABLECOINS } from '@rebalancer/trade-calculator'
  * @param allocations - Target allocations from active strategy
  * @returns Asset symbol or null
  */
-export function getDCATarget(
-  portfolio: Portfolio,
-  allocations: Allocation[],
-): string | null {
+export function getDCATarget(portfolio: Portfolio, allocations: Allocation[]): string | null {
   // Calculate total crypto value (exclude stablecoins like USDT)
   // Target %s are relative to the crypto portion, not the full portfolio
   const cryptoValue = portfolio.assets
     .filter((a) => !STABLECOINS.has(a.asset))
-    .reduce((sum, a) => sum + a.valueUsd, 0)
+    .reduce((sum, a) => sum + a.valueUsd, 0);
 
   // If crypto value negligible (dust), pick the asset with highest target
   if (cryptoValue < 10) {
-    let maxTarget = 0
-    let target: string | null = null
+    let maxTarget = 0;
+    let target: string | null = null;
     for (const alloc of allocations) {
       if (alloc.targetPct > maxTarget) {
-        maxTarget = alloc.targetPct
-        target = alloc.asset
+        maxTarget = alloc.targetPct;
+        target = alloc.asset;
       }
     }
-    return target
+    return target;
   }
 
-  let maxDrift = 0
-  let target: string | null = null
+  let maxDrift = 0;
+  let target: string | null = null;
 
   for (const alloc of allocations) {
-    const held = portfolio.assets.find((a) => a.asset === alloc.asset)
-    const currentPct = held ? (held.valueUsd / cryptoValue) * 100 : 0
-    const drift = alloc.targetPct - currentPct
+    const held = portfolio.assets.find((a) => a.asset === alloc.asset);
+    const currentPct = held ? (held.valueUsd / cryptoValue) * 100 : 0;
+    const drift = alloc.targetPct - currentPct;
     if (drift > maxDrift) {
-      maxDrift = drift
-      target = alloc.asset
+      maxDrift = drift;
+      target = alloc.asset;
     }
   }
 
-  return target
+  return target;
 }
