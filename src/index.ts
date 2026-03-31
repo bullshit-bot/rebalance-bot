@@ -1,4 +1,3 @@
-import { env } from '@config/app-config'
 import { connectDB, disconnectDB, AllocationModel } from '@db/database'
 import { exchangeManager } from '@exchange/exchange-manager'
 import { priceAggregator } from '@price/price-aggregator'

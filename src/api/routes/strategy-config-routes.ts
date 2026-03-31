@@ -45,10 +45,11 @@ strategyConfigRoutes.post('/', async (c) => {
     const existing = await StrategyConfigModel.findOne({ name: parsed.data.name })
     if (existing) return c.json({ error: 'Config with this name already exists' }, 409)
 
-    const config = await StrategyConfigModel.create({
+    const config = new StrategyConfigModel({
       ...parsed.data,
       history: [{ params: parsed.data.params, changedAt: new Date() }],
     })
+    await config.save()
     return c.json(config, 201)
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 500)
@@ -141,7 +142,7 @@ strategyConfigRoutes.post('/:name/activate', async (c) => {
     if (!target) return c.json({ error: 'Config not found' }, 404)
 
     // Emit event for hot-reload
-    eventBus.emit('strategy:config-changed', target.toObject())
+    eventBus.emit('strategy:config-changed', target)
 
     return c.json({ activated: target.name, params: target.params })
   } catch (err) {

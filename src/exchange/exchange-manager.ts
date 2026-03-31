@@ -147,8 +147,8 @@ class ExchangeManager {
    * Only includes exchanges that have both apiKey and secret defined.
    * password is only set when present to satisfy exactOptionalPropertyTypes.
    */
-  private buildExchangeConfigs(): Map<ExchangeName, { apiKey: string; secret: string; password?: string }> {
-    const configs = new Map<ExchangeName, { apiKey: string; secret: string; password?: string }>()
+  private buildExchangeConfigs(): Map<ExchangeName, { apiKey: string; secret: string; password?: string; sandbox?: boolean }> {
+    const configs = new Map<ExchangeName, { apiKey: string; secret: string; password?: string; sandbox?: boolean }>()
 
     if (env.BINANCE_API_KEY && env.BINANCE_API_SECRET) {
       configs.set('binance', {

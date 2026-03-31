@@ -36,8 +36,8 @@ export interface OptimizationResultItem {
   maxDrawdown: number
   totalTrades: number
   compositeScore: number
-  cashReservePct?: number
-  dcaRebalanceEnabled?: boolean
+  cashReservePct?: number | undefined
+  dcaRebalanceEnabled?: boolean | undefined
 }
 
 export interface OptimizationResult {
@@ -104,7 +104,7 @@ class StrategyOptimizer {
           totalTrades: m.totalTrades,
           compositeScore: 0, // computed below
           cashReservePct: combo.cashReservePct,
-          dcaRebalanceEnabled: combo.dcaRebalanceEnabled,
+          dcaRebalanceEnabled: combo.dcaRebalanceEnabled ?? false,
         })
       } catch (err) {
         skipped++

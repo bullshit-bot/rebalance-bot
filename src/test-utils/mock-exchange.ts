@@ -97,7 +97,7 @@ export function createMockExchange(overrides?: Partial<MockExchange>): MockExcha
       return order
     },
 
-    fetchOrder: async (id: string, pair: string) => {
+    fetchOrder: async (id: string, _pair: string) => {
       const order = state.orders.get(id)
       if (!order) {
         throw new Error(`Order ${id} not found`)
@@ -105,7 +105,7 @@ export function createMockExchange(overrides?: Partial<MockExchange>): MockExcha
       return order
     },
 
-    cancelOrder: async (id: string, pair?: string) => {
+    cancelOrder: async (id: string, _pair?: string) => {
       const order = state.orders.get(id)
       if (!order) {
         throw new Error(`Order ${id} not found`)
@@ -122,11 +122,11 @@ export function createMockExchange(overrides?: Partial<MockExchange>): MockExcha
       return cancelled
     },
 
-    fetchOHLCV: async (pair: string, timeframe: string, since?: number, limit?: number) => {
+    fetchOHLCV: async (_pair: string, _timeframe: string, since?: number, limit?: number) => {
       // Generate mock OHLCV data
       const now = Date.now()
       const bars = limit ?? 30
-      const interval = timeframe === '1d' ? 86400000 : 3600000 // Daily or hourly
+      const interval = _timeframe === '1d' ? 86400000 : 3600000 // Daily or hourly
 
       const candles: number[][] = []
       for (let i = 0; i < bars; i++) {

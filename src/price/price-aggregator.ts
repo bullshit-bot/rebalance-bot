@@ -157,55 +157,8 @@ class PriceAggregator {
     console.log(`[PriceAggregator] Poll loop exited: ${pair} on ${exchangeName}`)
   }
 
-  /**
-   * Continuously watch a single trading pair on a single exchange.
-   * CCXT Pro's watchTicker returns a promise that resolves on every new tick;
-   * calling it in a while loop is the recommended streaming pattern.
-   */
-  private async watchTicker(
-    exchange: ccxt.Exchange,
-    exchangeName: ExchangeName,
-    pair: string,
-  ): Promise<void> {
-    console.log(`[PriceAggregator] Watching ${pair} on ${exchangeName}`)
-
-    while (this.running) {
-      try {
-        // watchTicker resolves each time a new ticker arrives
-        const ticker = await exchange.watchTicker(pair)
-
-        const priceData: PriceData = {
-          exchange: exchangeName,
-          pair,
-          price: ticker.last ?? ticker.close ?? 0,
-          bid: ticker.bid ?? 0,
-          ask: ticker.ask ?? 0,
-          volume24h: ticker.baseVolume ?? 0,
-          change24h: ticker.percentage ?? 0,
-          timestamp: ticker.timestamp ?? Date.now(),
-        }
-
-        // Skip malformed ticks where price is zero
-        if (priceData.price === 0) continue
-
-        priceCache.set(pair, priceData)
-        eventBus.emit('price:update', priceData)
-      } catch (err: unknown) {
-        if (!this.running) {
-          // Expected error on shutdown — exit silently
-          break
-        }
-        console.error(
-          `[PriceAggregator] Error watching ${pair} on ${exchangeName}:`,
-          err instanceof Error ? err.message : err,
-        )
-        // Brief back-off before retrying to avoid tight error loops
-        await this.sleep(1_000)
-      }
-    }
-
-    console.log(`[PriceAggregator] Watch loop exited: ${pair} on ${exchangeName}`)
-  }
+  // watchTicker removed — Bun doesn't support CCXT Pro WebSocket upgrade.
+  // Using pollTicker (REST) instead. See pollTicker() above.
 
   /** Resolves after the given number of milliseconds. */
   private sleep(ms: number): Promise<void> {

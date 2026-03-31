@@ -142,7 +142,7 @@ export class OrderExecutor implements IOrderExecutor {
 
       if (isNetworkError) {
         console.log(`[OrderExecutor] Network error for ${order.pair}: ${message}`)
-        const maybeOpen = await this.findPossiblyPlacedOrder(exchange, order)
+        const maybeOpen = await this.findPossiblyPlacedOrder(exchange as any, order)
         if (maybeOpen) {
           console.log(`[OrderExecutor] Found existing order ${String(maybeOpen['id'])}`)
           ccxtOrder = maybeOpen
@@ -211,7 +211,7 @@ export class OrderExecutor implements IOrderExecutor {
    * This prevents duplicate orders on retry.
    */
   private async findPossiblyPlacedOrder(
-    exchange: { fetchOpenOrders?: (symbol: string) => Promise<unknown[]> },
+    exchange: { fetchOpenOrders?: ((symbol: string) => Promise<unknown[]>) | undefined },
     order: TradeOrder,
   ): Promise<Record<string, unknown> | null> {
     if (typeof exchange.fetchOpenOrders !== 'function') return null
