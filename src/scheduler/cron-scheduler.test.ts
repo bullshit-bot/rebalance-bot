@@ -54,9 +54,9 @@ describe("CronScheduler", () => {
       expect(secondJobCount).toBe(firstJobCount);
     });
 
-    it("should initialize with 8 jobs", () => {
+    it("should initialize with 7 jobs", () => {
       scheduler.start();
-      expect(scheduler["jobs"].length).toBe(8);
+      expect(scheduler["jobs"].length).toBe(7);
     });
 
     it("should register rebalance trigger job", () => {
@@ -74,14 +74,9 @@ describe("CronScheduler", () => {
       expect(scheduler["jobs"].length).toBeGreaterThan(0);
     });
 
-    it("should register copy sync job", () => {
-      scheduler.start();
-      expect(scheduler["jobs"].length).toBeGreaterThan(0);
-    });
-
     it("should register daily summary job", () => {
       scheduler.start();
-      expect(scheduler["jobs"].length).toBe(8);
+      expect(scheduler["jobs"].length).toBe(7);
     });
   });
 
@@ -133,11 +128,6 @@ describe("CronScheduler", () => {
     it("should handle portfolio snapshot job failure gracefully", () => {
       scheduler.start();
       // Job should catch errors internally
-      expect(true).toBe(true);
-    });
-
-    it("should handle copy sync job failure gracefully", () => {
-      scheduler.start();
       expect(true).toBe(true);
     });
 
@@ -241,9 +231,6 @@ describe("CronScheduler - DI callbacks", () => {
     onPriceCacheClean: () => {
       calls.push("priceClean");
     },
-    onCopySync: () => {
-      calls.push("copySync");
-    },
     onDailySummary: () => {
       calls.push("dailySummary");
     },
@@ -286,12 +273,6 @@ describe("CronScheduler - DI callbacks", () => {
     expect(calls).toContain("priceClean");
   });
 
-  it("invokes onCopySync when callback called directly", () => {
-    scheduler.start();
-    (scheduler as any).deps.onCopySync();
-    expect(calls).toContain("copySync");
-  });
-
   it("invokes onDailySummary when callback called directly", () => {
     scheduler.start();
     (scheduler as any).deps.onDailySummary();
@@ -310,13 +291,13 @@ describe("CronScheduler - DI callbacks", () => {
     expect(calls).toContain("aiInsights");
   });
 
-  it("all 8 callbacks are accessible via deps", () => {
+  it("all 7 callbacks are accessible via deps", () => {
     scheduler.start();
     const depKeys = Object.keys((scheduler as any).deps);
     expect(depKeys).toContain("onPeriodicRebalance");
     expect(depKeys).toContain("onPortfolioSnapshot");
     expect(depKeys).toContain("onPriceCacheClean");
-    expect(depKeys).toContain("onCopySync");
+    // onCopySync removed (copy trading feature removed)
     expect(depKeys).toContain("onDailySummary");
     expect(depKeys).toContain("onWeeklySummary");
     expect(depKeys).toContain("onAiInsights");
@@ -327,7 +308,7 @@ describe("CronScheduler - DI callbacks", () => {
     const defaultScheduler = new CronScheduler();
     expect(defaultScheduler).toBeDefined();
     defaultScheduler.start();
-    expect(defaultScheduler["jobs"].length).toBe(8);
+    expect(defaultScheduler["jobs"].length).toBe(7);
     defaultScheduler.stop();
   });
 
@@ -392,13 +373,6 @@ describe("CronScheduler - default callback execution", () => {
 
     pc.clearStale = original;
     expect(clearCalled).toBe(true);
-  });
-
-  it("default onCopySync calls copySyncEngine.syncAll() without throwing", () => {
-    const s = new CronScheduler();
-    s.start();
-    expect(() => (s as any).deps.onCopySync()).not.toThrow();
-    s.stop();
   });
 
   it("default onDailySummary calls marketSummaryService.generateDailySummary() without throwing", () => {
@@ -472,22 +446,6 @@ describe("CronScheduler - default callback execution", () => {
 
     pt.getPortfolio = () => null;
     ss.saveSnapshot = originalSave;
-  });
-
-  it("default onCopySync catch fires when syncAll rejects", async () => {
-    const { copySyncEngine: cse } = require("@/copy-trading/copy-sync-engine");
-    const original = cse.syncAll.bind(cse);
-    cse.syncAll = async () => {
-      throw new Error("sync error");
-    };
-
-    const s = new CronScheduler();
-    s.start();
-    expect(() => (s as any).deps.onCopySync()).not.toThrow();
-    await new Promise<void>((r) => setTimeout(r, 20));
-    s.stop();
-
-    cse.syncAll = original;
   });
 
   it("default onDailySummary catch fires when generateDailySummary rejects", async () => {
