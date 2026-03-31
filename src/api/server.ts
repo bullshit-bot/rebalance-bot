@@ -34,7 +34,7 @@ setInterval(() => {
 }, 60_000).unref();
 
 /**
- * Simple in-memory rate limiter: max 100 requests per IP per minute.
+ * Simple in-memory rate limiter: max 600 requests per IP per minute.
  * Returns true if the request is allowed, false if rate-limited.
  */
 function checkRateLimit(ip: string): boolean {

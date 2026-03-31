@@ -36,7 +36,7 @@ export interface CronSchedulerDeps {
  *  - Every 4 hours  → emit rebalance:trigger with trigger='periodic'
  *  - Every 5 minutes → save portfolio snapshot to database
  *  - Every 60 seconds → clear stale price cache entries
- *  - Every 4 hours → sync copy trading sources
+ *  - Daily → scheduled DCA buy
  *  - Daily 01:00 UTC → daily portfolio digest via Telegram
  *  - Sunday 01:00 UTC → weekly performance report via Telegram
  *
@@ -188,7 +188,7 @@ class CronScheduler {
       aiInsightsJob,
     ];
 
-    console.log("[CronScheduler] Started — 8 jobs scheduled");
+    console.log(`[CronScheduler] Started — ${this.jobs.length} jobs scheduled`);
   }
 
   /**
