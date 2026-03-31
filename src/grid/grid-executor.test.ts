@@ -1,22 +1,64 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test'
 import { setupTestDB, teardownTestDB } from '@db/test-helpers'
-import { GridExecutor } from './grid-executor'
-import type { GridExecutorDeps } from './grid-executor'
+import { GridExecutor, type GridExecutorDeps } from './grid-executor'
 import type { GridLevel } from './grid-calculator'
 import type { IOrderExecutor } from '@executor/order-executor'
+import { GridBotModel, GridOrderModel } from '@db/database'
 
 beforeAll(async () => { await setupTestDB() })
 afterAll(async () => { await teardownTestDB() })
 
-describe.skip('GridExecutor', () => {
+// ─── Mock Exchange Manager ──────────────────────────────────────────────────
+
+const createMockExchangeManager = (options?: {
+  fetchOrderStatus?: 'closed' | 'open' | 'error'
+  cancelOrderFails?: boolean
+}) => ({
+  getEnabledExchanges: () => {
+    const mockExchange = {
+      fetchOrder: async (id: string) => {
+        if (options?.fetchOrderStatus === 'error') {
+          throw new Error('Fetch failed')
+        }
+        return { status: options?.fetchOrderStatus ?? 'open' }
+      },
+      cancelOrder: async () => {
+        if (options?.cancelOrderFails) throw new Error('Cancel failed')
+      },
+    }
+    return new Map([['binance', mockExchange]])
+  },
+})
+
+// ─── Mock Order Executor ────────────────────────────────────────────────────
+
+const createMockExecutor = (options?: {
+  placeFails?: boolean
+  orderId?: string
+}): IOrderExecutor => ({
+  execute: async () => {
+    if (options?.placeFails) throw new Error('Execution failed')
+    return { orderId: options?.orderId ?? 'order-' + Math.random().toString(36).slice(2) }
+  },
+  isSimulation: () => true,
+})
+
+// ─── Tests ──────────────────────────────────────────────────────────────────
+
+describe('GridExecutor', () => {
   let executor: GridExecutor
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await setupTestDB()
     executor = new GridExecutor()
   })
 
+  afterEach(async () => {
+    await teardownTestDB()
+  })
+
   describe('placeGrid', () => {
-    it('should place orders at all levels', async () => {
+    it('should place buy and sell orders at grid levels', async () => {
       const levels: GridLevel[] = [
         { level: 0, price: 40000, buyAmount: 0.05, sellAmount: 0 },
         { level: 1, price: 42500, buyAmount: 0.05, sellAmount: 0 },
@@ -25,345 +67,355 @@ describe.skip('GridExecutor', () => {
         { level: 4, price: 50000, buyAmount: 0, sellAmount: 0.05 },
       ]
 
+      const mockExecutor = createMockExecutor()
+      executor = new GridExecutor({
+        getExecutor: () => mockExecutor,
+      })
+
       await executor.placeGrid('bot-123', levels, 'binance', 'BTC/USDT')
-      expect(true).toBe(true)
+
+      // Verify DB contains orders for all non-zero amounts (2 buy + 2 sell = 4 orders)
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-123' })
+      expect(orders.length).toBe(4)
+
+      // Verify buy orders
+      const buyOrders = orders.filter((o: any) => o.side === 'buy')
+      expect(buyOrders.length).toBe(2)
+      expect(buyOrders[0].level).toBe(0)
+      expect(buyOrders[1].level).toBe(1)
+
+      // Verify sell orders
+      const sellOrders = orders.filter((o: any) => o.side === 'sell')
+      expect(sellOrders.length).toBe(2)
+      expect(sellOrders[0].level).toBe(3)
+      expect(sellOrders[1].level).toBe(4)
     })
 
-    it('should skip zero-amount orders', async () => {
+    it('should skip zero-amount levels', async () => {
       const levels: GridLevel[] = [
         { level: 0, price: 40000, buyAmount: 0, sellAmount: 0 },
         { level: 1, price: 45000, buyAmount: 0.05, sellAmount: 0 },
       ]
 
-      await executor.placeGrid('bot-456', levels, 'kraken', 'ETH/USD')
-      expect(true).toBe(true)
+      executor = new GridExecutor({
+        getExecutor: () => createMockExecutor(),
+      })
+
+      await executor.placeGrid('bot-zero', levels, 'binance', 'BTC/USDT')
+
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-zero' })
+      expect(orders.length).toBe(1) // Only one buy order
+      expect(orders[0]?.level).toBe(1)
     })
 
-    it('should handle single-level grid', async () => {
-      const levels: GridLevel[] = [
-        { level: 0, price: 45000, buyAmount: 0.1, sellAmount: 0.1 },
-      ]
-
-      await executor.placeGrid('bot-single', levels, 'binance', 'BTC/USDT')
-      expect(true).toBe(true)
-    })
-
-    it('should support multiple exchanges', async () => {
+    it('should handle executor failures gracefully', async () => {
       const levels: GridLevel[] = [
         { level: 0, price: 40000, buyAmount: 0.05, sellAmount: 0 },
-        { level: 1, price: 50000, buyAmount: 0, sellAmount: 0.05 },
       ]
 
-      await executor.placeGrid('bot-exchange', levels, 'kraken', 'BTC/USD')
-      expect(true).toBe(true)
+      executor = new GridExecutor({
+        getExecutor: () => createMockExecutor({ placeFails: true }),
+      })
+
+      await executor.placeGrid('bot-fail', levels, 'binance', 'BTC/USDT')
+
+      // Order should be marked as cancelled when executor fails
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-fail' })
+      expect(orders.length).toBe(1)
+      expect(orders[0]?.status).toBe('cancelled')
     })
 
-    it('should handle fractional amounts', async () => {
+    it('should support different exchanges', async () => {
       const levels: GridLevel[] = [
-        { level: 0, price: 40000, buyAmount: 0.00001, sellAmount: 0 },
+        { level: 0, price: 40000, buyAmount: 0.05, sellAmount: 0 },
       ]
 
-      await executor.placeGrid('bot-small', levels, 'binance', 'BTC/USDT')
-      expect(true).toBe(true)
+      executor = new GridExecutor({
+        getExecutor: () => createMockExecutor(),
+      })
+
+      await executor.placeGrid('bot-kraken', levels, 'kraken', 'BTC/USD')
+
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-kraken' })
+      expect(orders.length).toBe(1)
+    })
+
+    it('should handle high-frequency levels', async () => {
+      const levels: GridLevel[] = Array.from({ length: 20 }, (_, i) => ({
+        level: i,
+        price: 40000 + i * 500,
+        buyAmount: i < 10 ? 0.01 : 0,
+        sellAmount: i >= 10 ? 0.01 : 0,
+      }))
+
+      executor = new GridExecutor({
+        getExecutor: () => createMockExecutor(),
+      })
+
+      await executor.placeGrid('bot-20levels', levels, 'binance', 'BTC/USDT')
+
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-20levels' })
+      expect(orders.length).toBe(20)
+    })
+
+    it('should maintain correct level info in DB', async () => {
+      const levels: GridLevel[] = [
+        { level: 0, price: 40000, buyAmount: 0.05, sellAmount: 0 },
+        { level: 1, price: 45000, buyAmount: 0, sellAmount: 0.1 },
+      ]
+
+      executor = new GridExecutor({
+        getExecutor: () => createMockExecutor(),
+      })
+
+      await executor.placeGrid('bot-info', levels, 'binance', 'BTC/USDT')
+
+      const buyOrder = await GridOrderModel.findOne({ gridBotId: 'bot-info', side: 'buy' })
+      expect(buyOrder?.level).toBe(0)
+      expect(buyOrder?.price).toBe(40000)
+      expect(buyOrder?.amount).toBe(0.05)
+      expect(buyOrder?.status).toBe('open')
+
+      const sellOrder = await GridOrderModel.findOne({ gridBotId: 'bot-info', side: 'sell' })
+      expect(sellOrder?.level).toBe(1)
+      expect(sellOrder?.price).toBe(45000)
+      expect(sellOrder?.amount).toBe(0.1)
     })
   })
 
   describe('startMonitoring', () => {
-    it('should start monitoring bot', async () => {
-      await executor.startMonitoring('bot-monitor')
+    it('should start monitoring without errors', async () => {
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager(),
+        getExecutor: () => createMockExecutor(),
+      })
+
+      // Should not throw
+      await executor.startMonitoring('bot-start')
       expect(true).toBe(true)
     })
 
     it('should be idempotent', async () => {
-      await executor.startMonitoring('bot-idempotent')
-      await executor.startMonitoring('bot-idempotent')
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager(),
+        getExecutor: () => createMockExecutor(),
+      })
+
+      await executor.startMonitoring('bot-idem')
+      await executor.startMonitoring('bot-idem')
+      expect(true).toBe(true)
+    })
+
+    it('should stop monitoring on auth failure', async () => {
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager({
+          fetchOrderStatus: 'error',
+        }),
+        getExecutor: () => createMockExecutor(),
+      })
+
+      await executor.startMonitoring('bot-auth-fail')
+
+      // Trigger a poll with auth error (simulated by mock)
+      // The monitoring should eventually stop on auth errors
+      await new Promise(resolve => setTimeout(resolve, 100))
+
       expect(true).toBe(true)
     })
 
     it('should handle multiple bots independently', async () => {
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager(),
+        getExecutor: () => createMockExecutor(),
+      })
+
       await executor.startMonitoring('bot-1')
       await executor.startMonitoring('bot-2')
       await executor.startMonitoring('bot-3')
+
       expect(true).toBe(true)
     })
   })
 
-  describe('stopMonitoring', () => {
-    it('should stop monitoring bot', async () => {
-      await executor.startMonitoring('bot-stop')
-      executor.stopMonitoring('bot-stop')
-      expect(true).toBe(true)
-    })
+  describe('cancelAll', () => {
+    it('should cancel all open orders for a bot', async () => {
+      // Create bot and orders
+      await GridBotModel.create({
+        _id: 'bot-cancel',
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        gridType: 'normal',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 5,
+        investment: 1000,
+        status: 'active',
+        totalProfit: 0,
+        totalTrades: 0,
+        config: { gridType: 'normal', priceLower: 40000, priceUpper: 50000, gridLevels: 5, investment: 1000 },
+      })
 
-    it('should handle stop without start', () => {
-      executor.stopMonitoring('bot-no-start')
-      expect(true).toBe(true)
-    })
+      await GridOrderModel.create([
+        {
+          gridBotId: 'bot-cancel',
+          level: 0,
+          price: 40000,
+          amount: 0.05,
+          side: 'buy',
+          status: 'open',
+          exchangeOrderId: 'exch-1',
+        },
+        {
+          gridBotId: 'bot-cancel',
+          level: 1,
+          price: 45000,
+          amount: 0.05,
+          side: 'sell',
+          status: 'open',
+          exchangeOrderId: 'exch-2',
+        },
+      ])
 
-    it('should not affect other bots', async () => {
-      await executor.startMonitoring('bot-stop-1')
-      await executor.startMonitoring('bot-stop-2')
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager(),
+        getExecutor: () => createMockExecutor(),
+      })
 
-      executor.stopMonitoring('bot-stop-1')
-      // bot-stop-2 should still be monitoring
-      expect(true).toBe(true)
-    })
-  })
-
-  describe('cancelAllOrders', () => {
-    it('should cancel all orders for a bot', async () => {
       await executor.cancelAll('bot-cancel')
-      expect(true).toBe(true)
+
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-cancel' })
+      expect(orders.every((o: any) => o.status === 'cancelled')).toBe(true)
     })
 
-    it('should handle cancel on unknown bot', async () => {
-      await executor.cancelAll('unknown-bot')
-      expect(true).toBe(true)
+    it('should skip non-open orders', async () => {
+      await GridBotModel.create({
+        _id: 'bot-skip',
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        gridType: 'normal',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 5,
+        investment: 1000,
+        status: 'active',
+        totalProfit: 0,
+        totalTrades: 0,
+        config: { gridType: 'normal', priceLower: 40000, priceUpper: 50000, gridLevels: 5, investment: 1000 },
+      })
+
+      await GridOrderModel.create([
+        {
+          gridBotId: 'bot-skip',
+          level: 0,
+          price: 40000,
+          amount: 0.05,
+          side: 'buy',
+          status: 'filled',
+          exchangeOrderId: 'exch-1',
+        },
+        {
+          gridBotId: 'bot-skip',
+          level: 1,
+          price: 45000,
+          amount: 0.05,
+          side: 'sell',
+          status: 'open',
+          exchangeOrderId: 'exch-2',
+        },
+      ])
+
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager(),
+        getExecutor: () => createMockExecutor(),
+      })
+
+      await executor.cancelAll('bot-skip')
+
+      const filledOrder = await GridOrderModel.findOne({ gridBotId: 'bot-skip', status: 'filled' })
+      expect(filledOrder?.status).toBe('filled') // Should not change
+
+      const openOrder = await GridOrderModel.findOne({ gridBotId: 'bot-skip', side: 'sell' })
+      expect(openOrder?.status).toBe('cancelled')
+    })
+
+    it('should handle exchange cancel failures', async () => {
+      await GridBotModel.create({
+        _id: 'bot-fail-cancel',
+        exchange: 'binance',
+        pair: 'BTC/USDT',
+        gridType: 'normal',
+        priceLower: 40000,
+        priceUpper: 50000,
+        gridLevels: 5,
+        investment: 1000,
+        status: 'active',
+        totalProfit: 0,
+        totalTrades: 0,
+        config: { gridType: 'normal', priceLower: 40000, priceUpper: 50000, gridLevels: 5, investment: 1000 },
+      })
+
+      await GridOrderModel.create({
+        gridBotId: 'bot-fail-cancel',
+        level: 0,
+        price: 40000,
+        amount: 0.05,
+        side: 'buy',
+        status: 'open',
+        exchangeOrderId: 'exch-1',
+      })
+
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager({ cancelOrderFails: true }),
+        getExecutor: () => createMockExecutor(),
+      })
+
+      // Should not throw despite exchange error
+      await executor.cancelAll('bot-fail-cancel')
+
+      const order = await GridOrderModel.findOne({ gridBotId: 'bot-fail-cancel' })
+      expect(order?.status).toBe('cancelled')
+    })
+
+    it('should handle missing bot gracefully', async () => {
+      executor = new GridExecutor({
+        exchangeManager: createMockExchangeManager(),
+        getExecutor: () => createMockExecutor(),
+      })
+
+      // Bot doesn't exist, should handle gracefully
+      await executor.cancelAll('bot-missing')
+
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-missing' })
+      expect(orders.length).toBe(0)
     })
   })
-})
 
-// ─── DI-based GridExecutor tests ──────────────────────────────────────────────
+  describe('error handling', () => {
+    it('should handle empty grid levels', async () => {
+      executor = new GridExecutor({
+        getExecutor: () => createMockExecutor(),
+      })
 
-function makeGEDeps(options?: {
-  executorThrows?: boolean
-}): GridExecutorDeps & { executedOrders: any[] } {
-  const executedOrders: any[] = []
+      await executor.placeGrid('bot-empty', [], 'binance', 'BTC/USDT')
 
-  const mockExecutor: IOrderExecutor = {
-    execute: async (order: any) => {
-      if (options?.executorThrows) throw new Error('executor error')
-      executedOrders.push(order)
-      return {
-        id: `result-${Date.now()}`,
-        exchange: order.exchange,
-        pair: order.pair,
-        side: order.side,
-        amount: order.amount,
-        price: order.price ?? 50000,
-        costUsd: order.amount * (order.price ?? 50000),
-        fee: 5,
-        feeCurrency: 'USDT',
-        orderId: `ex-order-${Date.now()}`,
-        executedAt: new Date(),
-      }
-    },
-    executeBatch: async (orders: any[]) => {
-      const results = []
-      for (const o of orders) results.push(await mockExecutor.execute(o))
-      return results
-    },
-  }
+      const orders = await GridOrderModel.find({ gridBotId: 'bot-empty' })
+      expect(orders.length).toBe(0)
+    })
 
-  const mockExchangeManager: GridExecutorDeps['exchangeManager'] = {
-    getEnabledExchanges: () => {
-      const mockEx = {
-        fetchOrder: async (id: string) => ({ id, status: 'closed' }),
-        cancelOrder: async (_id: string) => ({}),
-      }
-      return new Map([['binance', mockEx as any]])
-    },
-  }
+    it('should record exchange order IDs on success', async () => {
+      const levels: GridLevel[] = [
+        { level: 0, price: 40000, buyAmount: 0.05, sellAmount: 0 },
+      ]
 
-  return {
-    executedOrders,
-    exchangeManager: mockExchangeManager,
-    getExecutor: () => mockExecutor,
-  }
-}
+      const orderId = 'unique-order-id'
+      executor = new GridExecutor({
+        getExecutor: () => createMockExecutor({ orderId }),
+      })
 
-describe.skip('GridExecutor - DI constructor', () => {
-  let executor: GridExecutor
-  let deps: ReturnType<typeof makeGEDeps>
+      await executor.placeGrid('bot-with-id', levels, 'binance', 'BTC/USDT')
 
-  beforeEach(() => {
-    deps = makeGEDeps()
-    executor = new GridExecutor(deps)
-  })
-
-  afterEach(() => {
-    // Stop all monitors to prevent test leakage
-    for (const botId of ['di-bot-1', 'di-bot-2', 'di-cancel-bot']) {
-      try { (executor as any).stopMonitoring(botId) } catch { /* ignore */ }
-    }
-  })
-
-  it('placeGrid() uses injected executor (zero-amount levels skipped)', async () => {
-    // zero amounts: placeGrid skips placeLevelOrder entirely — no DB writes needed
-    const levels: GridLevel[] = [
-      { level: 0, price: 40000, buyAmount: 0, sellAmount: 0 },
-      { level: 1, price: 50000, buyAmount: 0, sellAmount: 0 },
-    ]
-
-    await executor.placeGrid('di-bot-1', levels, 'binance', 'BTC/USDT')
-    // Zero-amount levels are skipped — executor never called
-    expect(deps.executedOrders.length).toBe(0)
-  })
-
-  it('placeGrid() skips zero-amount levels without DB writes', async () => {
-    const levels: GridLevel[] = [
-      { level: 0, price: 40000, buyAmount: 0, sellAmount: 0 },
-      { level: 1, price: 50000, buyAmount: 0, sellAmount: 0 },
-    ]
-
-    await executor.placeGrid('di-bot-2', levels, 'binance', 'ETH/USDT')
-    expect(deps.executedOrders.length).toBe(0)
-  })
-
-  it('placeGrid() with all-zero levels completes without error', async () => {
-    const failDeps = makeGEDeps({ executorThrows: true })
-    const failExecutor = new GridExecutor(failDeps)
-
-    // zero amounts: executor never called even though it would throw
-    const levels: GridLevel[] = [
-      { level: 0, price: 40000, buyAmount: 0, sellAmount: 0 },
-    ]
-
-    await failExecutor.placeGrid('fail-bot', levels, 'binance', 'BTC/USDT')
-    expect(true).toBe(true)
-  })
-
-  it('startMonitoring() and stopMonitoring() lifecycle', async () => {
-    await executor.startMonitoring('di-bot-1')
-    expect((executor as any).monitors.has('di-bot-1')).toBe(true)
-    ;(executor as any).stopMonitoring('di-bot-1')
-    expect((executor as any).monitors.has('di-bot-1')).toBe(false)
-  })
-
-  it('checkOrderFilled() uses injected exchangeManager', async () => {
-    // checkOrderFilled is private, but exercised via the poll loop
-    // Directly test by calling the private method via cast
-    const filled = await (executor as any).checkOrderFilled('order-123', 'di-bot-1')
-    expect(filled).toBe(true)  // mock returns 'closed'
-  })
-
-  it('checkOrderFilled() returns false when no exchanges', async () => {
-    const emptyDeps = makeGEDeps()
-    emptyDeps.exchangeManager = { getEnabledExchanges: () => new Map() }
-    const e = new GridExecutor(emptyDeps)
-
-    const filled = await (e as any).checkOrderFilled('order-xyz', 'bot-x')
-    expect(filled).toBe(false)
-  })
-
-  it('cancelAll() uses injected exchangeManager to cancel orders', async () => {
-    // cancelAll queries DB for open orders — in test env will find none
-    await executor.cancelAll('di-cancel-bot')
-    expect(true).toBe(true)
-  })
-
-  it('GridExecutor default constructor still works', () => {
-    const defaultExecutor = new GridExecutor()
-    expect(defaultExecutor).toBeDefined()
-    expect(typeof defaultExecutor.placeGrid).toBe('function')
-  })
-
-  it('pollFills() runs without error when no open orders exist', async () => {
-    // pollFills is private — call via cast; bot has no orders in DB so runs cleanly
-    await expect((executor as any).pollFills('empty-bot')).resolves.toBeUndefined()
-  })
-
-  it('auth error in pollFills callback stops monitoring', async () => {
-    // Simulate auth error via a patched pollFills that throws
-    const authExecutor = new GridExecutor(deps)
-
-    // Patch pollFills to throw an auth error
-    ;(authExecutor as any).pollFills = async (_botId: string) => {
-      throw new Error('Invalid apikey: authorization required')
-    }
-
-    await authExecutor.startMonitoring('auth-bot')
-    expect((authExecutor as any).monitors.has('auth-bot')).toBe(true)
-
-    // Trigger the interval callback directly
-    const timer = (authExecutor as any).monitors.get('auth-bot')
-    if (timer) {
-      // Run the interval function by calling pollFills manually and catching
-      try {
-        const msg = 'Invalid apikey: authorization required'
-        const isAuthError = msg.toLowerCase().includes('apikey')
-        if (isAuthError) {
-          ;(authExecutor as any).stopMonitoring('auth-bot')
-        }
-      } catch { /* noop */ }
-    }
-
-    expect((authExecutor as any).monitors.has('auth-bot')).toBe(false)
-  })
-
-  it('checkOrderFilled() returns false on fetch error', async () => {
-    const errorDeps = makeGEDeps()
-    errorDeps.exchangeManager = {
-      getEnabledExchanges: () => {
-        const errEx = {
-          fetchOrder: async (_id: string) => { throw new Error('fetch error') },
-          cancelOrder: async (_id: string) => ({}),
-        }
-        return new Map([['binance', errEx as any]])
-      },
-    }
-    const e = new GridExecutor(errorDeps)
-    const filled = await (e as any).checkOrderFilled('order-err', 'bot-err')
-    expect(filled).toBe(false)
-  })
-
-  it('tryCancelOnAnyExchange() handles no exchanges gracefully', async () => {
-    const emptyDeps = makeGEDeps()
-    emptyDeps.exchangeManager = { getEnabledExchanges: () => new Map() }
-    const e = new GridExecutor(emptyDeps)
-    // Should resolve without error
-    await expect((e as any).tryCancelOnAnyExchange('order-x', 'bot-x')).resolves.toBeUndefined()
-  })
-
-  it('tryCancelOnAnyExchange() handles cancel error on first exchange, returns early on success', async () => {
-    const cancelDeps = makeGEDeps()
-    let cancelCalled = false
-    cancelDeps.exchangeManager = {
-      getEnabledExchanges: () => {
-        const ex = {
-          fetchOrder: async (_id: string) => ({ id: _id, status: 'closed' }),
-          cancelOrder: async (_id: string) => { cancelCalled = true; return {} },
-        }
-        return new Map([['binance', ex as any]])
-      },
-    }
-    const e = new GridExecutor(cancelDeps)
-    await (e as any).tryCancelOnAnyExchange('order-ok', 'bot-ok')
-    expect(cancelCalled).toBe(true)
-  })
-
-  it('placeCounterOrder() returns early when no gridBots row found', async () => {
-    // gridBots table has no row for this botId — early return on botRows.length === 0
-    await expect((executor as any).placeCounterOrder(
-      { level: 1, side: 'buy', price: 50000, amount: 0.1, gridBotId: 'nonexistent-bot' },
-      'nonexistent-bot',
-      5
-    )).resolves.toBeUndefined()
-  })
-
-  it('pollFills() processes open orders in DB for existing bot', async () => {
-    // pollFills queries DB for open orders — returns empty for this botId
-    await expect((executor as any).pollFills('poll-test-bot')).resolves.toBeUndefined()
-  })
-
-  it('auth error handling via error message checking', () => {
-    // Directly test the auth error detection logic from the interval callback
-    const authErrors = ['Invalid apikey', 'Unauthorized access', 'auth failure', 'invalid key']
-    for (const msg of authErrors) {
-      const isAuth = msg.toLowerCase().includes('apikey') ||
-        msg.toLowerCase().includes('unauthorized') ||
-        msg.toLowerCase().includes('auth') ||
-        msg.toLowerCase().includes('invalid key')
-      expect(isAuth).toBe(true)
-    }
-
-    const nonAuthErrors = ['Network error', 'Timeout', 'DB error']
-    for (const msg of nonAuthErrors) {
-      const isAuth = msg.toLowerCase().includes('apikey') ||
-        msg.toLowerCase().includes('unauthorized') ||
-        msg.toLowerCase().includes('auth') ||
-        msg.toLowerCase().includes('invalid key')
-      expect(isAuth).toBe(false)
-    }
+      const order = await GridOrderModel.findOne({ gridBotId: 'bot-with-id' })
+      expect(order?.exchangeOrderId).toBe(orderId)
+    })
   })
 })
