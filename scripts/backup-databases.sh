@@ -25,7 +25,7 @@ echo "[$(date)] Starting MongoDB backup..."
 if docker exec rebalance-mongodb mongodump \
   --username admin --password "$MONGO_PASSWORD" \
   --authenticationDatabase admin \
-  --archive --gzip > "$TODAY_DIR/mongodb.archive.gz" 2>/dev/null; then
+  --archive --gzip 2>/dev/null > "$TODAY_DIR/mongodb.archive.gz"; then
   echo "[$(date)] MongoDB backup OK: $(du -sh "$TODAY_DIR/mongodb.archive.gz" | cut -f1)"
 else
   ERRORS+="MongoDB backup failed. "
