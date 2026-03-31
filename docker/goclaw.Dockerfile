@@ -1,4 +1,4 @@
-FROM ghcr.io/nextlevelbuilder/goclaw:v2.47.0
+FROM ghcr.io/nextlevelbuilder/goclaw:v2.52.3
 
 # Install Python and Node.js runtimes for GoClaw skills
 RUN apk add --no-cache python3 py3-pip nodejs npm && \
