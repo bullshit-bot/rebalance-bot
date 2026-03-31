@@ -9,8 +9,9 @@ source /opt/rebalance-bot/.env
 ALERT=""
 
 # 1. Check containers are running and healthy
-DOWN=$(docker ps -a --filter "name=rebalance-" --format '{{.Names}} {{.Status}}' \
-  | grep -v "Up\|autoheal" || true)
+# Only check running containers (ignore old/removed ones with hash prefixes)
+DOWN=$(docker ps --filter "name=rebalance-" --format '{{.Names}} {{.Status}}' \
+  | grep -E "unhealthy|Restarting" || true)
 [ -n "$DOWN" ] && ALERT+="Containers down: $DOWN\n"
 
 # 2. Check memory usage (alert if > 90%)

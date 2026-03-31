@@ -22,13 +22,14 @@ ERRORS=""
 
 # MongoDB backup
 echo "[$(date)] Starting MongoDB backup..."
-if docker exec rebalance-mongodb mongodump \
+docker exec rebalance-mongodb mongodump \
   --username admin --password "$MONGO_PASSWORD" \
   --authenticationDatabase admin \
-  --archive --gzip 2>/dev/null > "$TODAY_DIR/mongodb.archive.gz"; then
+  --archive --gzip > "$TODAY_DIR/mongodb.archive.gz" 2>&1
+if [ -s "$TODAY_DIR/mongodb.archive.gz" ]; then
   echo "[$(date)] MongoDB backup OK: $(du -sh "$TODAY_DIR/mongodb.archive.gz" | cut -f1)"
 else
-  ERRORS+="MongoDB backup failed. "
+  ERRORS+="MongoDB backup failed (empty file). "
 fi
 
 # GoClaw PostgreSQL backup
