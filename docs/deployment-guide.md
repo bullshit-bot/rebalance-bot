@@ -413,6 +413,65 @@ docker compose down -v
 docker compose down --rmi all
 ```
 
+## SSL/HTTPS Roadmap
+
+Currently accessed via IP (no domain). SSL deferred until domain acquired.
+
+**When domain is ready:**
+1. Install certbot: `apt install certbot python3-certbot-nginx`
+2. Get cert: `certbot --nginx -d your-domain.com`
+3. Uncomment HTTPS block in `frontend/nginx.conf`
+4. Rebuild frontend: `docker compose build frontend && docker compose up -d frontend`
+
+HTTPS template already in `frontend/nginx.conf` (commented out).
+
+## Automated Database Backup
+
+Daily backup of MongoDB + GoClaw PostgreSQL, 7-day rotation, Telegram notification.
+
+**Setup:**
+```bash
+# Create backup directory
+mkdir -p /opt/rebalance-backups
+
+# Test manually
+bash /opt/rebalance-bot/scripts/backup-databases.sh
+
+# Install crontab (3AM daily)
+(crontab -l 2>/dev/null; echo "0 3 * * * /opt/rebalance-bot/scripts/backup-databases.sh >> /var/log/rebalance-backup.log 2>&1") | crontab -
+```
+
+**Restore:**
+```bash
+# MongoDB
+gunzip -c /opt/rebalance-backups/YYYY-MM-DD/mongodb.archive.gz | \
+  docker exec -i rebalance-mongodb mongorestore --archive --gzip \
+  --username admin --password $MONGO_PASSWORD --authenticationDatabase admin
+
+# PostgreSQL
+gunzip -c /opt/rebalance-backups/YYYY-MM-DD/goclaw-postgres.sql.gz | \
+  docker exec -i rebalance-goclaw-postgres psql -U goclaw goclaw
+```
+
+## Health Monitoring & Alerting
+
+Every 5 minutes: check containers, memory, API reachability. Alerts via Telegram (no spam — state-based).
+
+**Setup:**
+```bash
+# Test manually
+bash /opt/rebalance-bot/scripts/health-check.sh
+
+# Install crontab (every 5 min)
+(crontab -l 2>/dev/null; echo "*/5 * * * * /opt/rebalance-bot/scripts/health-check.sh >> /var/log/rebalance-health.log 2>&1") | crontab -
+```
+
+**Checks performed:**
+- Container status (all `rebalance-*` containers must be "Up")
+- Memory usage (alert if any container > 90%)
+- Backend API (`http://127.0.0.1:3001/api/health`)
+- Frontend (`http://127.0.0.1:3000/health`)
+
 ## References
 
 - [Docker Compose docs](https://docs.docker.com/compose/)
