@@ -113,7 +113,8 @@ app.get("/api/earn/status", async (c) => {
       const price = priceCache.getBestPrice(`${p.asset}/USDT`) ?? 0;
       return sum + p.amount * price;
     }, 0);
-    return c.json({ enabled: true, positions, totalValueUsd });
+    const apyMap = await simpleEarnManager.getApyMap();
+    return c.json({ enabled: true, positions, totalValueUsd, apyRates: apyMap });
   } catch (err) {
     return c.json({
       enabled: true,

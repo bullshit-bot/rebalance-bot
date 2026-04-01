@@ -200,14 +200,20 @@ class BacktestSimulator {
       }
 
       // ── Simple Earn yield simulation (bull mode only) ─────────────────────
+      // Per-asset APY rates based on Binance Flexible Earn (approximate)
       if (config.simpleEarnEnabled !== false && !inBearMode) {
-        const dailyYieldRate = (config.simpleEarnApyPct ?? 3) / 100 / 365;
+        const defaultApy = config.simpleEarnApyPct ?? 3;
+        const assetApyMap: Record<string, number> = {
+          'BTC/USDT': 1.0, 'ETH/USDT': 2.5, 'SOL/USDT': 5.5, 'BNB/USDT': 1.2,
+          ...(config.simpleEarnApyMap as Record<string, number> | undefined),
+        };
         for (const [pair, holding] of Object.entries(holdings)) {
+          const apy = assetApyMap[pair] ?? defaultApy;
+          const dailyYieldRate = apy / 100 / 365;
           const yieldAmount = holding.amount * dailyYieldRate;
           holding.amount += yieldAmount;
           holding.valueUsd = holding.amount * (prices[pair] ?? 0);
         }
-        // Recalculate total after yield
         totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
       }
 

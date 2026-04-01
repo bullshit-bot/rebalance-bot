@@ -57,8 +57,10 @@ export interface BacktestConfig {
   trendFilterBuffer?: number;
   /** Simulate Flexible Earn yield on crypto holdings in bull mode. Default: true. */
   simpleEarnEnabled?: boolean;
-  /** Average APY across holdings for Earn yield simulation (%). Default: 3. */
+  /** Fallback APY for assets not in simpleEarnApyMap (%). Default: 3. */
   simpleEarnApyPct?: number;
+  /** Per-asset APY override map, e.g. { "BTC/USDT": 1.0, "ETH/USDT": 2.5 }. */
+  simpleEarnApyMap?: Record<string, number>;
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────

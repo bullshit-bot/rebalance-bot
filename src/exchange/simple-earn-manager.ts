@@ -119,6 +119,21 @@ class SimpleEarnManager {
     return this.productCache.get(asset)?.productId ?? null;
   }
 
+  /**
+   * Returns a map of asset → APY% from cached product list.
+   * Keys are "ASSET/USDT" format for backtest compatibility.
+   */
+  async getApyMap(): Promise<Record<string, number>> {
+    await this.getFlexibleProducts();
+    const map: Record<string, number> = {};
+    for (const [asset, product] of this.productCache) {
+      if (product.latestAnnualPercentageRate != null) {
+        map[`${asset}/USDT`] = product.latestAnnualPercentageRate * 100;
+      }
+    }
+    return map;
+  }
+
   // ─── Positions ──────────────────────────────────────────────────────────────
 
   /**
