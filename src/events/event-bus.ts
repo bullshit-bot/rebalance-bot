@@ -36,6 +36,8 @@ interface EventMap {
   "exchange:disconnected": ExchangeName;
   "exchange:error": { exchange: ExchangeName; error: string };
   "strategy:config-changed": IStrategyConfig;
+  "earn:subscribed": { asset: string; amount: number };
+  "earn:redeemed": { asset: string; amount: number };
   error: Error;
 }
 

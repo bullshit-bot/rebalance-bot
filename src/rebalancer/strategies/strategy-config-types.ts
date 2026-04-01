@@ -85,6 +85,9 @@ export const GlobalSettingsSchema = z.object({
   trendFilterBuffer: z.number().min(0).max(10).default(2),
   // Cooldown between bull/bear flips to prevent whipsaw trades
   trendFilterCooldownDays: z.number().min(0).max(14).default(3),
+  // Simple Earn: auto-subscribe idle balances and auto-redeem before rebalance sells
+  simpleEarnEnabled: z.boolean().default(false),
+  simpleEarnSettleTimeoutMs: z.number().min(5000).max(120000).default(30000),
 });
 
 // ─── Full config input schema ────────────────────────────────────────────────

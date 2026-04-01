@@ -55,6 +55,10 @@ export interface BacktestConfig {
   trendFilterCooldownCandles?: number;
   /** Trend filter: buffer % below MA before triggering bear. Default: 2. */
   trendFilterBuffer?: number;
+  /** Simulate Flexible Earn yield on crypto holdings in bull mode. Default: true. */
+  simpleEarnEnabled?: boolean;
+  /** Average APY across holdings for Earn yield simulation (%). Default: 3. */
+  simpleEarnApyPct?: number;
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────

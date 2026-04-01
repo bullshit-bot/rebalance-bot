@@ -71,6 +71,10 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
   // Cash reserve
   const [cashReservePct, setCashReservePct] = useState(0);
 
+  // Simple Earn
+  const [earnEnabled, setEarnEnabled] = useState(false);
+  const [earnApyPct, setEarnApyPct] = useState(3);
+
   const mutation = useRunBacktest();
 
   function togglePair(p: string) {
@@ -114,6 +118,11 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
     // Cash reserve
     if (cashReservePct > 0) {
       config.cashReservePct = cashReservePct;
+    }
+    // Simple Earn yield simulation
+    if (earnEnabled) {
+      config.simpleEarnEnabled = true;
+      config.simpleEarnApyPct = earnApyPct;
     }
     mutation.mutate(config as BacktestConfig);
   }
@@ -247,6 +256,27 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
                   Buffer: <span className="tabular-nums">{trendBuffer}%</span>
                 </label>
                 <input type="range" min={0} max={5} step={0.5} value={trendBuffer} onChange={(e) => setTrendBuffer(Number(e.target.value))} className="w-full accent-primary" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Simple Earn Section */}
+        <div className="mt-4 pt-4 border-t-2 border-foreground/10">
+          <div className="flex items-center gap-3 mb-3">
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-bold">
+              <input type="checkbox" className="brutal-checkbox" checked={earnEnabled} onChange={(e) => setEarnEnabled(e.target.checked)} />
+              Simple Earn (Flexible Yield)
+            </label>
+            {earnEnabled && <span className="text-xs text-muted-foreground">Simulate APY yield on crypto holdings in bull mode</span>}
+          </div>
+          {earnEnabled && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="stat-label mb-1 block">
+                  Average APY: <span className="tabular-nums">{earnApyPct}%</span>
+                </label>
+                <input type="range" min={0.5} max={10} step={0.5} value={earnApyPct} onChange={(e) => setEarnApyPct(Number(e.target.value))} className="w-full accent-primary" />
               </div>
             </div>
           )}

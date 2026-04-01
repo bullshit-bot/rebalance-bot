@@ -10,6 +10,9 @@ import { tradeRoutes } from "@api/routes/trade-routes";
 import { handleClose, handleOpen, initWebSocket } from "@api/ws/ws-handler";
 import { env } from "@config/app-config";
 import { dcaService } from "@dca/dca-service";
+import { simpleEarnManager } from "@exchange/simple-earn-manager";
+import { priceCache } from "@price/price-cache";
+import { strategyManager } from "@rebalancer/strategy-manager";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
@@ -95,6 +98,30 @@ app.route("/api/strategy-config", strategyConfigRoutes);
 app.post("/api/dca/trigger", async (c) => {
   const orders = await dcaService.executeScheduledDCA();
   return c.json({ triggered: true, orders: orders.length, details: orders });
+});
+
+// ─── Earn status ──────────────────────────────────────────────────────────────
+
+app.get("/api/earn/status", async (c) => {
+  const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+  if (!gs?.simpleEarnEnabled) {
+    return c.json({ enabled: false, positions: [], totalValueUsd: 0 });
+  }
+  try {
+    const positions = await simpleEarnManager.getFlexiblePositions();
+    const totalValueUsd = positions.reduce((sum, p) => {
+      const price = priceCache.getBestPrice(`${p.asset}/USDT`) ?? 0;
+      return sum + p.amount * price;
+    }, 0);
+    return c.json({ enabled: true, positions, totalValueUsd });
+  } catch (err) {
+    return c.json({
+      enabled: true,
+      positions: [],
+      totalValueUsd: 0,
+      error: err instanceof Error ? err.message : "unknown",
+    });
+  }
 });
 
 // ─── 404 fallback ─────────────────────────────────────────────────────────────

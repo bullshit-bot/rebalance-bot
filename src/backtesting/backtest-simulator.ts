@@ -199,6 +199,18 @@ class BacktestSimulator {
         }
       }
 
+      // ── Simple Earn yield simulation (bull mode only) ─────────────────────
+      if (config.simpleEarnEnabled !== false && !inBearMode) {
+        const dailyYieldRate = (config.simpleEarnApyPct ?? 3) / 100 / 365;
+        for (const [pair, holding] of Object.entries(holdings)) {
+          const yieldAmount = holding.amount * dailyYieldRate;
+          holding.amount += yieldAmount;
+          holding.valueUsd = holding.amount * (prices[pair] ?? 0);
+        }
+        // Recalculate total after yield
+        totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
+      }
+
       // Maintain rolling return window for volatility calculation
       if (prevTotalValue !== null && prevTotalValue > 0) {
         recentReturns.push((totalValueUsd - prevTotalValue) / prevTotalValue);

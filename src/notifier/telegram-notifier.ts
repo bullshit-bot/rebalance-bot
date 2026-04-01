@@ -93,11 +93,26 @@ export class TelegramNotifier {
       );
     };
 
+    const onEarnSubscribed = (data: { asset: string; amount: number }) => {
+      void this.send(
+        "earn:subscribed",
+        `Subscribed ${data.amount.toFixed(6)} ${data.asset} to Flexible Earn`
+      );
+    };
+    const onEarnRedeemed = (data: { asset: string; amount: number }) => {
+      void this.send(
+        "earn:redeemed",
+        `Redeemed ${data.amount.toFixed(6)} ${data.asset} from Earn → Spot`
+      );
+    };
+
     eventBus.on("trade:executed", onTrade);
     eventBus.on("rebalance:completed", onRebalance);
     eventBus.on("trailing-stop:triggered", onTrailingStop);
     eventBus.on("error", onError);
     eventBus.on("trend:changed", onTrend);
+    eventBus.on("earn:subscribed", onEarnSubscribed);
+    eventBus.on("earn:redeemed", onEarnRedeemed);
 
     this.listeners = [
       { event: "trade:executed", fn: onTrade as (...args: unknown[]) => void },
@@ -105,6 +120,8 @@ export class TelegramNotifier {
       { event: "trailing-stop:triggered", fn: onTrailingStop as (...args: unknown[]) => void },
       { event: "error", fn: onError as (...args: unknown[]) => void },
       { event: "trend:changed", fn: onTrend as (...args: unknown[]) => void },
+      { event: "earn:subscribed", fn: onEarnSubscribed as (...args: unknown[]) => void },
+      { event: "earn:redeemed", fn: onEarnRedeemed as (...args: unknown[]) => void },
     ];
 
     console.info("[TelegramNotifier] Subscribed to event bus");

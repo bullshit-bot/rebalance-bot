@@ -3,6 +3,7 @@ import { env } from "@config/app-config";
 import { calcProportionalDCA, calcSingleTargetDCA } from "@dca/dca-allocation-calculator";
 import { eventBus } from "@events/event-bus";
 import { getExecutor } from "@executor/index";
+import { simpleEarnManager } from "@exchange/simple-earn-manager";
 import { portfolioTracker } from "@portfolio/portfolio-tracker";
 import { strategyManager } from "@rebalancer/strategy-manager";
 import { STABLECOINS } from "@rebalancer/trade-calculator";
@@ -159,6 +160,18 @@ class DCAService {
           "[DCAService] DCA execution failed:",
           err instanceof Error ? err.message : err
         );
+      }
+
+      // After successful DCA execution, subscribe idle balances to Earn
+      const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+      if (gs?.simpleEarnEnabled) {
+        try {
+          const targetAssets = orders.map((o) => o.pair.split("/")[0]!);
+          await simpleEarnManager.subscribeAll(targetAssets);
+          console.log("[DCAService] Subscribed idle balances to Earn");
+        } catch (err) {
+          console.error("[DCAService] Earn subscribe failed (non-critical):", err instanceof Error ? err.message : err);
+        }
       }
     } else {
       console.log(`[DCAService] Scheduled DCA: $${amount} — no orders (balanced or bear)`);

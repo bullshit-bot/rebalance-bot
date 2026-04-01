@@ -114,6 +114,18 @@ export interface BacktestConfig {
   feePct: number
   timeframe: '1h' | '1d'
   exchange: string
+  // Optional DCA fields
+  dcaAmountUsd?: number
+  dcaIntervalCandles?: number
+  cashReservePct?: number
+  // Trend filter
+  trendFilterMaPeriod?: number
+  trendFilterBearCashPct?: number
+  trendFilterCooldownCandles?: number
+  trendFilterBuffer?: number
+  // Simple Earn yield simulation
+  simpleEarnEnabled?: boolean
+  simpleEarnApyPct?: number
 }
 
 export interface BacktestResult {

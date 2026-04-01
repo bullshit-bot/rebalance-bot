@@ -8,6 +8,7 @@ import type {
 } from "@/types/index";
 import { RebalanceModel } from "@db/database";
 import { eventBus } from "@events/event-bus";
+import { simpleEarnManager } from "@exchange/simple-earn-manager";
 import { portfolioTracker } from "@portfolio/portfolio-tracker";
 import { driftDetector } from "@rebalancer/drift-detector";
 import { DEFAULT_BEAR_CASH_PCT } from "@rebalancer/drift-detector";
@@ -129,6 +130,28 @@ class RebalanceEngine {
     }
     const orders = calculateTrades(beforeState, targets, undefined, cashReservePct);
 
+    // ── Step 3b: redeem Earn assets needed for sell orders ────────────────────
+    const earnGs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+    if (earnGs?.simpleEarnEnabled) {
+      const sellOrders = orders.filter((o) => o.side === "sell");
+      if (sellOrders.length > 0) {
+        try {
+          await simpleEarnManager.redeemForRebalance(sellOrders);
+          await simpleEarnManager.waitForSettlement(
+            new Map(sellOrders.map((o) => [o.pair.split("/")[0]!, o.amount])),
+            typeof earnGs.simpleEarnSettleTimeoutMs === "number"
+              ? earnGs.simpleEarnSettleTimeoutMs
+              : 30_000
+          );
+        } catch (err) {
+          console.warn(
+            "[RebalanceEngine] Earn redeem failed, proceeding with Spot balance:",
+            err instanceof Error ? err.message : err
+          );
+        }
+      }
+    }
+
     // ── Step 4: persist initial record ───────────────────────────────────────
     await RebalanceModel.create({
       _id: id,
@@ -169,6 +192,20 @@ class RebalanceEngine {
 
       // Tell the drift detector the rebalance finished so cooldown resets correctly
       driftDetector.recordRebalance();
+
+      // After trades complete, subscribe remaining idle balances to Earn
+      const postTradeGs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+      if (postTradeGs?.simpleEarnEnabled) {
+        try {
+          const targetAssets = targets.map((t) => t.asset);
+          await simpleEarnManager.subscribeAll(targetAssets);
+        } catch (err) {
+          console.error(
+            "[RebalanceEngine] Post-trade Earn subscribe failed:",
+            err instanceof Error ? err.message : err
+          );
+        }
+      }
 
       const event: RebalanceEvent = {
         id,

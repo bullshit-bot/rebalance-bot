@@ -1,7 +1,9 @@
 import type { Allocation, ExchangeName, Portfolio, PortfolioAsset } from "@/types/index";
 import { AllocationModel } from "@db/database";
 import { eventBus } from "@events/event-bus";
+import { simpleEarnManager } from "@exchange/simple-earn-manager";
 import { priceCache } from "@price/price-cache";
+import { strategyManager } from "@rebalancer/strategy-manager";
 import { trendFilter } from "@rebalancer/trend-filter";
 
 // ─── Local interface ───────────────────────────────────────────────────────────
@@ -71,6 +73,12 @@ class PortfolioTracker {
   /** Timestamp (ms) of last successful portfolio recalculation */
   private lastUpdateTime = 0;
 
+  /** Earn balances: asset → amount in Flexible Earn (merged into portfolio totals) */
+  private earnBalanceCache: Map<string, number> = new Map();
+
+  /** Interval handle for polling earn balances */
+  private earnPollInterval: ReturnType<typeof setInterval> | null = null;
+
   // ─── Public API ─────────────────────────────────────────────────────────────
 
   /**
@@ -89,6 +97,9 @@ class PortfolioTracker {
         console.error(`[PortfolioTracker] watchBalance loop error on ${name}:`, err);
       });
     }
+
+    // Start earn balance polling when simpleEarnEnabled is active
+    this.startEarnPolling();
   }
 
   /** Stop all watch loops and clean up. */
@@ -98,6 +109,34 @@ class PortfolioTracker {
       controller.abort();
       this.controllers.delete(name);
     }
+    // Stop earn polling
+    if (this.earnPollInterval !== null) {
+      clearInterval(this.earnPollInterval);
+      this.earnPollInterval = null;
+    }
+  }
+
+  /**
+   * Start polling Flexible Earn balances every 30s.
+   * Only active when simpleEarnEnabled is true in global settings.
+   */
+  private startEarnPolling(): void {
+    const EARN_POLL_INTERVAL = 30_000;
+
+    this.earnPollInterval = setInterval(() => {
+      const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+      if (!gs?.simpleEarnEnabled) return;
+
+      simpleEarnManager.getEarnBalanceMap()
+        .then((map) => {
+          this.earnBalanceCache = map;
+          // Trigger a portfolio recalculate to include updated earn balances
+          this.recalculate();
+        })
+        .catch((err: unknown) => {
+          console.error("[PortfolioTracker] Earn balance poll failed:", err instanceof Error ? err.message : err);
+        });
+    }, EARN_POLL_INTERVAL);
   }
 
   /** Returns the most recently calculated portfolio, or null if not yet ready. */
@@ -224,6 +263,20 @@ class PortfolioTracker {
           existing.amount += amount;
         } else {
           assetTotals.set(asset, { amount, exchange: exchangeName });
+        }
+      }
+    }
+
+    // Merge Flexible Earn balances into totals when simpleEarnEnabled
+    const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+    if (gs?.simpleEarnEnabled && this.earnBalanceCache.size > 0) {
+      for (const [asset, earnAmount] of this.earnBalanceCache) {
+        const existing = assetTotals.get(asset);
+        if (existing) {
+          existing.amount += earnAmount;
+        } else {
+          // Earn-only holding — attribute to binance as default exchange
+          assetTotals.set(asset, { amount: earnAmount, exchange: "binance" });
         }
       }
     }
