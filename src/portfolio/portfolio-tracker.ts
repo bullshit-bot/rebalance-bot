@@ -281,7 +281,10 @@ class PortfolioTracker {
       }
     }
 
-    if (assetTotals.size === 0) return;
+    if (assetTotals.size === 0) {
+      console.debug("[PortfolioTracker] recalculate: no asset totals, skipping");
+      return;
+    }
 
     // Resolve USD value for each asset using PriceCache
     const assetValues = new Map<
@@ -313,7 +316,11 @@ class PortfolioTracker {
       totalValueUsd += valueUsd;
     }
 
-    if (totalValueUsd === 0) return;
+    if (totalValueUsd === 0) {
+      console.debug("[PortfolioTracker] recalculate: totalValueUsd=0, skipping");
+      return;
+    }
+    console.debug(`[PortfolioTracker] recalculate: $${totalValueUsd.toFixed(2)}, ${assetValues.size} assets`);
 
     // Load target allocations async — use cached targets if available
     this.loadAndBuildPortfolio(assetValues, totalValueUsd);
