@@ -6,7 +6,7 @@ import type {
   TradeOrder,
   TradeResult,
 } from "@/types/index";
-import { RebalanceModel } from "@db/database";
+import { BearSellSnapshotModel, RebalanceModel } from "@db/database";
 import { eventBus } from "@events/event-bus";
 import { simpleEarnManager } from "@exchange/simple-earn-manager";
 import { portfolioTracker } from "@portfolio/portfolio-tracker";
@@ -108,27 +108,33 @@ class RebalanceEngine {
     const targets = await portfolioTracker.getTargetAllocations();
 
     // ── Step 3: calculate trades ──────────────────────────────────────────────
-    // Bear trigger: override cash reserve to bearCashPct (sell to safety)
-    // Bull recovery: use normal cashReservePct (buy crypto with excess cash)
     let cashReservePct: number | undefined;
+    let bullRecoverySnapshotUsd = 0;
+
     if (trigger === "trend-filter-bear") {
-      const gs = strategyManager.getActiveConfig()?.globalSettings as
-        | Record<string, unknown>
-        | undefined;
+      // Bear: sell ALL crypto → USDT. Use bearCashPct (typically 100%)
+      const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
       cashReservePct = typeof gs?.bearCashPct === "number" ? gs.bearCashPct : DEFAULT_BEAR_CASH_PCT;
       console.info("[RebalanceEngine] Bear trigger — targeting %d%% cash reserve", cashReservePct);
     } else if (trigger === "trend-filter-bull-recovery") {
-      const gs = strategyManager.getActiveConfig()?.globalSettings as
-        | Record<string, unknown>
-        | undefined;
-      // Use small cash reserve to signal full-portfolio mode (allows buying from stablecoins)
-      const configReserve = typeof gs?.cashReservePct === "number" ? gs.cashReservePct : 0;
-      cashReservePct = Math.max(configReserve, 1); // min 1% to enable full-portfolio rebalance
-      console.info(
-        "[RebalanceEngine] Bull recovery trigger — re-entering crypto positions (cashReserve=%s%%)",
-        cashReservePct ?? "default"
-      );
+      // Bull recovery: buy crypto with ONLY the amount from bear sell snapshot
+      const snapshot = await BearSellSnapshotModel.findOne({ used: false }).sort({ createdAt: -1 });
+      if (snapshot && snapshot.amountUsd > 0) {
+        bullRecoverySnapshotUsd = snapshot.amountUsd;
+        // Calculate cashReservePct so that cryptoPoolUsd = snapshotUsd
+        // cryptoPoolUsd = totalUsd - targetCashUsd = totalUsd - totalUsd*(reservePct/100)
+        // → reservePct = (1 - snapshotUsd/totalUsd) * 100
+        const reservePct = Math.max(0, (1 - bullRecoverySnapshotUsd / beforeState.totalValueUsd) * 100);
+        cashReservePct = Math.max(reservePct, 1);
+        console.info(
+          `[RebalanceEngine] Bull recovery — using bear snapshot $${bullRecoverySnapshotUsd.toFixed(2)} (reserve=${cashReservePct.toFixed(1)}%)`
+        );
+      } else {
+        console.warn("[RebalanceEngine] Bull recovery — no bear sell snapshot found, skipping");
+        cashReservePct = 99; // don't buy anything if no snapshot
+      }
     }
+
     const orders = calculateTrades(beforeState, targets, undefined, cashReservePct);
 
     // ── Step 3b: redeem ALL Earn positions before trading ──────────────────
@@ -197,6 +203,21 @@ class RebalanceEngine {
 
       // Tell the drift detector the rebalance finished so cooldown resets correctly
       driftDetector.recordRebalance();
+
+      // Bear sell snapshot: save total USD sold for bull recovery
+      if (trigger === "trend-filter-bear" && results.length > 0) {
+        const totalSellUsd = results.reduce((sum, r) => sum + r.costUsd, 0);
+        if (totalSellUsd > 0) {
+          await BearSellSnapshotModel.create({ amountUsd: totalSellUsd });
+          console.info(`[RebalanceEngine] Bear sell snapshot saved: $${totalSellUsd.toFixed(2)}`);
+        }
+      }
+
+      // Bull recovery: mark snapshot as used
+      if (trigger === "trend-filter-bull-recovery" && bullRecoverySnapshotUsd > 0) {
+        await BearSellSnapshotModel.updateMany({ used: false }, { used: true });
+        console.info(`[RebalanceEngine] Bull recovery complete — snapshot $${bullRecoverySnapshotUsd.toFixed(2)} marked used`);
+      }
 
       // After trades complete, subscribe remaining idle balances to Earn
       const postTradeGs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;

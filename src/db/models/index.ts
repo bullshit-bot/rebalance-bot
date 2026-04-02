@@ -36,3 +36,7 @@ export {
   type IStrategyConfig,
   type PresetName,
 } from "./strategy-config-model";
+export {
+  BearSellSnapshotModel,
+  type IBearSellSnapshot,
+} from "./bear-sell-snapshot-model";
