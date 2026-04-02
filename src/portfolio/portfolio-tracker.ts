@@ -232,8 +232,8 @@ class PortfolioTracker {
     const snapshot = new Map<string, number>();
     for (const [asset, data] of Object.entries(balanceResponse)) {
       if (typeof data === "object" && data !== null && "free" in data) {
-        const free = (data as { free: number }).free;
-        if (typeof free === "number" && free > 0) {
+        const free = Number((data as { free: unknown }).free);
+        if (!isNaN(free) && free > 0) {
           snapshot.set(asset, free);
         }
       }
