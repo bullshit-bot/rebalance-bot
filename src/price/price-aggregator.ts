@@ -64,7 +64,8 @@ class PriceAggregator {
         // Skip if a loop for this key already exists
         if (this.watchLoops.has(loopKey)) continue;
 
-        const loopPromise = this.pollTicker(exchange, exchangeName, pair);
+        // Try WebSocket first (mainnet), fallback to REST polling (testnet/Bun WS issues)
+        const loopPromise = this.watchTickerWithFallback(exchange, exchangeName, pair);
         this.watchLoops.set(loopKey, loopPromise);
       }
     }
@@ -112,8 +113,65 @@ class PriceAggregator {
   // ─── Internal ───────────────────────────────────────────────────────────────
 
   /**
+   * Try WebSocket watchTicker first. If it fails (Bun WS issue or sandbox),
+   * fall back to REST polling automatically.
+   */
+  private async watchTickerWithFallback(
+    exchange: ccxt.Exchange,
+    exchangeName: ExchangeName,
+    pair: string,
+  ): Promise<void> {
+    try {
+      // Attempt WS — will throw quickly if not supported
+      const ticker = await Promise.race([
+        exchange.watchTicker(pair),
+        this.sleep(5_000).then(() => { throw new Error('watchTicker timeout') }),
+      ])
+
+      // WS works! Process first tick then continue in WS loop
+      if (ticker) {
+        console.log(`[PriceAggregator] WebSocket connected for ${pair} on ${exchangeName}`)
+        this.processTicker(ticker, exchangeName, pair)
+        // Continue with WS loop
+        while (this.running) {
+          try {
+            const t = await exchange.watchTicker(pair)
+            this.processTicker(t, exchangeName, pair)
+          } catch (err) {
+            if (!this.running) break
+            console.error(`[PriceAggregator] WS error ${pair}:`, err instanceof Error ? err.message : err)
+            await this.sleep(1_000)
+          }
+        }
+        return
+      }
+    } catch {
+      console.log(`[PriceAggregator] WebSocket unavailable for ${pair}, using REST polling`)
+    }
+
+    // Fallback to REST polling
+    await this.pollTicker(exchange, exchangeName, pair)
+  }
+
+  /** Process a ticker into PriceData and emit */
+  private processTicker(ticker: ccxt.Ticker, exchangeName: ExchangeName, pair: string): void {
+    const priceData: PriceData = {
+      exchange: exchangeName,
+      pair,
+      price: ticker.last ?? ticker.close ?? 0,
+      bid: ticker.bid ?? 0,
+      ask: ticker.ask ?? 0,
+      volume24h: ticker.baseVolume ?? 0,
+      change24h: ticker.percentage ?? 0,
+      timestamp: ticker.timestamp ?? Date.now(),
+    }
+    if (priceData.price === 0) return
+    priceCache.set(pair, priceData)
+    eventBus.emit('price:update', priceData)
+  }
+
+  /**
    * REST polling fallback — fetches ticker every 10s via fetchTicker.
-   * Used because Bun runtime doesn't support CCXT Pro WebSocket upgrade.
    */
   private async pollTicker(
     exchange: ccxt.Exchange,
