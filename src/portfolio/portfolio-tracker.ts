@@ -364,10 +364,21 @@ class PortfolioTracker {
 
         if (targetTotalUsd === 0) return;
 
+        // Compute crypto-only total for percentage calculation (exclude stablecoins)
+        let cryptoOnlyUsd = 0;
+        for (const [asset, data] of targetAssetValues) {
+          if (!quoteAssets.has(asset)) cryptoOnlyUsd += data.valueUsd;
+        }
+        const pctDenominator = cryptoOnlyUsd > 0 ? cryptoOnlyUsd : targetTotalUsd;
+
         const assets: PortfolioAsset[] = [];
 
         for (const [asset, { amount, valueUsd, exchange }] of targetAssetValues) {
-          const currentPct = (valueUsd / targetTotalUsd) * 100;
+          // Crypto assets: % relative to crypto-only total
+          // Stablecoins: % relative to full total (shows cash proportion)
+          const currentPct = quoteAssets.has(asset)
+            ? (valueUsd / targetTotalUsd) * 100
+            : (valueUsd / pctDenominator) * 100;
           const targetPct = targetMap.get(asset) ?? 0;
           const driftPct = currentPct - targetPct;
 
