@@ -131,25 +131,25 @@ class RebalanceEngine {
     }
     const orders = calculateTrades(beforeState, targets, undefined, cashReservePct);
 
-    // ── Step 3b: redeem Earn assets needed for sell orders ────────────────────
+    // ── Step 3b: redeem ALL Earn assets needed for trades ──────────────────
     const earnGs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
-    if (earnGs?.simpleEarnEnabled) {
-      const sellOrders = orders.filter((o) => o.side === "sell");
-      if (sellOrders.length > 0) {
-        try {
-          await simpleEarnManager.redeemForRebalance(sellOrders);
-          await simpleEarnManager.waitForSettlement(
-            new Map(sellOrders.map((o) => [o.pair.split("/")[0]!, o.amount])),
-            typeof earnGs.simpleEarnSettleTimeoutMs === "number"
-              ? earnGs.simpleEarnSettleTimeoutMs
-              : 30_000
-          );
-        } catch (err) {
-          console.warn(
-            "[RebalanceEngine] Earn redeem failed, proceeding with Spot balance:",
-            err instanceof Error ? err.message : err
-          );
+    if (earnGs?.simpleEarnEnabled && orders.length > 0) {
+      try {
+        // Redeem all assets involved in trades (sell-side needs coins, buy-side needs USDT)
+        await simpleEarnManager.redeemForRebalance(orders);
+        const timeoutMs = typeof earnGs.simpleEarnSettleTimeoutMs === "number"
+          ? earnGs.simpleEarnSettleTimeoutMs : 60_000;
+        const expectedAssets = new Map(
+          orders.filter((o) => o.side === "sell").map((o) => [o.pair.split("/")[0]!, o.amount])
+        );
+        if (expectedAssets.size > 0) {
+          await simpleEarnManager.waitForSettlement(expectedAssets, timeoutMs);
         }
+      } catch (err) {
+        console.warn(
+          "[RebalanceEngine] Earn redeem failed, proceeding with Spot balance:",
+          err instanceof Error ? err.message : err
+        );
       }
     }
 
