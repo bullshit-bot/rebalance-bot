@@ -1,6 +1,6 @@
 ---
 name: portfolio_monitor
-description: Monitor portfolio drift and alert on significant deviations using mcporter to call rebalance bot MCP tools.
+description: Monitor portfolio drift, trend state, and Simple Earn positions using MCP tools.
 metadata:
   goclaw:
     emoji: 👁️
@@ -11,6 +11,7 @@ metadata:
         - rb_get_portfolio
         - rb_list_allocations
         - rb_list_trades
+        - rb_get_earn_status
 ---
 
 # Portfolio Monitor
@@ -32,5 +33,6 @@ Observe portfolio drift and surface alerts.
    - In bull mode: check drift normally.
 8. **Cash reserve check**: If cashReservePct > 0, verify stablecoin balance meets target.
 9. **DCA budget check**: If dcaRebalanceEnabled, note dcaAmountUsd limit ($20 default, configurable).
-10. Run `rb_list_trades limit=5` — check if recent rebalance already occurred.
-11. Output monitoring report: health, price feed status, market state, drift table with severity, cash/DCA status, recommended action.
+10. **Simple Earn check** (if enabled): Run `rb_get_earn_status` — report active positions, APY rates, total earned yield.
+11. Run `rb_list_trades limit=5` — check if recent rebalance already occurred.
+12. Output monitoring report: health, price feed status, market state, drift table with severity, cash/DCA status, earn positions (if enabled), recommended action.

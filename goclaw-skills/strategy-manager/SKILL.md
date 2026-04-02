@@ -35,6 +35,7 @@ View and manage rebalancing strategy configurations.
 - `trendFilterBuffer` (default 2%, optimal 0%): % buffer below MA still treated as bull.
 - `bearCashPct` (30-100%): % to sell to stablecoins in bear. Default 70, optimal 100%.
 - `trendFilterCooldownDays` (default 1): Anti-whipsaw cooldown.
+- `simpleEarnEnabled` (boolean): Enable Binance Flexible Earn on subscribed assets. Default false.
 
 ### Recommended Config (from 5040-combo backtest optimization)
 - Strategy: threshold (10%)

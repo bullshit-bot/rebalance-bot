@@ -39,6 +39,7 @@ Run and analyze backtesting results across different strategies and configuratio
 - `trendFilterBearCashPct`: % portfolio to cash in bear (100 optimal from backtest)
 - `trendFilterCooldownCandles`: Anti-whipsaw cooldown in days (1 optimal from grid search)
 - `cashReservePct`: % kept as cash buffer (0-50)
+- `simpleEarnEnabled` (optional): Simulate Flexible Earn yield on crypto holdings. Default false.
 
 ### Optimal Config (from 5040-combo grid search, 5-year backtest, 2026-03-31)
 - Allocation: BTC 40% / ETH 25% / SOL 20% / BNB 15%

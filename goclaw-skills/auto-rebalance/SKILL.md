@@ -42,10 +42,11 @@ Full rebalancing cycle with pre-flight safety checks.
 9. Wait 10s, run `rb_get_rebalance_history limit=1` — confirm.
 10. Report: assets traded, fees, new weights, trend filter state, or error details.
 
-## Note on DCA Independence
+## Note on System Independence
 
-DCA cron jobs and rebalance engine are fully separate systems:
-- **Rebalance**: Triggered by drift > threshold, executes full portfolio rebalancing
-- **DCA**: Scheduled daily (07:00 VN), deposits `dcaAmountUsd` to most underweight asset
-- Both systems respect trend filter bear/bull state
-- Neither caps the other's trading
+Three fully independent systems manage the portfolio:
+- **Rebalance**: Triggered by drift > threshold, executes full portfolio rebalancing. Independent from DCA.
+- **DCA**: Scheduled daily (07:00 VN), deposits `dcaAmountUsd` to most underweight asset. Independent from rebalance.
+- **Simple Earn** (optional): Earns yield on flexible deposits. Does not affect rebalance or DCA logic. Toggled via `simpleEarnEnabled`.
+- All three respect trend filter bear/bull state
+- Neither system caps the other's trading

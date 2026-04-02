@@ -9,6 +9,8 @@ import { registerTradeTools } from "./tools/trade-tools.js";
 import { registerAllocationTools } from "./tools/allocation-tools.js";
 import { registerBacktestTools } from "./tools/backtest-tools.js";
 import { registerStrategyConfigTools } from "./tools/strategy-config-tools.js";
+import { registerEarnTools } from "./tools/earn-tools.js";
+import { registerDcaTools } from "./tools/dca-tools.js";
 
 const server = new McpServer({
   name: "rebalance-bot-mcp",
@@ -23,6 +25,8 @@ registerTradeTools(server);
 registerAllocationTools(server);
 registerBacktestTools(server);
 registerStrategyConfigTools(server);
+registerEarnTools(server);
+registerDcaTools(server);
 
 const mode = process.env.MCP_TRANSPORT ?? "stdio";
 

@@ -1,22 +1,26 @@
 ---
 name: allocation_advisor
-description: Analyse portfolio allocations and suggest rebalancing using mcporter to call rebalance bot MCP tools.
+description: Analyze portfolio allocations, earn positions, and suggest rebalancing using MCP tools.
 metadata:
   goclaw:
     emoji: 📊
     requires:
-      bins:
-        - mcporter
+      mcp_tools:
+        - rb_get_portfolio
+        - rb_list_allocations
+        - rb_trigger_rebalance
+        - rb_get_earn_status
 ---
 
 # Allocation Advisor
 
-Analyse portfolio and suggest allocation changes.
+Analyze portfolio allocations, Simple Earn positions, and suggest rebalancing.
 
 ## Workflow
 
-1. Run `mcporter call rebalance-bot.get_portfolio` — fetch current holdings, values, drift.
-2. Run `mcporter call rebalance-bot.get_allocations` — get target allocation percentages.
+1. Run `rb_get_portfolio` — fetch current holdings, values, drift.
+2. Run `rb_list_allocations` — get target allocation percentages (crypto-only if DCA enabled).
 3. Compare current vs target weights. Identify assets with drift > 5%.
-4. Present analysis table: Asset, Current%, Target%, Drift%, Action.
-7. On user approval, run `mcporter call rebalance-bot.trigger_rebalance`.
+4. If Simple Earn enabled, run `rb_get_earn_status` — report flexible earn positions and their APY.
+5. Present analysis: Current%, Target%, Drift%, Action. If enabled, include earn positions with yields.
+6. On user approval, run `rb_trigger_rebalance`.

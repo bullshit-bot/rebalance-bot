@@ -10,6 +10,8 @@ metadata:
         - rb_get_portfolio
         - rb_get_strategy_config
         - rb_list_allocations
+        - rb_get_earn_status
+        - rb_trigger_dca
 ---
 
 # Rebalance Bot — System Overview
@@ -76,11 +78,21 @@ Price Feeds (REST polling, 10s) → PriceService → EventBus
 - Fees: Applied to DCA trades (now included in backtest simulation)
 - Cash reserve: keeps 0-50% in stablecoins as buffer (configurable)
 
-### 4. Backtesting
+### 4. Simple Earn (Binance Flexible Deposits)
+- **Status**: Optional, configurable via `simpleEarnEnabled` toggle in GlobalSettings
+- **Supported Operations**: Subscribe to flexible products, redeem positions, get positions, check APY rates
+- **Per-Asset APY Rates**: BTC 1%, ETH 2.5%, SOL 5.5%, BNB 1.2%
+- **Feature**: Automatically earns yield on crypto holdings when enabled
+- **Data Access**: GET /api/earn/status returns positions, totalValueUsd, and apyRates
+- **Integration**: Works alongside rebalance engine and DCA scheduler
+- **Note**: Simple Earn is independent — does not affect rebalancing or DCA logic
+
+### 5. Backtesting
 - Historical OHLCV data from Binance (5+ years available)
 - Grid search optimizer: tests 5040+ parameter combinations
 - Metrics: return %, annualized %, Sharpe ratio, max drawdown, fees
 - Benchmark: compares strategy vs buy-and-hold
+- **New**: Optional Simple Earn yield simulation toggle in backtest config
 
 ## Optimal Configuration (5040-combo Grid Search, 2026-03-31) — PRODUCTION ACTIVE
 
@@ -106,7 +118,7 @@ Current active config on production: `optimal-backtest-validated` v5
 
 **Key insights:** New MA120/TH10 config improves returns +41.2% vs previous setup. Trend filter single-handedly provides 3x return improvement and cuts max drawdown from -85% to -34%. Validated across 5040+ parameter combinations. Previous 672-combo results invalidated due to backtest engine fixes (double-division bug, DCA fees, buffer).
 
-## MCP Tools Available (28 tools)
+## MCP Tools Available (16 tools)
 
 | Group | Tool | Description |
 |-------|------|-------------|
@@ -124,7 +136,9 @@ Current active config on production: `optimal-backtest-validated` v5
 | Strategy | update_strategy_config | Update strategy parameters |
 | Backtest | run_backtest | Run backtest simulation |
 | Backtest | list_backtests | Previous backtest results |
-| Config | get_config | System configuration |
+| Earn | get_earn_status | Get Flexible Earn positions & APY rates |
+| Earn | get_earn_apy_rates | Get current APY rates by asset |
+| DCA | trigger_dca | Manually trigger DCA deposit execution |
 
 ## Available GoClaw Skills
 
