@@ -121,10 +121,26 @@ class DCAService {
     }
 
     const targets = await portfolioTracker.getTargetAllocations();
-    const configAmount = (
-      strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined
-    )?.dcaAmountUsd as number | undefined;
+    const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+    const configAmount = gs?.dcaAmountUsd as number | undefined;
     const amount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT;
+
+    // If Earn enabled, redeem USDT from Flexible Earn to fund DCA
+    if (gs?.simpleEarnEnabled) {
+      const usdtSpot = portfolio.assets.find((a) => a.asset === "USDT")?.amount ?? 0;
+      if (usdtSpot < amount) {
+        const deficit = amount - usdtSpot + 1; // +$1 buffer for fees
+        try {
+          await simpleEarnManager.redeem("USDT", deficit);
+          console.log(`[DCAService] Redeemed $${deficit.toFixed(2)} USDT from Earn for DCA`);
+          // Wait for settlement
+          await simpleEarnManager.waitForSettlement(new Map([["USDT", amount]]), 15_000);
+        } catch (err) {
+          console.warn("[DCAService] USDT redeem failed (will try DCA with available balance):", err instanceof Error ? err.message : err);
+        }
+      }
+    }
+
     const orders = this.calculateDCAAllocation(amount, portfolio, targets);
 
     if (orders.length > 0) {
@@ -144,11 +160,10 @@ class DCAService {
         );
       }
 
-      // After successful DCA execution, subscribe idle balances to Earn
-      const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
+      // After successful DCA execution, subscribe idle balances to Earn (crypto + USDT)
       if (gs?.simpleEarnEnabled) {
         try {
-          const allTargetAssets = targets.map((t) => t.asset);
+          const allTargetAssets = [...targets.map((t) => t.asset), "USDT"];
           await simpleEarnManager.subscribeAll(allTargetAssets);
           console.log("[DCAService] Subscribed idle balances to Earn");
         } catch (err) {
