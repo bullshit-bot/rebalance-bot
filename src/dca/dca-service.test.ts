@@ -388,15 +388,7 @@ describe("DCAService", () => {
   test("service resets state on stop", () => {
     const svc = new DCAService();
     svc.start();
-
-    // Simulate setting internal state
-    svc["previousTotalValue"] = 50000;
-    svc["lastDepositAt"] = Date.now();
-
     svc.stop();
-
-    // State should be reset
-    expect(svc["previousTotalValue"]).toBe(0);
     expect(svc["running"]).toBe(false);
   });
 
@@ -793,8 +785,8 @@ describe("DCAService", () => {
     expect(second).toBe(false);
   });
 
-  test("onPortfolioUpdate with deposit detection triggers order calculation", () => {
-    // This test covers lines 193-203: the .then() callback in onPortfolioUpdate
+  // Deposit detection tests removed — feature was removed (DCA is scheduled-only)
+  test.skip("onPortfolioUpdate with deposit detection triggers order calculation", () => {
     const svc = new DCAService();
     svc.start();
 
@@ -846,7 +838,7 @@ describe("DCAService", () => {
     expect(svc["running"]).toBe(false);
   });
 
-  test("onPortfolioUpdate ignores decreases in portfolio value", () => {
+  test.skip("onPortfolioUpdate ignores decreases in portfolio value", () => {
     const svc = new DCAService();
     svc.start();
 
@@ -896,7 +888,7 @@ describe("DCAService", () => {
     expect(svc["running"]).toBe(false);
   });
 
-  test("onPortfolioUpdate respects cooldown after deposit detection", () => {
+  test.skip("onPortfolioUpdate respects cooldown after deposit detection", () => {
     // This tests the cooldown logic that prevents rapid re-triggering
     const svc = new DCAService();
     svc.start();
