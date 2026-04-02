@@ -239,6 +239,7 @@ class PortfolioTracker {
       }
     }
 
+    console.debug(`[PortfolioTracker] processBalance: ${snapshot.size} assets from ${name}`, Object.fromEntries(snapshot));
     this.balances.set(name, snapshot);
     const rawBalances: Record<string, number> = Object.fromEntries(snapshot);
     this.deps.eventBus.emit("balance:update", { exchange: name, balances: rawBalances });
