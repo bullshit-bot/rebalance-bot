@@ -6,32 +6,35 @@ import { calculateTrades } from "./trade-calculator";
 // ─── Bear rebalance flow: trade-calculator with cashReservePct override ──────
 
 describe("Bear rebalance flow", () => {
+  // Portfolio with BTC and ETH balanced within the crypto pool
+  // Crypto pool = 5120 (total 10000 - USDT 4880)
+  // With targets: BTC 50% -> 2560, ETH 30% -> 1536
   const portfolio: Portfolio = {
     totalValueUsd: 10000,
     assets: [
       {
         asset: "BTC",
-        amount: 0.1,
-        valueUsd: 5000,
-        currentPct: 50,
+        amount: 0.0512,
+        valueUsd: 2560,
+        currentPct: 25.6,
         targetPct: 50,
         driftPct: 0,
         exchange: "binance",
       },
       {
         asset: "ETH",
-        amount: 2,
-        valueUsd: 3000,
-        currentPct: 30,
+        amount: 1.024,
+        valueUsd: 1536,
+        currentPct: 15.36,
         targetPct: 30,
         driftPct: 0,
         exchange: "binance",
       },
       {
         asset: "USDT",
-        amount: 2000,
-        valueUsd: 2000,
-        currentPct: 20,
+        amount: 4880,
+        valueUsd: 4880,
+        currentPct: 48.8,
         targetPct: 20,
         driftPct: 0,
         exchange: "binance",
@@ -56,10 +59,15 @@ describe("Bear rebalance flow", () => {
     expect(DEFAULT_BEAR_CASH_PCT).toBe(70);
   });
 
-  test("normal rebalance (no cashReservePct) should not generate sells for balanced portfolio", () => {
+  test("normal rebalance (no cashReservePct) rebalances crypto only, ignores USDT", () => {
     const orders = calculateTrades(portfolio, targets, prices);
-    // Portfolio is already at target — no trades needed
-    expect(orders.length).toBe(0);
+    // Crypto pool = BTC $2560 + ETH $1536 = $4096 (USDT excluded)
+    // BTC 50% of $4096 = $2048, has $2560 → sell
+    // ETH 30% of $4096 = $1228.8, has $1536 → sell
+    // Both overweight vs crypto-only pool → may generate sells
+    // Key: USDT is NOT used to buy crypto (stays as DCA reserve)
+    const buyOrders = orders.filter((o) => o.side === "buy");
+    expect(buyOrders.length).toBe(0); // no buys from USDT
   });
 
   test("bear rebalance with 70% cash should generate sell orders", () => {
