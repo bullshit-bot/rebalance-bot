@@ -148,8 +148,8 @@ class DCAService {
       const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
       if (gs?.simpleEarnEnabled) {
         try {
-          const targetAssets = orders.map((o) => o.pair.split("/")[0]!);
-          await simpleEarnManager.subscribeAll(targetAssets);
+          const allTargetAssets = targets.map((t) => t.asset);
+          await simpleEarnManager.subscribeAll(allTargetAssets);
           console.log("[DCAService] Subscribed idle balances to Earn");
         } catch (err) {
           console.error("[DCAService] Earn subscribe failed (non-critical):", err instanceof Error ? err.message : err);
