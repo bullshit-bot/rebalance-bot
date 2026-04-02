@@ -54,9 +54,9 @@ describe('BacktestingPage', () => {
 
   it('renders pair checkboxes', () => {
     const { container } = wrap(<BacktestingPage />)
-    // 4 pair checkboxes + 2 feature checkboxes (DCA, Trend Filter)
+    // 4 pair checkboxes + 3 feature checkboxes (DCA, Trend Filter, Simple Earn)
     const checkboxes = container.querySelectorAll('input[type="checkbox"]')
-    expect(checkboxes.length).toBe(6)
+    expect(checkboxes.length).toBe(7)
   })
 
   it('all 4 pairs are checked by default', () => {
