@@ -124,21 +124,19 @@ Current active config on production: `optimal-backtest-validated` v5
 |-------|------|-------------|
 | Health | get_health | System health check |
 | Portfolio | get_portfolio | Current holdings, weights, total value |
-| Portfolio | list_allocations | Target allocation percentages |
-| Portfolio | set_allocations | Set all target allocations (full replace) |
-| Portfolio | delete_allocation | Remove an asset allocation |
+| Portfolio | list_allocations | Target allocation percentages (read-only) |
 | Rebalance | trigger_rebalance | Execute rebalance |
 | Rebalance | get_rebalance_history | Past rebalance events |
 | Trading | list_trades | Recent executed trades |
-| Strategy | get_strategy_config | Active strategy config + list |
-| Strategy | list_strategy_presets | Built-in strategy presets |
-| Strategy | activate_strategy | Switch active strategy |
-| Strategy | update_strategy_config | Update strategy parameters |
+| Strategy | get_strategy_config | Active strategy config + list (read-only) |
+| Strategy | list_strategy_presets | Built-in strategy presets (read-only) |
 | Backtest | run_backtest | Run backtest simulation |
 | Backtest | list_backtests | Previous backtest results |
 | Earn | get_earn_status | Get Flexible Earn positions & APY rates |
 | Earn | get_earn_apy_rates | Get current APY rates by asset |
 | DCA | trigger_dca | Manually trigger DCA deposit execution |
+
+**Note:** Allocation/strategy config changes are owner-only via web UI. MCP tools are read-only for safety.
 
 ## Available GoClaw Skills
 

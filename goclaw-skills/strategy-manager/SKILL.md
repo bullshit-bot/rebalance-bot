@@ -58,7 +58,7 @@ View and manage rebalancing strategy configurations.
 2. Display: strategy type, key parameters, global settings (cash reserve, trend filter, DCA).
 3. If user wants to change strategy:
    - Validate requested strategy type exists.
-   - Run `mcporter call rebalance-bot.update_strategy_config` with new settings.
+   - Inform user: strategy changes are owner-only via web UI (Settings page). GoClaw cannot modify config.
 4. If user asks "what's best":
    - Recommend threshold + MA100 trend filter based on backtest data.
    - Show backtest comparison: no filter (+48%) vs MA100 (+150%).
