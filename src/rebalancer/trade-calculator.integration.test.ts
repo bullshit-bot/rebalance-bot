@@ -33,12 +33,30 @@ describe("TradeCalculator integration", () => {
       totalValueUsd: 10000,
       assets: [
         {
+          asset: "BTC",
+          amount: 0.04,
+          valueUsd: 2000,
+          currentPct: 20,
+          targetPct: 50,
+          driftPct: -30,
+          exchange: "binance",
+        },
+        {
+          asset: "SOL",
+          amount: 300,
+          valueUsd: 3000,
+          currentPct: 30,
+          targetPct: 30,
+          driftPct: 0,
+          exchange: "binance",
+        },
+        {
           asset: "USDT",
-          amount: 10000,
-          valueUsd: 10000,
-          currentPct: 100,
-          targetPct: 20,
-          driftPct: 80,
+          amount: 5000,
+          valueUsd: 5000,
+          currentPct: 50,
+          targetPct: 50,
+          driftPct: 0,
           exchange: "binance",
         },
       ],
@@ -47,15 +65,15 @@ describe("TradeCalculator integration", () => {
 
     const targets: Allocation[] = [
       { asset: "BTC", targetPct: 50, minTradeUsd: 100 },
-      { asset: "ETH", targetPct: 30, minTradeUsd: 100 },
-      { asset: "USDT", targetPct: 20, minTradeUsd: 10 },
+      { asset: "SOL", targetPct: 50, minTradeUsd: 100 },
     ];
 
     const trades = calculateTrades(portfolio, targets);
 
+    // BTC underweight (40% vs 50%), SOL overweight (60% vs 50%)
     expect(trades.length).toBeGreaterThan(0);
     expect(trades.some((t) => t.pair === "BTC/USDT" && t.side === "buy")).toBe(true);
-    expect(trades.some((t) => t.pair === "ETH/USDT" && t.side === "buy")).toBe(true);
+    expect(trades.some((t) => t.pair === "SOL/USDT" && t.side === "sell")).toBe(true);
   });
 
   test("calculateTrades generates sell orders for overweight assets", () => {
@@ -127,8 +145,8 @@ describe("TradeCalculator integration", () => {
       totalValueUsd: 10000,
       assets: [
         {
-          asset: "USDT",
-          amount: 10000,
+          asset: "ETH",
+          amount: 3.33,
           valueUsd: 10000,
           currentPct: 100,
           targetPct: 50,
@@ -141,7 +159,7 @@ describe("TradeCalculator integration", () => {
 
     const targets: Allocation[] = [
       { asset: "BTC", targetPct: 50, minTradeUsd: 1000 }, // Custom high min
-      { asset: "USDT", targetPct: 50, minTradeUsd: 10 },
+      { asset: "ETH", targetPct: 50, minTradeUsd: 100 },
     ];
 
     const trades = calculateTrades(portfolio, targets);
@@ -232,8 +250,8 @@ describe("TradeCalculator integration", () => {
       totalValueUsd: 10000,
       assets: [
         {
-          asset: "USDT",
-          amount: 10000,
+          asset: "ETH",
+          amount: 3.33,
           valueUsd: 10000,
           currentPct: 100,
           targetPct: 50,
@@ -246,7 +264,7 @@ describe("TradeCalculator integration", () => {
 
     const targets: Allocation[] = [
       { asset: "BTC", targetPct: 50, exchange: "okx", minTradeUsd: 100 },
-      { asset: "USDT", targetPct: 50, minTradeUsd: 10 },
+      { asset: "ETH", targetPct: 50, minTradeUsd: 10 },
     ];
 
     const trades = calculateTrades(portfolio, targets);
@@ -260,8 +278,8 @@ describe("TradeCalculator integration", () => {
       totalValueUsd: 10000,
       assets: [
         {
-          asset: "USDT",
-          amount: 10000,
+          asset: "BTC",
+          amount: 0.2,
           valueUsd: 10000,
           currentPct: 100,
           targetPct: 60,
@@ -350,8 +368,8 @@ describe("TradeCalculator integration", () => {
       totalValueUsd: 10000,
       assets: [
         {
-          asset: "USDT",
-          amount: 10000,
+          asset: "SOL",
+          amount: 55.56,
           valueUsd: 10000,
           currentPct: 100,
           targetPct: 0,
@@ -379,8 +397,8 @@ describe("TradeCalculator integration", () => {
       totalValueUsd: 10000,
       assets: [
         {
-          asset: "USDT",
-          amount: 10000,
+          asset: "ETH",
+          amount: 3.33,
           valueUsd: 10000,
           currentPct: 100,
           targetPct: 50,
@@ -393,7 +411,7 @@ describe("TradeCalculator integration", () => {
 
     const targets: Allocation[] = [
       { asset: "BTC", targetPct: 50, minTradeUsd: 100 }, // No exchange specified
-      { asset: "USDT", targetPct: 50, minTradeUsd: 10 },
+      { asset: "ETH", targetPct: 50, minTradeUsd: 10 },
     ];
 
     const trades = calculateTrades(portfolio, targets);
