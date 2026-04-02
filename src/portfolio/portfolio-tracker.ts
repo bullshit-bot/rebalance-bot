@@ -230,11 +230,14 @@ class PortfolioTracker {
     name: ExchangeName
   ): void {
     const snapshot = new Map<string, number>();
-    for (const [asset, data] of Object.entries(balanceResponse)) {
+    for (const [rawAsset, data] of Object.entries(balanceResponse)) {
       if (typeof data === "object" && data !== null && "free" in data) {
         const free = Number((data as { free: unknown }).free);
         if (!isNaN(free) && free > 0) {
-          snapshot.set(asset, free);
+          // Strip Binance Earn prefix (LD = Flexible Deposit) to normalize asset names
+          const asset = rawAsset.startsWith("LD") ? rawAsset.slice(2) : rawAsset;
+          const existing = snapshot.get(asset);
+          snapshot.set(asset, (existing ?? 0) + free);
         }
       }
     }
