@@ -73,7 +73,6 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
 
   // Simple Earn
   const [earnEnabled, setEarnEnabled] = useState(false);
-  const [earnApyPct, setEarnApyPct] = useState(3);
 
   const mutation = useRunBacktest();
 
@@ -122,7 +121,7 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
     // Simple Earn yield simulation
     if (earnEnabled) {
       config.simpleEarnEnabled = true;
-      config.simpleEarnApyPct = earnApyPct;
+      // Per-asset APY rates are hardcoded in backend (BTC 1%, ETH 2.5%, SOL 5.5%, BNB 1.2%)
     }
     mutation.mutate(config as BacktestConfig);
   }
@@ -271,13 +270,12 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
             {earnEnabled && <span className="text-xs text-muted-foreground">Simulate APY yield on crypto holdings in bull mode</span>}
           </div>
           {earnEnabled && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="stat-label mb-1 block">
-                  Average APY: <span className="tabular-nums">{earnApyPct}%</span>
-                </label>
-                <input type="range" min={0.5} max={10} step={0.5} value={earnApyPct} onChange={(e) => setEarnApyPct(Number(e.target.value))} className="w-full accent-primary" />
-              </div>
+            <div className="text-xs text-muted-foreground mt-1 flex gap-4 flex-wrap">
+              <span>BTC <strong>1.0%</strong></span>
+              <span>ETH <strong>2.5%</strong></span>
+              <span>SOL <strong>5.5%</strong></span>
+              <span>BNB <strong>1.2%</strong></span>
+              <span className="italic">Based on Binance Flexible Earn rates</span>
             </div>
           )}
         </div>
