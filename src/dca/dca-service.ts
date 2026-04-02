@@ -129,7 +129,7 @@ class DCAService {
     if (gs?.simpleEarnEnabled) {
       const usdtSpot = portfolio.assets.find((a) => a.asset === "USDT")?.amount ?? 0;
       if (usdtSpot < amount) {
-        const deficit = amount - usdtSpot + 1; // +$1 buffer for fees
+        const deficit = amount - usdtSpot;
         try {
           await simpleEarnManager.redeem("USDT", deficit);
           console.log(`[DCAService] Redeemed $${deficit.toFixed(2)} USDT from Earn for DCA`);
