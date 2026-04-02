@@ -7,7 +7,7 @@ const portfolioRoutes = new Hono();
 
 /**
  * Build a portfolio object from the latest DB snapshot when live tracking
- * is unavailable (e.g. no exchange connections in paper mode).
+ * is unavailable (e.g. no exchange connections configured).
  */
 async function buildPortfolioFromSnapshot() {
   const latest = await SnapshotModel.findOne().sort({ createdAt: -1 }).lean();
