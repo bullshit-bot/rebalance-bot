@@ -48,8 +48,11 @@ export function calculateTrades(
     .filter((a) => isStablecoin(a.asset))
     .reduce((sum, a) => sum + a.valueUsd, 0);
 
-  // Crypto pool is total minus cash reserve target
-  const cryptoPoolUsd = totalUsd - targetCashUsd;
+  // Crypto pool = total crypto value only (exclude stablecoins)
+  // Rebalance only redistributes existing crypto, never converts stablecoins to crypto
+  // (that's DCA's job). Cash reserve further reduces the crypto pool if set.
+  const cryptoValueUsd = totalUsd - cashValueUsd;
+  const cryptoPoolUsd = Math.max(0, cryptoValueUsd - targetCashUsd);
 
   // ─── Target / exchange lookups ──────────────────────────────────────────────
 
