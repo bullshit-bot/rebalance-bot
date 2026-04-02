@@ -201,7 +201,7 @@ class BacktestSimulator {
 
       // ── Simple Earn yield simulation (bull mode only) ─────────────────────
       // Per-asset APY rates based on Binance Flexible Earn (approximate)
-      if (config.simpleEarnEnabled !== false && !inBearMode) {
+      if (config.simpleEarnEnabled === true && !inBearMode) {
         const defaultApy = config.simpleEarnApyPct ?? 3;
         const assetApyMap: Record<string, number> = {
           'BTC/USDT': 1.0, 'ETH/USDT': 2.5, 'SOL/USDT': 5.5, 'BNB/USDT': 1.2,
