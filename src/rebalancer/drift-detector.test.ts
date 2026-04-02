@@ -524,14 +524,24 @@ describe("DriftDetector - DI constructor", () => {
 
   test("portfolio:update event with high drift emits rebalance:trigger", () => {
     detector.start();
+    // Clear startup cooldown by recording a rebalance at a past time
+    detector.recordRebalance();
+    // Simulate 2 hours passing to expire the 1-hour cooldown
+    // Use a spy on Date.now to fake time progression
+    const originalDateNow = Date.now;
+    Date.now = () => originalDateNow() + 2 * 60 * 60 * 1000; // Add 2 hours
 
-    // Simulate high drift (> threshold of 5%)
-    deps.eventBus.emit("portfolio:update", makePortfolio(10));
+    try {
+      // Simulate high drift (> threshold of 5%)
+      deps.eventBus.emit("portfolio:update", makePortfolio(10));
 
-    const triggered = deps.emitted.find((e) => e.event === "rebalance:trigger");
-    expect(triggered).toBeDefined();
-    expect((triggered!.data as any).trigger).toBe("threshold");
-    detector.stop();
+      const triggered = deps.emitted.find((e) => e.event === "rebalance:trigger");
+      expect(triggered).toBeDefined();
+      expect((triggered!.data as any).trigger).toBe("threshold");
+    } finally {
+      Date.now = originalDateNow;
+      detector.stop();
+    }
   });
 
   test("portfolio:update event with low drift does NOT emit rebalance:trigger", () => {
@@ -556,10 +566,19 @@ describe("DriftDetector - DI constructor", () => {
     detector.stop();
   });
 
-  test("canRebalance() returns true when active and no prior rebalance", () => {
+  test("canRebalance() returns true when active and cooldown expired", () => {
     detector.start();
-    expect(detector.canRebalance()).toBe(true);
-    detector.stop();
+    detector.recordRebalance();
+    // Simulate 2 hours passing to expire the 1-hour cooldown
+    const originalDateNow = Date.now;
+    Date.now = () => originalDateNow() + 2 * 60 * 60 * 1000;
+
+    try {
+      expect(detector.canRebalance()).toBe(true);
+    } finally {
+      Date.now = originalDateNow;
+      detector.stop();
+    }
   });
 
   test("canRebalance() returns false when stopped", () => {
@@ -576,11 +595,20 @@ describe("DriftDetector - DI constructor", () => {
 
   test("negative drift above threshold also triggers rebalance", () => {
     detector.start();
-    deps.eventBus.emit("portfolio:update", makePortfolio(-15));
+    detector.recordRebalance();
+    // Simulate 2 hours passing to expire the 1-hour cooldown
+    const originalDateNow = Date.now;
+    Date.now = () => originalDateNow() + 2 * 60 * 60 * 1000;
 
-    const triggered = deps.emitted.find((e) => e.event === "rebalance:trigger");
-    expect(triggered).toBeDefined();
-    detector.stop();
+    try {
+      deps.eventBus.emit("portfolio:update", makePortfolio(-15));
+
+      const triggered = deps.emitted.find((e) => e.event === "rebalance:trigger");
+      expect(triggered).toBeDefined();
+    } finally {
+      Date.now = originalDateNow;
+      detector.stop();
+    }
   });
 
   test("DriftDetector default constructor works", () => {
