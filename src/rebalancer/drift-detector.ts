@@ -60,9 +60,12 @@ class DriftDetector {
   start(): void {
     if (this.active) return;
     this.active = true;
+    // Startup cooldown: treat restart as a recent rebalance to prevent
+    // immediate trigger from stale drift (e.g. USDT 99% after deploy)
+    this.lastRebalanceTime = Date.now();
     this.deps.eventBus.on("portfolio:update", this.portfolioListener as (data: unknown) => void);
     console.info(
-      `[DriftDetector] Started — threshold=${env.REBALANCE_THRESHOLD}% cooldown=${env.REBALANCE_COOLDOWN_HOURS}h`
+      `[DriftDetector] Started — threshold=${env.REBALANCE_THRESHOLD}% cooldown=${env.REBALANCE_COOLDOWN_HOURS}h (startup cooldown active)`
     );
   }
 
