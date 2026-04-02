@@ -48,11 +48,13 @@ export function calculateTrades(
     .filter((a) => isStablecoin(a.asset))
     .reduce((sum, a) => sum + a.valueUsd, 0);
 
-  // Crypto pool = total crypto value only (exclude stablecoins)
-  // Rebalance only redistributes existing crypto, never converts stablecoins to crypto
-  // (that's DCA's job). Cash reserve further reduces the crypto pool if set.
-  const cryptoValueUsd = totalUsd - cashValueUsd;
-  const cryptoPoolUsd = Math.max(0, cryptoValueUsd - targetCashUsd);
+  // When cashReservePct is explicitly set (bear/bull triggers), use full portfolio
+  // as crypto pool — this allows selling crypto to cash (bear) or buying from cash (bull).
+  // When cashReservePct is 0/undefined (normal rebalance), only redistribute existing
+  // crypto — never touch stablecoins (that's DCA's job).
+  const cryptoPoolUsd = reservePct > 0
+    ? totalUsd - targetCashUsd
+    : Math.max(0, totalUsd - cashValueUsd);
 
   // ─── Target / exchange lookups ──────────────────────────────────────────────
 

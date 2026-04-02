@@ -121,8 +121,9 @@ class RebalanceEngine {
       const gs = strategyManager.getActiveConfig()?.globalSettings as
         | Record<string, unknown>
         | undefined;
-      // Use the normal cash reserve — trade calculator will buy back crypto with excess cash
-      cashReservePct = typeof gs?.cashReservePct === "number" ? gs.cashReservePct : undefined;
+      // Use small cash reserve to signal full-portfolio mode (allows buying from stablecoins)
+      const configReserve = typeof gs?.cashReservePct === "number" ? gs.cashReservePct : 0;
+      cashReservePct = Math.max(configReserve, 1); // min 1% to enable full-portfolio rebalance
       console.info(
         "[RebalanceEngine] Bull recovery trigger — re-entering crypto positions (cashReserve=%s%%)",
         cashReservePct ?? "default"
