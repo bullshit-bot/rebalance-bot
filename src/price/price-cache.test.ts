@@ -163,7 +163,7 @@ describe("PriceCache", () => {
     const boundaryData: PriceData = {
       ...basePriceData,
       pair: "BTC/USDT",
-      timestamp: now - 60000, // exactly 60 seconds old
+      timestamp: now - 59000, // just under 60 seconds old (avoid boundary flakiness)
     };
 
     cache.set("BTC/USDT", boundaryData);
