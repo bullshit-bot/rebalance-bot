@@ -102,4 +102,27 @@ portfolioRoutes.get("/capital-flows", async (c) => {
   }
 });
 
+/**
+ * POST /api/portfolio/capital-flows
+ * Record a new deposit. Body: { amountUsd: number, note?: string }
+ */
+portfolioRoutes.post("/capital-flows", async (c) => {
+  try {
+    const body = await c.req.json();
+    const amount = Number(body.amountUsd);
+    if (!amount || amount <= 0) {
+      return c.json({ error: "amountUsd must be a positive number" }, 400);
+    }
+    const flow = await CapitalFlowModel.create({
+      type: "deposit",
+      amountUsd: amount,
+      note: body.note || "Manual deposit",
+    });
+    return c.json(flow, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 500);
+  }
+});
+
 export { portfolioRoutes };

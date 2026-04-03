@@ -1,18 +1,32 @@
 import { PageTitle, SectionTitle, BrutalSkeleton } from "@/components/ui-brutal";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { DollarSign, ArrowDownCircle, RefreshCw } from "lucide-react";
+import { ArrowDownCircle, RefreshCw, Plus } from "lucide-react";
+import { useState } from "react";
 
 export default function CapitalFlowsPage() {
+  const queryClient = useQueryClient();
   const flowsQuery = useQuery({
     queryKey: ["capital-flows"],
     queryFn: api.getCapitalFlows,
   });
 
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+
+  const addDeposit = useMutation({
+    mutationFn: () => api.addDeposit(Number(amount), note || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["capital-flows"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      setAmount("");
+      setNote("");
+    },
+  });
+
   const flows = flowsQuery.data ?? [];
   const totalInvested = flows.reduce((sum, f) => sum + f.amountUsd, 0);
-  const totalDeposits = flows.filter((f) => f.type === "deposit").reduce((sum, f) => sum + f.amountUsd, 0);
-  const totalDCA = flows.filter((f) => f.type === "dca").reduce((sum, f) => sum + f.amountUsd, 0);
+  const depositCount = flows.filter((f) => f.type === "deposit").length;
 
   if (flowsQuery.isLoading) {
     return (
@@ -27,29 +41,61 @@ export default function CapitalFlowsPage() {
     <div className="space-y-6">
       <PageTitle>Capital Flows</PageTitle>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Summary + Add deposit */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="brutal-card">
           <div className="stat-label mb-1">Total Invested</div>
-          <div className="stat-value text-lg font-bold">
+          <div className="stat-value text-2xl font-bold">
             ${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 2 })}
           </div>
-        </div>
-        <div className="brutal-card">
-          <div className="stat-label mb-1 flex items-center gap-1">
-            <ArrowDownCircle size={14} /> Deposits
-          </div>
-          <div className="stat-value text-lg font-bold">
-            ${totalDeposits.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          <div className="text-xs text-muted-foreground mt-1">
+            {depositCount} deposit{depositCount !== 1 ? "s" : ""}
           </div>
         </div>
+
+        {/* Add deposit form */}
         <div className="brutal-card">
-          <div className="stat-label mb-1 flex items-center gap-1">
-            <RefreshCw size={14} /> DCA Buys
+          <div className="stat-label mb-2 flex items-center gap-1">
+            <Plus size={14} /> Record Deposit
           </div>
-          <div className="stat-value text-lg font-bold">
-            ${totalDCA.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (Number(amount) > 0) addDeposit.mutate();
+            }}
+            className="flex flex-col gap-2"
+          >
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="Amount (USD)"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="brutal-input flex-1 text-sm px-2 py-1.5"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Note (optional)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="brutal-input flex-1 text-sm px-2 py-1.5"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={addDeposit.isPending || !amount || Number(amount) <= 0}
+              className="brutal-btn-primary text-sm py-1.5 flex items-center justify-center gap-1"
+            >
+              <ArrowDownCircle size={14} />
+              {addDeposit.isPending ? "Adding..." : "Add Deposit"}
+            </button>
+            {addDeposit.isError && (
+              <p className="text-destructive text-xs">Failed to add deposit</p>
+            )}
+          </form>
         </div>
       </div>
 

@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { title: "Portfolio",      path: "/portfolio",    icon: Wallet          },
   { title: "Rebalance Plan", path: "/rebalance",    icon: Repeat          },
   { title: "Orders",         path: "/orders",       icon: ClipboardList   },
+  { title: "Capital Flows",  path: "/capital-flows", icon: ArrowDownCircle },
   { title: "Allocations",    path: "/allocations",  icon: PieChart        },
   { title: "Exchanges",      path: "/exchanges",    icon: Server          },
   { title: "Strategy Config",path: "/strategy",     icon: Cog             },
@@ -23,7 +24,6 @@ const NAV_ITEMS: NavItem[] = [
   { separator: true, label: "Advanced" },
   { title: "Backtesting",    path: "/backtesting",  icon: FlaskConical    },
   { title: "Analytics",      path: "/analytics",    icon: BarChart3       },
-  { title: "Capital Flows",  path: "/capital-flows", icon: ArrowDownCircle },
   { title: "Tax Reports",    path: "/tax",          icon: Receipt         },
   { title: "Settings",       path: "/settings",     icon: Settings        },
 ];
