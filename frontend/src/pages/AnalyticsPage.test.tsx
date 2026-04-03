@@ -397,7 +397,7 @@ describe('AnalyticsPage', () => {
         isError: false,
       } as any)
       renderWithProviders(<AnalyticsPage />)
-      expect(screen.getByText('0.0%')).toBeInTheDocument()
+      expect(screen.getByText('+0.0%')).toBeInTheDocument()
     })
 
     it('handles zero investment scenario', async () => {
