@@ -13,12 +13,18 @@ vi.mock('@/hooks/use-analytics-queries', () => ({
   useFees: vi.fn(),
 }))
 
+vi.mock('@/hooks/use-portfolio-queries', () => ({
+  usePortfolio: vi.fn(),
+  usePortfolioHistory: vi.fn(),
+}))
+
 import {
   useEquityCurve,
   usePnL,
   useDrawdown,
   useFees,
 } from '@/hooks/use-analytics-queries'
+import { usePortfolio } from '@/hooks/use-portfolio-queries'
 
 function createQueryClient() {
   return new QueryClient({
@@ -94,6 +100,11 @@ describe('AnalyticsPage', () => {
       isLoading: false,
       isError: false,
     } as any)
+    vi.mocked(usePortfolio).mockReturnValue({
+      data: { totalValueUsd: 105000, totalInvested: 100000, assets: [], updatedAt: Date.now() },
+      isLoading: false,
+      isError: false,
+    } as any)
   })
 
   it('renders page title', () => {
@@ -151,7 +162,8 @@ describe('AnalyticsPage', () => {
 
     it('displays net pnl', () => {
       renderWithProviders(<AnalyticsPage />)
-      expect(screen.getByText('$5,000')).toBeInTheDocument()
+      // PnL = 105000 - 100000 = +$5,000
+      expect(screen.getByText('+$5,000')).toBeInTheDocument()
     })
   })
 
@@ -397,13 +409,14 @@ describe('AnalyticsPage', () => {
     })
 
     it('handles negative PnL values', () => {
-      vi.mocked(usePnL).mockReturnValue({
-        data: { ...mockPnLData, totalPnl: -1000 },
+      vi.mocked(usePortfolio).mockReturnValue({
+        data: { totalValueUsd: 90000, totalInvested: 100000, assets: [], updatedAt: Date.now() },
         isLoading: false,
         isError: false,
       } as any)
       renderWithProviders(<AnalyticsPage />)
-      expect(screen.getByText('$-1,000')).toBeInTheDocument()
+      // PnL = 90000 - 100000 = -$10,000
+      expect(screen.getByText('-$10,000')).toBeInTheDocument()
     })
   })
 })
