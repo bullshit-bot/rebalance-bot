@@ -181,14 +181,14 @@ describe('OverviewPage', () => {
     expect(screen.getByText('Pending Actions')).toBeInTheDocument()
   })
 
-  it('shows PnL calculation from history', () => {
+  it('shows PnL label', () => {
     vi.mocked(usePortfolio).mockReturnValue({ isLoading: false, data: mockPortfolioData, isError: false } as any)
     vi.mocked(usePortfolioHistory).mockReturnValue({ isLoading: false, data: mockHistoryData, isError: false } as any)
     vi.mocked(useTrades).mockReturnValue({ isLoading: false, data: mockTradesData, isError: false } as any)
     vi.mocked(useRebalancePreview).mockReturnValue({ isLoading: false, data: mockPreviewData, isError: false } as any)
 
     renderWithProviders(<OverviewPage />)
-    expect(screen.getByText('PnL (history)')).toBeInTheDocument()
+    expect(screen.getByText('PnL')).toBeInTheDocument()
   })
 
   it('handles empty trades list', () => {
