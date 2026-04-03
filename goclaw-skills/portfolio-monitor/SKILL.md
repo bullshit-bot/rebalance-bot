@@ -9,6 +9,7 @@ metadata:
         - rb_get_health
         - rb_get_strategy_config
         - rb_get_portfolio
+        - rb_get_capital_flows
         - rb_list_allocations
         - rb_list_trades
         - rb_get_earn_status
@@ -35,4 +36,6 @@ Observe portfolio drift and surface alerts.
 9. **DCA budget check**: If dcaRebalanceEnabled, note dcaAmountUsd limit ($20 default, configurable).
 10. **Simple Earn check** (if enabled): Run `rb_get_earn_status` — report active positions, APY rates, total earned yield.
 11. Run `rb_list_trades limit=5` — check if recent rebalance already occurred.
-12. Output monitoring report: health, price feed status, market state, drift table with severity, cash/DCA status, earn positions (if enabled), recommended action.
+12. **PnL check**: `get_portfolio` returns `totalInvested`. PnL = totalValueUsd - totalInvested.
+13. **Capital flows**: Run `rb_get_capital_flows` for deposit history if PnL discussion needed.
+14. Output monitoring report: health, price feed status, market state, drift table with severity, PnL, cash/DCA status, earn positions (if enabled), recommended action.

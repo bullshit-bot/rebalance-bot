@@ -118,12 +118,13 @@ Current active config on production: `optimal-backtest-validated` v5
 
 **Key insights:** New MA120/TH10 config improves returns +41.2% vs previous setup. Trend filter single-handedly provides 3x return improvement and cuts max drawdown from -85% to -34%. Validated across 5040+ parameter combinations. Previous 672-combo results invalidated due to backtest engine fixes (double-division bug, DCA fees, buffer).
 
-## MCP Tools Available (16 tools)
+## MCP Tools Available (21 tools)
 
 | Group | Tool | Description |
 |-------|------|-------------|
 | Health | get_health | System health check |
-| Portfolio | get_portfolio | Current holdings, weights, total value |
+| Portfolio | get_portfolio | Current holdings, weights, totalInvested, PnL |
+| Portfolio | get_capital_flows | Deposit history for PnL tracking |
 | Portfolio | list_allocations | Target allocation percentages (read-only) |
 | Rebalance | trigger_rebalance | Execute rebalance |
 | Rebalance | get_rebalance_history | Past rebalance events |
@@ -135,8 +136,21 @@ Current active config on production: `optimal-backtest-validated` v5
 | Earn | get_earn_status | Get Flexible Earn positions & APY rates |
 | Earn | get_earn_apy_rates | Get current APY rates by asset |
 | DCA | trigger_dca | Manually trigger DCA deposit execution |
+| Config | set_allocations | Update target allocations |
+| Config | delete_allocation | Remove an asset from targets |
+| Config | activate_strategy | Switch active strategy |
+| Config | update_strategy_config | Modify strategy parameters |
+| AI | get_ai_suggestions | AI trading suggestions |
+| AI | approve_suggestion | Approve a suggestion |
+| AI | reject_suggestion | Reject a suggestion |
 
-**Note:** Allocation/strategy config changes are owner-only via web UI. MCP tools are read-only for safety.
+**Note:** Config changes affect live trading. Use with caution.
+
+### Capital Flow & PnL
+- PnL = portfolio value - totalInvested
+- totalInvested = sum of deposit records only (DCA does NOT add — USDT already in deposits)
+- `get_portfolio` returns `totalInvested` field
+- `get_capital_flows` returns deposit history for audit
 
 ## Available GoClaw Skills
 
