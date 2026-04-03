@@ -200,7 +200,7 @@ class PortfolioTracker {
     // Bun runtime doesn't support ws 'upgrade' event needed by CCXT Pro watchBalance.
     // Use REST fetchBalance polling at 10s interval — reliable on both testnet and mainnet.
     // Price feeds still use WebSocket (public streams work fine in Bun).
-    const POLL_INTERVAL = 10_000;
+    const POLL_INTERVAL = 5_000;
 
     if (!exchange.fetchBalance) {
       console.error(`[PortfolioTracker] Exchange ${name} has no fetchBalance — skipping`);

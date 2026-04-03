@@ -5,7 +5,7 @@ export function usePortfolio() {
   return useQuery({
     queryKey: ['portfolio'],
     queryFn: api.getPortfolio,
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
   })
 }
 
