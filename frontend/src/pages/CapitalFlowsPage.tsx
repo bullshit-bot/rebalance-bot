@@ -1,6 +1,7 @@
 import { PageTitle, SectionTitle, BrutalSkeleton } from "@/components/ui-brutal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 import { ArrowDownCircle, RefreshCw, Plus } from "lucide-react";
 import { useState } from "react";
 
@@ -19,8 +20,12 @@ export default function CapitalFlowsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["capital-flows"] });
       queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      toast.success(`Deposit $${Number(amount).toLocaleString()} recorded`);
       setAmount("");
       setNote("");
+    },
+    onError: () => {
+      toast.error("Failed to record deposit");
     },
   });
 

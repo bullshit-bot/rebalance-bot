@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PageTitle, SectionTitle, StatCard } from "@/components/ui-brutal";
 import { useTaxReport } from "@/hooks/use-tax-queries";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 import { Download, TrendingUp, TrendingDown, DollarSign, Loader2 } from "lucide-react";
 
 const YEARS = ["2026", "2025", "2024"];
@@ -23,6 +24,7 @@ export default function TaxPage() {
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     a.click();
+    toast.success(`Exporting tax report for ${year}`);
   }
 
   return (
