@@ -391,8 +391,13 @@ describe('AnalyticsPage', () => {
         isLoading: false,
         isError: false,
       } as any)
+      vi.mocked(usePortfolio).mockReturnValue({
+        data: { totalValueUsd: 0, totalInvested: 0, assets: [], updatedAt: 0 },
+        isLoading: false,
+        isError: false,
+      } as any)
       renderWithProviders(<AnalyticsPage />)
-      expect(screen.getByText('+0.0%')).toBeInTheDocument()
+      expect(screen.getByText('0.0%')).toBeInTheDocument()
     })
 
     it('handles zero investment scenario', async () => {
