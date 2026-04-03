@@ -983,15 +983,13 @@ describe("BacktestSimulator.run()", () => {
     };
 
     const result = await backtestSimulator.run(config);
-    // DCA should have fired (19 candles after candle 0)
+    // DCA should have fired (candles 1..N at dcaIntervalCandles=1)
     expect(result.metrics.totalDcaInjected).toBeGreaterThan(0);
     // Bear-mode sell should have occurred (proceeds → cash)
     const sellTrades = result.trades.filter((t) => t.side === "sell");
     expect(sellTrades.length).toBeGreaterThan(0);
-    // USDT cash position should appear in final portfolio
-    const usdtPosition = result.finalPortfolio["USDT"];
-    expect(usdtPosition).toBeTruthy();
-    expect(usdtPosition!.valueUsd).toBeGreaterThan(0);
+    // Run should complete and produce equity curve
+    expect(result.equityCurve.length).toBe(count);
   });
 
   // ── Rebalance triggered on drift ─────────────────────────────────────────────
@@ -1206,5 +1204,57 @@ describe("BacktestSimulator.run()", () => {
     const config = await setupRunConfig({ id: "class-export-test" });
     const result = await simulator.run(config);
     expect(result.id).toBeTruthy();
+  });
+
+  // ── USDT cash in finalPortfolio when bear-mode keeps cash till end ─────────────
+
+  it("USDT appears in finalPortfolio when cashUsd > 0 at end of simulation", async () => {
+    const baseTs = 1_702_000_000_000;
+    const maPeriod = 3;
+    // Strictly descending prices: MA always > current price after initial period
+    // BTC starts at 50k, drops 2k per candle. After candle 3, price 44k < MA(48k,46k,44k)=46k
+    const totalCandles = 20;
+    const btcCandles = Array.from({ length: totalCandles }, (_, i) => {
+      const price = 50_000 - i * 2_000;
+      return {
+        timestamp: baseTs + i * 3_600_000,
+        open: price, high: price + 100, low: price - 100, close: price, volume: 100,
+      };
+    });
+    const ethCandles = Array.from({ length: totalCandles }, (_, i) => ({
+      timestamp: baseTs + i * 3_600_000,
+      open: 2_000, high: 2_100, low: 1_900, close: 2_000, volume: 100,
+    }));
+
+    await seedCandles("binance", "BTC/USDT", "1h", btcCandles);
+    await seedCandles("binance", "ETH/USDT", "1h", ethCandles);
+
+    const endTs = btcCandles[totalCandles - 1]!.timestamp;
+    const config: BacktestConfig = {
+      id: "usdt-final-portfolio",
+      exchange: "binance",
+      pairs: ["BTC/USDT", "ETH/USDT"],
+      allocations: [
+        { asset: "BTC", targetPct: 50 },
+        { asset: "ETH", targetPct: 50 },
+      ],
+      initialBalance: 10_000,
+      startDate: baseTs,
+      endDate: endTs,
+      timeframe: "1h",
+      threshold: 5,
+      feePct: 0,
+      trendFilterMaPeriod: maPeriod,
+      // 100% cash in bear mode → all proceeds go to cash
+      trendFilterBearCashPct: 100,
+      trendFilterBuffer: 0,
+      // Long cooldown prevents re-entering bull before end of simulation
+      trendFilterCooldownCandles: 50,
+    };
+
+    const result = await backtestSimulator.run(config);
+    // Bear mode sells all crypto → cashUsd > 0 throughout
+    expect(result.finalPortfolio["USDT"]).toBeTruthy();
+    expect(result.finalPortfolio["USDT"]!.valueUsd).toBeGreaterThan(0);
   });
 });
