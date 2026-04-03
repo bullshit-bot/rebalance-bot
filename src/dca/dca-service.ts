@@ -125,14 +125,19 @@ class DCAService {
     const configAmount = gs?.dcaAmountUsd as number | undefined;
     const amount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT;
 
-    // If Earn enabled, always redeem DCA amount from Earn to Spot
+    // If Earn enabled, redeem USDT from Earn to Spot for DCA
     // Portfolio balance includes Earn (LD prefix stripped), so Spot may be 0
     if (gs?.simpleEarnEnabled) {
       try {
-        await simpleEarnManager.redeem("USDT", amount);
-        console.log(`[DCAService] Redeemed $${amount} USDT from Earn for DCA`);
-        // Simple wait for Binance to settle redemption
-        await new Promise((r) => setTimeout(r, 5_000));
+        // Get actual Earn USDT balance, redeem min(earnBalance, dcaAmount)
+        const earnBalances = await simpleEarnManager.getEarnBalanceMap();
+        const earnUsdt = earnBalances.get("USDT") ?? 0;
+        const redeemAmount = Math.min(earnUsdt, amount);
+        if (redeemAmount > 0.01) {
+          await simpleEarnManager.redeem("USDT", redeemAmount);
+          console.log(`[DCAService] Redeemed $${redeemAmount.toFixed(2)} USDT from Earn for DCA`);
+          await new Promise((r) => setTimeout(r, 5_000));
+        }
       } catch (err) {
         console.warn("[DCAService] USDT redeem failed:", err instanceof Error ? err.message : err);
       }
