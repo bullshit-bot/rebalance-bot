@@ -125,30 +125,19 @@ class DCAService {
     const configAmount = gs?.dcaAmountUsd as number | undefined;
     const amount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT;
 
-    // If Earn enabled, redeem USDT from Flexible Earn to fund DCA
+    // If Earn enabled, always redeem DCA amount from Earn to Spot
+    // Portfolio balance includes Earn (LD prefix stripped), so Spot may be 0
     if (gs?.simpleEarnEnabled) {
-      const usdtSpot = portfolio.assets.find((a) => a.asset === "USDT")?.amount ?? 0;
-      if (usdtSpot < amount) {
-        const deficit = amount - usdtSpot;
-        try {
-          await simpleEarnManager.redeem("USDT", deficit);
-          console.log(`[DCAService] Redeemed $${deficit.toFixed(2)} USDT from Earn for DCA`);
-          // Wait for settlement
-          await simpleEarnManager.waitForSettlement(new Map([["USDT", amount]]), 15_000);
-        } catch (err) {
-          console.warn("[DCAService] USDT redeem failed (will try DCA with available balance):", err instanceof Error ? err.message : err);
-        }
+      try {
+        await simpleEarnManager.redeem("USDT", amount);
+        console.log(`[DCAService] Redeemed $${amount} USDT from Earn for DCA`);
+        // Simple wait for Binance to settle redemption
+        await new Promise((r) => setTimeout(r, 5_000));
+      } catch (err) {
+        console.warn("[DCAService] USDT redeem failed:", err instanceof Error ? err.message : err);
       }
     }
-
-    // Use actual USDT available (may be less than configured amount after failed redeem)
-    const actualUsdt = portfolio.assets.find((a) => a.asset === "USDT")?.amount ?? 0;
-    const effectiveAmount = Math.min(amount, actualUsdt);
-    if (effectiveAmount < env.MIN_TRADE_USD) {
-      console.log(`[DCAService] Insufficient USDT: $${actualUsdt.toFixed(2)} < min $${env.MIN_TRADE_USD} — skipping DCA`);
-      return [];
-    }
-    const orders = this.calculateDCAAllocation(effectiveAmount, portfolio, targets);
+    const orders = this.calculateDCAAllocation(amount, portfolio, targets);
 
     if (orders.length > 0) {
       console.log(`[DCAService] Scheduled DCA: $${amount} →`);
