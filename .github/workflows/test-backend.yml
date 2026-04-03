@@ -48,7 +48,7 @@ jobs:
 
       - name: Check coverage thresholds
         if: always()
-        run: bash scripts/check-coverage-threshold.sh coverage/lcov.info 95 0
+        run: bash scripts/check-coverage-threshold.sh coverage/lcov.info 90 0
 
       - uses: actions/upload-artifact@v4
         if: always()

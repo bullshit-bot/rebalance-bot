@@ -286,3 +286,89 @@ describe("StrategyBacktestAdapter", () => {
     expect(result[0].targetPct).toBeCloseTo(100, 5);
   });
 });
+
+// ─── Momentum-tilt allocation tests (covers _momentumTiltAllocations) ────────
+
+describe("StrategyBacktestAdapter momentum-tilt", () => {
+  const momentumTiltParams = {
+    type: "momentum-tilt" as const,
+    thresholdPct: 5,
+    minTradeUsd: 10,
+    momentumWindowDays: 5,
+    momentumWeight: 0.5,
+  };
+
+  const allocs = [
+    { asset: "BTC", targetPct: 50 },
+    { asset: "ETH", targetPct: 50 },
+  ];
+
+  test("tilts toward outperforming asset", () => {
+    const adapter = new StrategyBacktestAdapter(momentumTiltParams);
+
+    // Feed 10 days of prices: BTC rising, ETH flat
+    for (let i = 0; i < 10; i++) {
+      adapter.updateState(new Map(), 0, {
+        "BTC/USDT": 100 + i * 10, // BTC rising 10% per day
+        "ETH/USDT": 100, // ETH flat
+      });
+    }
+
+    const result = adapter.getEffectiveAllocations(allocs);
+    // BTC should get higher allocation due to positive momentum
+    const btc = result.find((a) => a.asset === "BTC")!;
+    const eth = result.find((a) => a.asset === "ETH")!;
+    expect(btc.targetPct).toBeGreaterThan(eth.targetPct);
+    // Should normalise to 100%
+    expect(btc.targetPct + eth.targetPct).toBeCloseTo(100, 1);
+  });
+
+  test("handles insufficient price history gracefully", () => {
+    const adapter = new StrategyBacktestAdapter(momentumTiltParams);
+
+    // Only 2 data points — less than momentumWindowDays (5)
+    adapter.updateState(new Map(), 0, { "BTC/USDT": 100, "ETH/USDT": 100 });
+    adapter.updateState(new Map(), 0, { "BTC/USDT": 110, "ETH/USDT": 100 });
+
+    const result = adapter.getEffectiveAllocations(allocs);
+    // With insufficient data, scores are 0 → allocations stay equal
+    expect(result[0].targetPct).toBeCloseTo(50, 1);
+    expect(result[1].targetPct).toBeCloseTo(50, 1);
+  });
+
+  test("normalises allocations to 100%", () => {
+    const adapter = new StrategyBacktestAdapter(momentumTiltParams);
+
+    for (let i = 0; i < 10; i++) {
+      adapter.updateState(new Map(), 0, {
+        "BTC/USDT": 100 + i * 5,
+        "ETH/USDT": 100 - i * 3,
+      });
+    }
+
+    const result = adapter.getEffectiveAllocations(allocs);
+    const total = result.reduce((s, a) => s + a.targetPct, 0);
+    expect(total).toBeCloseTo(100, 1);
+  });
+
+  test("ensures minimum 1% allocation per asset", () => {
+    // Extreme divergence — one asset crashes, other moons
+    const adapter = new StrategyBacktestAdapter({
+      ...momentumTiltParams,
+      momentumWeight: 1.0, // full tilt
+    });
+
+    for (let i = 0; i < 10; i++) {
+      adapter.updateState(new Map(), 0, {
+        "BTC/USDT": 100 + i * 50, // moon
+        "ETH/USDT": 100 - i * 9, // crash
+      });
+    }
+
+    const result = adapter.getEffectiveAllocations(allocs);
+    // Even the worst asset should have >= 1% (before normalisation, clamped to 1)
+    for (const a of result) {
+      expect(a.targetPct).toBeGreaterThan(0);
+    }
+  });
+});

@@ -5,7 +5,7 @@ import { portfolioRoutes } from "./portfolio-routes";
 describe("Portfolio Routes", () => {
   let app: Hono;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = new Hono();
     app.route("/portfolio", portfolioRoutes);
   });
