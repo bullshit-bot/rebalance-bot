@@ -25,6 +25,7 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_API_KEY: ${{ secrets.APP_API_KEY }}
           APP_ENCRYPTION_KEY: ${{ secrets.APP_ENCRYPTION_KEY }}
           APP_MONGO_PASSWORD: ${{ secrets.APP_MONGO_PASSWORD }}
@@ -48,7 +49,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
-          envs: APP_API_KEY,APP_ENCRYPTION_KEY,APP_MONGO_PASSWORD,APP_BINANCE_API_KEY,APP_BINANCE_API_SECRET,APP_BINANCE_SANDBOX,APP_OKX_API_KEY,APP_OKX_API_SECRET,APP_OKX_PASSPHRASE,APP_BYBIT_API_KEY,APP_BYBIT_API_SECRET,APP_TELEGRAM_BOT_TOKEN,APP_TELEGRAM_CHAT_ID,APP_ANTHROPIC_API_KEY,APP_XAI_API_KEY,APP_GOCLAW_GATEWAY_TOKEN,APP_GOCLAW_ENCRYPTION_KEY,APP_GOCLAW_DB_PASSWORD
+          envs: GITHUB_TOKEN,APP_API_KEY,APP_ENCRYPTION_KEY,APP_MONGO_PASSWORD,APP_BINANCE_API_KEY,APP_BINANCE_API_SECRET,APP_BINANCE_SANDBOX,APP_OKX_API_KEY,APP_OKX_API_SECRET,APP_OKX_PASSPHRASE,APP_BYBIT_API_KEY,APP_BYBIT_API_SECRET,APP_TELEGRAM_BOT_TOKEN,APP_TELEGRAM_CHAT_ID,APP_ANTHROPIC_API_KEY,APP_XAI_API_KEY,APP_GOCLAW_GATEWAY_TOKEN,APP_GOCLAW_ENCRYPTION_KEY,APP_GOCLAW_DB_PASSWORD
           script: |
             set -e
 
@@ -59,13 +60,15 @@ jobs:
 
             APP_DIR="/opt/rebalance-bot"
 
-            # Clone or pull
+            # Clone or pull (use GITHUB_TOKEN for auth)
+            REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/bullshit-bot/rebalance-bot.git"
             if [ -d "$APP_DIR" ]; then
               cd "$APP_DIR"
+              git remote set-url origin "$REPO_URL"
               git fetch origin main
               git reset --hard origin/main
             else
-              git clone https://github.com/${{ github.repository }}.git "$APP_DIR"
+              git clone "$REPO_URL" "$APP_DIR"
               cd "$APP_DIR"
             fi
 
