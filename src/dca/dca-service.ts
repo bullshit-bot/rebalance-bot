@@ -141,7 +141,14 @@ class DCAService {
       }
     }
 
-    const orders = this.calculateDCAAllocation(amount, portfolio, targets);
+    // Use actual USDT available (may be less than configured amount after failed redeem)
+    const actualUsdt = portfolio.assets.find((a) => a.asset === "USDT")?.amount ?? 0;
+    const effectiveAmount = Math.min(amount, actualUsdt);
+    if (effectiveAmount < env.MIN_TRADE_USD) {
+      console.log(`[DCAService] Insufficient USDT: $${actualUsdt.toFixed(2)} < min $${env.MIN_TRADE_USD} — skipping DCA`);
+      return [];
+    }
+    const orders = this.calculateDCAAllocation(effectiveAmount, portfolio, targets);
 
     if (orders.length > 0) {
       console.log(`[DCAService] Scheduled DCA: $${amount} →`);
