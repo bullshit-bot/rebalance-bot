@@ -20,6 +20,7 @@ import LoginPage from "./pages/LoginPage";
 import BacktestingPage from "./pages/BacktestingPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import TaxPage from "./pages/TaxPage";
+import CapitalFlowsPage from "./pages/CapitalFlowsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ function ProtectedRoutes() {
         <Route path="/backtesting" element={<BacktestingPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/tax" element={<TaxPage />} />
+        <Route path="/capital-flows" element={<CapitalFlowsPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

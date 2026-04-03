@@ -54,6 +54,8 @@ export const api = {
   getPortfolio: () => apiFetch<Portfolio>('/portfolio'),
   getPortfolioHistory: (from?: number, to?: number) =>
     apiFetch<Snapshot[]>(`/portfolio/history${qs({ from, to })}`),
+  getCapitalFlows: () =>
+    apiFetch<Array<{ _id: string; type: string; amountUsd: number; note?: string; createdAt: string }>>('/portfolio/capital-flows'),
 
   // Rebalance
   triggerRebalance: () => apiFetch<RebalanceEvent>('/rebalance', { method: 'POST' }),

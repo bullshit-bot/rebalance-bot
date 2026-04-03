@@ -2,7 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard, Wallet, Repeat, ClipboardList, PieChart,
   Server, Cog, ScrollText, Bell, Settings, ChevronLeft, ChevronRight,
-  FlaskConical, BarChart3, Receipt
+  FlaskConical, BarChart3, Receipt, ArrowDownCircle
 } from "lucide-react";
 import { useState } from "react";
 
@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { separator: true, label: "Advanced" },
   { title: "Backtesting",    path: "/backtesting",  icon: FlaskConical    },
   { title: "Analytics",      path: "/analytics",    icon: BarChart3       },
+  { title: "Capital Flows",  path: "/capital-flows", icon: ArrowDownCircle },
   { title: "Tax Reports",    path: "/tax",          icon: Receipt         },
   { title: "Settings",       path: "/settings",     icon: Settings        },
 ];
