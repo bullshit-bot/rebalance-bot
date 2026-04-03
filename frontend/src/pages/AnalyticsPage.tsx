@@ -6,6 +6,7 @@ import {
   useDrawdown,
   useFees,
 } from "@/hooks/use-analytics-queries";
+import { usePortfolio } from "@/hooks/use-portfolio-queries";
 import { TrendingUp, Activity, DollarSign, BarChart3, Loader2 } from "lucide-react";
 import {
   LineChart,
@@ -48,19 +49,20 @@ function ErrorRow({ message }: { message: string }) {
 
 function OverviewTab() {
   const equity = useEquityCurve();
-  const pnl = usePnL();
+  const portfolio = usePortfolio();
   const drawdown = useDrawdown();
   const fees = useFees();
 
   const equityData = equity.data?.data ?? [];
-  const equityLast = equityData[equityData.length - 1]?.valueUsd ?? 0;
-  const equityFirst = equityData[0]?.valueUsd ?? 0;
-  const totalReturnPct =
-    equityFirst > 0
-      ? (((equityLast - equityFirst) / equityFirst) * 100).toFixed(1)
-      : "0.0";
+  const portfolioValue = portfolio.data?.totalValueUsd ?? 0;
+  const totalInvested = portfolio.data?.totalInvested ?? 0;
 
-  const totalPnl = pnl.data?.totalPnl ?? 0;
+  // PnL from capital flows (deposits) — not realized trades
+  const totalPnl = totalInvested > 0 ? portfolioValue - totalInvested : 0;
+  const totalReturnPct = totalInvested > 0
+    ? ((totalPnl / totalInvested) * 100).toFixed(1)
+    : "0.0";
+
   const maxDd = drawdown.data?.maxDrawdownPct ?? 0;
   const totalFees = fees.data?.totalFeesUsd ?? 0;
 
@@ -74,13 +76,13 @@ function OverviewTab() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard
           label="Total Return"
-          value={`+${totalReturnPct}%`}
-          variant="success"
+          value={`${Number(totalReturnPct) >= 0 ? "+" : ""}${totalReturnPct}%`}
+          variant={Number(totalReturnPct) >= 0 ? "success" : "danger"}
           icon={<TrendingUp size={16} />}
         />
         <StatCard
           label="Net PnL"
-          value={`$${totalPnl.toLocaleString()}`}
+          value={`${totalPnl >= 0 ? "+" : "-"}$${Math.abs(totalPnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
           variant={totalPnl >= 0 ? "success" : "danger"}
           icon={<DollarSign size={16} />}
         />
@@ -108,8 +110,8 @@ function OverviewTab() {
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={14} />
                 <YAxis
                   tick={{ fontSize: 11 }}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                  domain={["dataMin - 2000", "dataMax + 2000"]}
+                  tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`}
+                  domain={["auto", "auto"]}
                 />
                 <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
                 <Line
