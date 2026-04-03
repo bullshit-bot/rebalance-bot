@@ -234,10 +234,11 @@ class PortfolioTracker {
       if (typeof data === "object" && data !== null && "free" in data) {
         const free = Number((data as { free: unknown }).free);
         if (!isNaN(free) && free > 0) {
-          // Strip Binance Earn prefix (LD = Flexible Deposit) to normalize asset names
-          const asset = rawAsset.startsWith("LD") ? rawAsset.slice(2) : rawAsset;
-          const existing = snapshot.get(asset);
-          snapshot.set(asset, (existing ?? 0) + free);
+          // Skip LD-prefixed assets (Binance Earn/Flexible Deposit)
+          // Earn balances are handled separately by SimpleEarnManager
+          if (rawAsset.startsWith("LD")) continue;
+          const existing = snapshot.get(rawAsset);
+          snapshot.set(rawAsset, (existing ?? 0) + free);
         }
       }
     }
