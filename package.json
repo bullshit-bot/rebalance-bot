@@ -12,7 +12,8 @@
     "test": "bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts'",
     "test:cov": "bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts' --coverage",
     "test:cov:html": "bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts' --coverage --coverage-reporter=lcov --coverage-dir=coverage && genhtml coverage/lcov.info -o coverage/html --quiet && echo 'Report: coverage/html/index.html'",
-    "test:isolated": "for f in $(find src -name '*.isolated.test.ts'); do bun test $f; done"
+    "test:isolated": "for f in $(find src -name '*.isolated.test.ts'); do bun test $f; done",
+    "test:local": "MONGODB_URI=mongodb://localhost:27017/rebalance-test API_KEY=test-ci-key API_PORT=3001 ENCRYPTION_KEY=abcdefghijklmnopqrstuvwxyz123456 REBALANCE_THRESHOLD=5 REBALANCE_COOLDOWN_HOURS=1 MIN_TRADE_USD=10 MAX_TRADE_USD=5000 DAILY_LOSS_LIMIT_PCT=10 bun test ./src/ --path-ignore-patterns='**/*.isolated.test.ts' --timeout 15000"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.11.0",
