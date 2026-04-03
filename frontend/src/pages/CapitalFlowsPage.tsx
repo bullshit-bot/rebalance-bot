@@ -111,7 +111,7 @@ export default function CapitalFlowsPage() {
                 <tr className="border-b-2 border-foreground">
                   <th className="text-left py-2 font-bold">Date</th>
                   <th className="text-left py-2 font-bold">Type</th>
-                  <th className="text-right py-2 font-bold">Amount</th>
+                  <th className="text-right py-2 pr-6 font-bold">Amount</th>
                   <th className="text-left py-2 font-bold">Note</th>
                 </tr>
               </thead>
@@ -140,7 +140,7 @@ export default function CapitalFlowsPage() {
                         )}
                       </span>
                     </td>
-                    <td className="py-2 text-right tabular-nums font-medium">
+                    <td className="py-2 pr-6 text-right tabular-nums font-medium">
                       +${flow.amountUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </td>
                     <td className="py-2 text-muted-foreground">{flow.note ?? "—"}</td>
