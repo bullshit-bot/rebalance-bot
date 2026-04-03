@@ -1,4 +1,4 @@
-import { AllocationModel, SnapshotModel } from "@db/database";
+import { AllocationModel, CapitalFlowModel, SnapshotModel } from "@db/database";
 import { portfolioTracker } from "@portfolio/portfolio-tracker";
 import { snapshotService } from "@portfolio/snapshot-service";
 import { Hono } from "hono";
@@ -46,11 +46,18 @@ async function buildPortfolioFromSnapshot() {
  */
 portfolioRoutes.get("/", async (c) => {
   const portfolio = portfolioTracker.getPortfolio();
-  if (portfolio) return c.json(portfolio);
+
+  // Aggregate totalInvested from capital flow records
+  const [flowAgg] = await CapitalFlowModel.aggregate([
+    { $group: { _id: null, total: { $sum: "$amountUsd" } } },
+  ]);
+  const totalInvested: number = flowAgg?.total ?? 0;
+
+  if (portfolio) return c.json({ ...portfolio, totalInvested });
 
   // Fallback: build from latest snapshot
   const fallback = await buildPortfolioFromSnapshot();
-  if (fallback) return c.json(fallback);
+  if (fallback) return c.json({ ...fallback, totalInvested });
 
   return c.json({ error: "Portfolio not yet available" }, 503);
 });
@@ -75,6 +82,20 @@ portfolioRoutes.get("/history", async (c) => {
   try {
     const snapshots = await snapshotService.getSnapshots(from, to);
     return c.json(snapshots);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
+ * GET /api/portfolio/capital-flows
+ * Returns all capital flow records (deposits + DCA) for history/audit.
+ */
+portfolioRoutes.get("/capital-flows", async (c) => {
+  try {
+    const flows = await CapitalFlowModel.find().sort({ createdAt: -1 }).lean();
+    return c.json(flows);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return c.json({ error: message }, 500);

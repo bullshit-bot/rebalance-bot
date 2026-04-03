@@ -40,3 +40,8 @@ export {
   BearSellSnapshotModel,
   type IBearSellSnapshot,
 } from "./bear-sell-snapshot-model";
+export {
+  CapitalFlowModel,
+  type ICapitalFlow,
+  type CapitalFlow,
+} from "./capital-flow-model";

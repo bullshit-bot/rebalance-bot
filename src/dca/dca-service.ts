@@ -1,5 +1,6 @@
 import type { Allocation, Portfolio, TradeOrder } from "@/types/index";
 import { env } from "@config/app-config";
+import { CapitalFlowModel } from "@db/database";
 import { calcProportionalDCA, calcSingleTargetDCA } from "@dca/dca-allocation-calculator";
 import { getExecutor } from "@executor/index";
 import { simpleEarnManager } from "@exchange/simple-earn-manager";
@@ -154,6 +155,18 @@ class DCAService {
         const executor = getExecutor();
         const results = await executor.executeBatch(orders);
         console.log(`[DCAService] DCA executed: ${results.length} orders`);
+
+        // Record capital flow for accurate PnL tracking
+        const totalCostUsd = results.reduce((sum, r) => sum + (r.costUsd ?? 0), 0);
+        if (totalCostUsd > 0) {
+          CapitalFlowModel.create({
+            type: "dca",
+            amountUsd: totalCostUsd,
+            note: `DCA ${results.length} orders`,
+          }).catch((err) => {
+            console.error("[DCAService] Failed to record capital flow:", err instanceof Error ? err.message : err);
+          });
+        }
       } catch (err) {
         console.error(
           "[DCAService] DCA execution failed:",

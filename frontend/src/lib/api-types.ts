@@ -17,6 +17,7 @@ export interface Portfolio {
   totalValueUsd: number
   assets: PortfolioAsset[]
   updatedAt: number // Unix epoch ms
+  totalInvested?: number // sum of deposits + DCA executions for PnL
 }
 
 export interface Snapshot {

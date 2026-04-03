@@ -107,14 +107,13 @@ export default function OverviewPage() {
   const cashVariant: "success" | "warning" | "danger" =
     Math.abs(cashDeviation) <= 2 ? "success" : Math.abs(cashDeviation) <= 5 ? "warning" : "danger";
 
-  // PnL derived from history (first vs last snapshot)
+  // PnL = portfolio value - total capital invested
+  const totalInvested = portfolioQuery.data?.totalInvested ?? 0;
   const history = historyQuery.data ?? [];
   let pnlDisplay = "—";
-  if (history.length >= 2) {
-    const first = history[0].totalValueUsd;
-    const last = history[history.length - 1].totalValueUsd;
-    const diff = last - first;
-    const pct = first > 0 ? ((diff / first) * 100).toFixed(2) : "0.00";
+  if (totalInvested > 0) {
+    const diff = portfolioValue - totalInvested;
+    const pct = ((diff / totalInvested) * 100).toFixed(2);
     const sign = diff >= 0 ? "+" : "-";
     pnlDisplay = `${sign}$${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} (${sign}${Math.abs(Number(pct)).toFixed(2)}%)`;
   }
@@ -189,7 +188,7 @@ export default function OverviewPage() {
           icon={<DollarSign size={18} />}
         />
         <StatCard
-          label="PnL (history)"
+          label="PnL"
           value={pnlDisplay}
           variant={pnlDisplay.startsWith("+") ? "success" : pnlDisplay.startsWith("-") ? "destructive" : "default"}
           icon={<TrendingUp size={18} />}
