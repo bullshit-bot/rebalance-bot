@@ -151,7 +151,14 @@ class SimpleEarnManager {
 
     try {
       const resp = await exchange.sapiGetSimpleEarnFlexiblePosition({ current: 1, size: 100 });
-      const rows: EarnPosition[] = resp?.data?.rows ?? resp?.rows ?? [];
+      const rawRows = resp?.data?.rows ?? resp?.rows ?? [];
+      // Binance returns totalAmount as string, normalize to number amount
+      const rows: EarnPosition[] = rawRows.map((r: any) => ({
+        asset: r.asset,
+        amount: Number(r.totalAmount ?? r.amount ?? 0),
+        productId: r.productId ?? "",
+        latestAnnualPercentageRate: r.latestAnnualPercentageRate != null ? Number(r.latestAnnualPercentageRate) : undefined,
+      }));
       this.positionCache = rows;
       this.positionCacheAt = now;
       return rows;
