@@ -119,10 +119,18 @@ export default function OverviewPage() {
   }
 
   // Chart data
-  // Downsample history to max ~100 points for performance
-  const stride = Math.max(1, Math.floor(history.length / 100));
-  const chartData = history
-    .filter((_, i) => i % stride === 0 || i === history.length - 1)
+  // Filter out settle artifacts (sudden >20% drops that recover within minutes)
+  // then downsample to max ~100 points
+  const filtered = history.filter((s, i) => {
+    if (i === 0) return true;
+    const prev = history[i - 1].totalValueUsd;
+    if (prev <= 0) return true;
+    const drop = (prev - s.totalValueUsd) / prev;
+    return drop < 0.2; // skip snapshots with >20% sudden drop
+  });
+  const stride = Math.max(1, Math.floor(filtered.length / 100));
+  const chartData = filtered
+    .filter((_, i) => i % stride === 0 || i === filtered.length - 1)
     .map((s) => {
       const d = new Date(s.createdAt);
       return {
