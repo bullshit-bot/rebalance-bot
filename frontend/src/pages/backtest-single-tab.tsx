@@ -61,6 +61,11 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
   const [dcaEnabled, setDcaEnabled] = useState(true);
   const [dcaAmount, setDcaAmount] = useState(20);
 
+  // Smart DCA config
+  const [smartDcaEnabled, setSmartDcaEnabled] = useState(false);
+  const [smartDcaDip, setSmartDcaDip] = useState(1.5);
+  const [smartDcaHigh, setSmartDcaHigh] = useState(0.5);
+
   // Trend filter config
   const [trendEnabled, setTrendEnabled] = useState(false);
   const [trendMaPeriod, setTrendMaPeriod] = useState(100);
@@ -106,6 +111,12 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
     if (dcaEnabled && dcaAmount > 0) {
       config.dcaAmountUsd = dcaAmount;
       config.dcaIntervalCandles = 1;
+    }
+    // Smart DCA params
+    if (dcaEnabled && smartDcaEnabled) {
+      config.smartDcaEnabled = true;
+      config.smartDcaDipMultiplier = smartDcaDip;
+      config.smartDcaHighMultiplier = smartDcaHigh;
     }
     // Trend filter params
     if (trendEnabled) {
@@ -220,6 +231,37 @@ export function BacktestSingleTab({ prefilledConfig }: BacktestSingleTabProps) {
             </div>
           )}
         </div>
+
+        {/* Smart DCA Section */}
+        {dcaEnabled && (
+          <div className="mt-4 pt-4 border-t-2 border-foreground/10">
+            <div className="flex items-center gap-3 mb-3">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-bold">
+                <input type="checkbox" className="brutal-checkbox" checked={smartDcaEnabled} onChange={(e) => setSmartDcaEnabled(e.target.checked)} />
+                Smart DCA (Buy the Dip)
+              </label>
+              {smartDcaEnabled && <span className="text-xs text-muted-foreground">DCA more when BTC below MA, less when above</span>}
+            </div>
+            {smartDcaEnabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="stat-label mb-1 block">
+                    Dip Multiplier: <span className="tabular-nums">{smartDcaDip}x</span>
+                    <span className="text-xs text-muted-foreground ml-1">(${(dcaAmount * smartDcaDip).toFixed(0)}/day when below MA)</span>
+                  </label>
+                  <input type="range" min={1} max={3} step={0.25} value={smartDcaDip} onChange={(e) => setSmartDcaDip(Number(e.target.value))} className="w-full accent-primary" />
+                </div>
+                <div>
+                  <label className="stat-label mb-1 block">
+                    High Multiplier: <span className="tabular-nums">{smartDcaHigh}x</span>
+                    <span className="text-xs text-muted-foreground ml-1">(${(dcaAmount * smartDcaHigh).toFixed(0)}/day when above MA)</span>
+                  </label>
+                  <input type="range" min={0.25} max={1} step={0.25} value={smartDcaHigh} onChange={(e) => setSmartDcaHigh(Number(e.target.value))} className="w-full accent-primary" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Trend Filter Section */}
         <div className="mt-4 pt-4 border-t-2 border-foreground/10">
