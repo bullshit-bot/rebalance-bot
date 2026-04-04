@@ -19,7 +19,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { useAuth } from '@/contexts/AuthContext'
-import { usePortfolio } from '@/hooks/use-portfolio-queries'
+import { usePortfolio, usePortfolioHistory } from '@/hooks/use-portfolio-queries'
 import { useNavigate } from 'react-router-dom'
 
 function wrap(ui: React.ReactNode) {
@@ -40,6 +40,7 @@ describe('DashboardHeader', () => {
     vi.mocked(useAuth).mockReturnValue({ logout: mockLogout, login: vi.fn(), isAuthenticated: true } as any)
     vi.mocked(useNavigate).mockReturnValue(mockNavigate)
     vi.mocked(usePortfolio).mockReturnValue({ data: undefined, isLoading: true, isError: false } as any)
+    vi.mocked(usePortfolioHistory).mockReturnValue({ data: [], isLoading: false, isError: false } as any)
   })
 
   it('renders title', () => {
