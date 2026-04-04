@@ -65,8 +65,12 @@ export interface BacktestConfig {
   smartDcaEnabled?: boolean;
   /** Smart DCA: multiplier when BTC below MA (buy the dip). Default: 1.5. */
   smartDcaDipMultiplier?: number;
-  /** Smart DCA: multiplier when BTC above MA. Default: 0.75. */
+  /** Smart DCA: multiplier when BTC above MA. Default: 0.5. */
   smartDcaHighMultiplier?: number;
+  /** Per-asset trailing stop: sell individual asset when it drops trailPct% from peak. Default: 0 (disabled). */
+  trailingStopPct?: number;
+  /** Trailing stop: cooldown in candles before re-entering after a stop-loss sell. Default: 5. */
+  trailingStopCooldownCandles?: number;
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────

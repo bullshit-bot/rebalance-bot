@@ -93,6 +93,13 @@ class BacktestSimulator {
     // Total DCA injected (sum of all DCA deposits, excluding initial balance)
     let totalDcaInjected = 0;
 
+    // ── Trailing stop state ────────────────────────────────────────────────────
+    const trailPct = config.trailingStopPct ?? 0;
+    const trailCooldown = config.trailingStopCooldownCandles ?? 5;
+    // Track per-asset: highest price seen, and cooldown remaining after stop-loss
+    const assetHighest: Record<string, number> = {};
+    const assetStopCooldown: Record<string, number> = {};
+
     let candleIndex = 0;
 
     // ── 4. Iterate through candles ────────────────────────────────────────────
@@ -141,6 +148,49 @@ class BacktestSimulator {
           );
         }
         totalDcaInjected += effectiveDca;
+        totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
+      }
+
+      // ── Per-asset trailing stop ──────────────────────────────────────────
+      if (trailPct > 0 && !inBearMode && candleIndex > 0) {
+        for (const [pair, state] of Object.entries(holdings)) {
+          const price = prices[pair];
+          if (!price || state.amount <= 0) continue;
+
+          // Decrement cooldown
+          if (assetStopCooldown[pair] && assetStopCooldown[pair] > 0) {
+            assetStopCooldown[pair]--;
+            continue; // in cooldown, skip
+          }
+
+          // Update highest watermark
+          if (!assetHighest[pair] || price > assetHighest[pair]) {
+            assetHighest[pair] = price;
+          }
+
+          // Check stop breach
+          const stopPrice = assetHighest[pair] * (1 - trailPct / 100);
+          if (price <= stopPrice && assetHighest[pair] > 0) {
+            // Sell entire position to cash
+            const sellValue = state.amount * price;
+            const fee = sellValue * (config.feePct ?? 0.001);
+            cashUsd += sellValue - fee;
+            trades.push({
+              timestamp: ts,
+              pair,
+              side: "sell" as const,
+              amount: state.amount,
+              price,
+              fee,
+              costUsd: sellValue,
+            });
+            state.amount = 0;
+            state.valueUsd = 0;
+            // Set cooldown before re-entry
+            assetStopCooldown[pair] = trailCooldown;
+            assetHighest[pair] = 0; // reset watermark
+          }
+        }
         totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
       }
 
