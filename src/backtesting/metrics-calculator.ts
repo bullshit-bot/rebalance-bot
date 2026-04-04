@@ -61,6 +61,12 @@ export interface BacktestConfig {
   simpleEarnApyPct?: number;
   /** Per-asset APY override map, e.g. { "BTC/USDT": 1.0, "ETH/USDT": 2.5 }. */
   simpleEarnApyMap?: Record<string, number>;
+  /** Smart DCA: adjust amount based on BTC price vs MA. Default: false. */
+  smartDcaEnabled?: boolean;
+  /** Smart DCA: multiplier when BTC below MA (buy the dip). Default: 1.5. */
+  smartDcaDipMultiplier?: number;
+  /** Smart DCA: multiplier when BTC above MA. Default: 0.75. */
+  smartDcaHighMultiplier?: number;
 }
 
 // ─── MetricsCalculator ───────────────────────────────────────────────────────

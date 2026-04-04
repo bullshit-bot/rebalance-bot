@@ -115,22 +115,32 @@ class BacktestSimulator {
 
       // ── DCA injection (skip candle 0 = initial buy-in) ───────────────────
       if (candleIndex > 0 && dcaAmountUsd > 0 && candleIndex % dcaIntervalCandles === 0) {
+        // Smart DCA: adjust amount based on BTC price vs MA
+        let effectiveDca = dcaAmountUsd;
+        if (config.smartDcaEnabled && btcCloses.length >= trendMaPeriod && trendMaPeriod > 0) {
+          const btcMa = btcCloses.slice(-trendMaPeriod).reduce((s, v) => s + v, 0) / trendMaPeriod;
+          const btcPrice = prices[btcPair] ?? 0;
+          if (btcMa > 0 && btcPrice > 0) {
+            effectiveDca = btcPrice < btcMa
+              ? dcaAmountUsd * (config.smartDcaDipMultiplier ?? 1.5)
+              : dcaAmountUsd * (config.smartDcaHighMultiplier ?? 0.75);
+          }
+        }
+
         if (inBearMode) {
-          // In bear mode: DCA goes to cash reserve
-          cashUsd += dcaAmountUsd;
+          cashUsd += effectiveDca;
         } else {
-          // In bull mode: buy most underweight asset
           this._dcaInjectBullMode(
             holdings,
             config.allocations,
             prices,
-            dcaAmountUsd,
+            effectiveDca,
             cashReservePct,
             totalValueUsd,
             config.feePct
           );
         }
-        totalDcaInjected += dcaAmountUsd;
+        totalDcaInjected += effectiveDca;
         totalValueUsd = Object.values(holdings).reduce((s, h) => s + h.valueUsd, 0) + cashUsd;
       }
 
