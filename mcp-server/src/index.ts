@@ -12,6 +12,14 @@ import { registerStrategyConfigTools } from "./tools/strategy-config-tools.js";
 import { registerEarnTools } from "./tools/earn-tools.js";
 import { registerDcaTools } from "./tools/dca-tools.js";
 
+// Prevent unhandled errors from crashing the process
+process.on("uncaughtException", (err) => {
+  console.error("[MCP] Uncaught exception:", err.message);
+});
+process.on("unhandledRejection", (err) => {
+  console.error("[MCP] Unhandled rejection:", err instanceof Error ? err.message : err);
+});
+
 const server = new McpServer({
   name: "rebalance-bot-mcp",
   version: "1.0.0",
@@ -42,7 +50,18 @@ if (mode === "sse") {
     if (url.pathname === "/sse") {
       const transport = new SSEServerTransport("/messages", res);
       transports.set(transport.sessionId, transport);
-      await server.connect(transport);
+
+      // Clean up on disconnect
+      res.on("close", () => {
+        transports.delete(transport.sessionId);
+      });
+
+      try {
+        await server.connect(transport);
+      } catch (err) {
+        transports.delete(transport.sessionId);
+        // Connection error is expected when client disconnects — don't crash
+      }
       return;
     }
 
