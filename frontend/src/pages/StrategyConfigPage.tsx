@@ -59,15 +59,17 @@ export default function StrategyConfigPage() {
       bearCashPct: g.bearCashPct ?? prev.bearCashPct,
       trendFilterBuffer: g.trendFilterBuffer ?? prev.trendFilterBuffer,
       trendFilterCooldownDays: g.trendFilterCooldownDays ?? prev.trendFilterCooldownDays,
+      smartDcaEnabled: g.smartDcaEnabled ?? prev.smartDcaEnabled,
+      smartDcaDipMultiplier: g.smartDcaDipMultiplier ?? prev.smartDcaDipMultiplier,
+      smartDcaHighMultiplier: g.smartDcaHighMultiplier ?? prev.smartDcaHighMultiplier,
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiData?.active?.name]);
 
   function handleSave() {
     const payload = {
-      strategyType: core.strategyType,
       params: { type: core.strategyType, thresholdPct: core.thresholdPct, minTradeUsd: core.minTradeUsd },
-      ...globalSettings,
+      globalSettings,
     };
     updateConfig.mutate(
       { name: activeName, data: payload },
