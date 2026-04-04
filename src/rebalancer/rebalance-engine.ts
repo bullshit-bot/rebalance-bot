@@ -242,7 +242,7 @@ class RebalanceEngine {
       const postTradeGs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
       if (postTradeGs?.simpleEarnEnabled) {
         try {
-          const targetAssets = targets.map((t) => t.asset);
+          const targetAssets = [...targets.map((t) => t.asset), "USDT"];
           await simpleEarnManager.subscribeAll(targetAssets);
         } catch (err) {
           console.error(
