@@ -17,6 +17,9 @@ export interface GlobalSettings {
   bearCashPct: number;
   trendFilterBuffer: number;
   trendFilterCooldownDays: number;
+  smartDcaEnabled: boolean;
+  smartDcaDipMultiplier: number;
+  smartDcaHighMultiplier: number;
 }
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -33,6 +36,9 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   bearCashPct: 70,
   trendFilterBuffer: 2,
   trendFilterCooldownDays: 3,
+  smartDcaEnabled: false,
+  smartDcaDipMultiplier: 1.5,
+  smartDcaHighMultiplier: 0.5,
 };
 
 interface Props {
@@ -102,6 +108,64 @@ export function GlobalSettingsSection({ settings, onChange }: Props) {
           <p className="text-xs text-muted-foreground mt-1">
             USD amount per scheduled DCA execution
           </p>
+        </div>
+      )}
+
+      {/* Smart DCA — only visible when DCA routing on */}
+      {settings.dcaRebalanceEnabled && (
+        <div className="py-3 border-b border-foreground/10">
+          <Toggle
+            label="Smart DCA (Buy the Dip)"
+            value={settings.smartDcaEnabled}
+            onChange={(v) => onChange("smartDcaEnabled", v)}
+          />
+          <p className="text-xs text-muted-foreground -mt-1 pb-2">
+            DCA more when BTC below MA, less when above
+          </p>
+          {settings.smartDcaEnabled && (
+            <div className="space-y-3 pt-1">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium">Dip Multiplier</span>
+                  <span className="text-sm font-bold tabular-nums">
+                    {settings.smartDcaDipMultiplier}x (${(settings.dcaAmountUsd * settings.smartDcaDipMultiplier).toFixed(0)}/day)
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.25}
+                  value={settings.smartDcaDipMultiplier}
+                  onChange={(e) => onChange("smartDcaDipMultiplier", Number(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Multiply DCA amount when BTC is below MA (buying the dip)
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium">High Multiplier</span>
+                  <span className="text-sm font-bold tabular-nums">
+                    {settings.smartDcaHighMultiplier}x (${(settings.dcaAmountUsd * settings.smartDcaHighMultiplier).toFixed(0)}/day)
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0.25}
+                  max={1}
+                  step={0.25}
+                  value={settings.smartDcaHighMultiplier}
+                  onChange={(e) => onChange("smartDcaHighMultiplier", Number(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Multiply DCA amount when BTC is above MA (reduce buying high)
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

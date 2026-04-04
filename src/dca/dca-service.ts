@@ -123,7 +123,22 @@ class DCAService {
     const targets = await portfolioTracker.getTargetAllocations();
     const gs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
     const configAmount = gs?.dcaAmountUsd as number | undefined;
-    const amount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT;
+    const baseAmount = amountUsd ?? configAmount ?? FALLBACK_DCA_AMOUNT;
+
+    // Smart DCA: adjust amount based on BTC price vs MA
+    let amount = baseAmount;
+    if (gs?.smartDcaEnabled) {
+      const maPeriod = typeof gs.trendFilterMA === "number" ? gs.trendFilterMA : 100;
+      const btcMa = trendFilter.getMA(maPeriod);
+      const btcPrice = trendFilter.getCurrentPrice();
+      if (btcMa && btcPrice > 0) {
+        const dipMult = typeof gs.smartDcaDipMultiplier === "number" ? gs.smartDcaDipMultiplier : 1.5;
+        const highMult = typeof gs.smartDcaHighMultiplier === "number" ? gs.smartDcaHighMultiplier : 0.5;
+        const isBelowMa = btcPrice < btcMa;
+        amount = isBelowMa ? baseAmount * dipMult : baseAmount * highMult;
+        console.log(`[DCAService] Smart DCA: BTC $${btcPrice.toFixed(0)} ${isBelowMa ? "<" : ">="} MA $${btcMa.toFixed(0)} → $${amount.toFixed(2)} (${isBelowMa ? "dip" : "high"} ${isBelowMa ? dipMult : highMult}x)`);
+      }
+    }
 
     // If Earn enabled, redeem USDT from Earn to Spot for DCA
     let dcaBudget = amount;

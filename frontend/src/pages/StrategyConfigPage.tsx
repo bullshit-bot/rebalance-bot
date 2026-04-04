@@ -184,6 +184,10 @@ export default function StrategyConfigPage() {
                 <p>% of portfolio kept in USDT as buffer. 0% is optimal with trend filter on.</p>
               </div>
               <div>
+                <p className="font-bold text-foreground">Smart DCA (Buy the Dip)</p>
+                <p>DCA more when BTC below MA, less when above. Backtest: +10% return with 1.5x/0.5x.</p>
+              </div>
+              <div>
                 <p className="font-bold text-foreground">Fee-Aware</p>
                 <p>Skips trades where fee exceeds expected drift correction benefit.</p>
               </div>

@@ -88,6 +88,10 @@ export const GlobalSettingsSchema = z.object({
   // Simple Earn: auto-subscribe idle balances and auto-redeem before rebalance sells
   simpleEarnEnabled: z.boolean().default(false),
   simpleEarnSettleTimeoutMs: z.number().min(5000).max(120000).default(30000),
+  // Smart DCA: adjust DCA amount based on BTC price vs MA (buy more on dips)
+  smartDcaEnabled: z.boolean().default(false),
+  smartDcaDipMultiplier: z.number().min(1).max(3).default(1.5),
+  smartDcaHighMultiplier: z.number().min(0.1).max(1).default(0.5),
 });
 
 // ─── Full config input schema ────────────────────────────────────────────────
