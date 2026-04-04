@@ -162,12 +162,22 @@ class RebalanceEngine {
       }
     }
 
-    // ── Step 3b: wait for portfolio to refresh with Spot balances ────────────
-    // Balance poll runs every 5s; wait up to 10s for a fresh recalculation
-    const preUpdateTime = portfolioTracker.getLastUpdateTime();
-    for (let i = 0; i < 5; i++) {
-      await new Promise((r) => setTimeout(r, 2_000));
-      if (portfolioTracker.getLastUpdateTime() > preUpdateTime) break;
+    // ── Step 3b: wait for ALL redeemed assets to appear in Spot balance ─────
+    // After Earn redeem, Binance needs time to settle. Poll fetchBalance until
+    // we see all target assets (not just BTC+USDT) before calculating trades.
+    const expectedAssets = new Set(targets.map((t) => t.asset));
+    const SETTLE_POLL_MS = 3_000;
+    const SETTLE_MAX_POLLS = 10; // max 30s
+    for (let poll = 0; poll < SETTLE_MAX_POLLS; poll++) {
+      await new Promise((r) => setTimeout(r, SETTLE_POLL_MS));
+      const current = portfolioTracker.getPortfolio();
+      if (!current) continue;
+      const spotAssets = new Set(current.assets.filter((a) => a.valueUsd > 1).map((a) => a.asset));
+      const allPresent = [...expectedAssets].every((a) => spotAssets.has(a));
+      if (allPresent) {
+        console.log(`[RebalanceEngine] All ${expectedAssets.size} assets visible in Spot after ${(poll + 1) * 3}s`);
+        break;
+      }
     }
     const freshPortfolio = portfolioTracker.getPortfolio() ?? beforeState;
     const orders = calculateTrades(freshPortfolio, targets, undefined, cashReservePct);
