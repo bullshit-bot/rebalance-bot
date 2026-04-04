@@ -150,7 +150,8 @@ class DCAService {
         if (redeemAmount > 0.01) {
           await simpleEarnManager.redeem("USDT", redeemAmount);
           console.log(`[DCAService] Redeemed $${redeemAmount.toFixed(2)} USDT from Earn for DCA`);
-          await new Promise((r) => setTimeout(r, 5_000));
+          const settleMs = typeof gs.simpleEarnSettleTimeoutMs === "number" ? gs.simpleEarnSettleTimeoutMs : 5_000;
+          await new Promise((r) => setTimeout(r, Math.min(settleMs, 10_000)));
           dcaBudget = redeemAmount; // use actual redeemed amount
         }
       } catch (err) {

@@ -123,7 +123,7 @@ class BacktestSimulator {
           if (btcMa > 0 && btcPrice > 0) {
             effectiveDca = btcPrice < btcMa
               ? dcaAmountUsd * (config.smartDcaDipMultiplier ?? 1.5)
-              : dcaAmountUsd * (config.smartDcaHighMultiplier ?? 0.75);
+              : dcaAmountUsd * (config.smartDcaHighMultiplier ?? 0.5);
           }
         }
 

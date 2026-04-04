@@ -127,6 +127,10 @@ export interface BacktestConfig {
   // Simple Earn yield simulation
   simpleEarnEnabled?: boolean
   simpleEarnApyPct?: number
+  // Smart DCA
+  smartDcaEnabled?: boolean
+  smartDcaDipMultiplier?: number
+  smartDcaHighMultiplier?: number
 }
 
 export interface BacktestResult {
@@ -135,6 +139,7 @@ export interface BacktestResult {
   config: BacktestConfig
   metrics: Record<string, unknown>
   trades: unknown[]
+  equityCurve?: Array<{ timestamp: number; value: number }>
   benchmark: unknown
 }
 

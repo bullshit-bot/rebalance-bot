@@ -162,7 +162,13 @@ class RebalanceEngine {
       }
     }
 
-    // ── Step 3b: re-fetch portfolio AFTER Earn redeem for accurate balances ─
+    // ── Step 3b: wait for portfolio to refresh with Spot balances ────────────
+    // Balance poll runs every 5s; wait up to 10s for a fresh recalculation
+    const preUpdateTime = portfolioTracker.getLastUpdateTime();
+    for (let i = 0; i < 5; i++) {
+      await new Promise((r) => setTimeout(r, 2_000));
+      if (portfolioTracker.getLastUpdateTime() > preUpdateTime) break;
+    }
     const freshPortfolio = portfolioTracker.getPortfolio() ?? beforeState;
     const orders = calculateTrades(freshPortfolio, targets, undefined, cashReservePct);
 
