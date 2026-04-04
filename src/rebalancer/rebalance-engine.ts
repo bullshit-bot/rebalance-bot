@@ -135,13 +135,11 @@ class RebalanceEngine {
       }
     }
 
-    const orders = calculateTrades(beforeState, targets, undefined, cashReservePct);
-
-    // ── Step 3b: redeem ALL Earn positions before trading ──────────────────
+    // ── Step 3a: redeem ALL Earn positions before calculating trades ─────
+    // This ensures portfolio reflects actual Spot balances, not stale Earn cache
     const earnGs = strategyManager.getActiveConfig()?.globalSettings as Record<string, unknown> | undefined;
-    if (earnGs?.simpleEarnEnabled && orders.length > 0) {
+    if (earnGs?.simpleEarnEnabled) {
       try {
-        // Redeem ALL flexible positions (not just sell-side) to ensure sufficient balance
         const positions = await simpleEarnManager.getFlexiblePositions();
         for (const pos of positions) {
           if (pos.amount > 0) {
@@ -149,11 +147,12 @@ class RebalanceEngine {
             console.log(`[RebalanceEngine] Redeemed ${pos.amount} ${pos.asset} from Earn`);
           }
         }
-        // Wait for settlement
-        const timeoutMs = typeof earnGs.simpleEarnSettleTimeoutMs === "number"
-          ? earnGs.simpleEarnSettleTimeoutMs : 60_000;
         if (positions.length > 0) {
-          await new Promise((r) => setTimeout(r, Math.min(timeoutMs, 10_000))); // simple wait
+          // Clear stale earn cache so portfolio recalculation uses Spot only
+          portfolioTracker.clearEarnCache();
+          const timeoutMs = typeof earnGs.simpleEarnSettleTimeoutMs === "number"
+            ? earnGs.simpleEarnSettleTimeoutMs : 60_000;
+          await new Promise((r) => setTimeout(r, Math.min(timeoutMs, 10_000)));
         }
       } catch (err) {
         console.warn(
@@ -162,6 +161,10 @@ class RebalanceEngine {
         );
       }
     }
+
+    // ── Step 3b: re-fetch portfolio AFTER Earn redeem for accurate balances ─
+    const freshPortfolio = portfolioTracker.getPortfolio() ?? beforeState;
+    const orders = calculateTrades(freshPortfolio, targets, undefined, cashReservePct);
 
     // ── Step 4: persist initial record ───────────────────────────────────────
     await RebalanceModel.create({

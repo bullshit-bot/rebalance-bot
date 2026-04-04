@@ -155,6 +155,11 @@ class PortfolioTracker {
     this.lastSnapshotAt = 0;
   }
 
+  /** Clear Earn balance cache — call after Earn redeem/subscribe to force fresh data. */
+  clearEarnCache(): void {
+    this.earnBalanceCache.clear();
+  }
+
   /**
    * Loads target allocation config from the database.
    * Results are cached; a fresh DB query is issued at most once every 60 seconds

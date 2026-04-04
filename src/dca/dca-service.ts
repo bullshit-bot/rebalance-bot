@@ -170,6 +170,8 @@ class DCAService {
         try {
           const allTargetAssets = [...targets.map((t) => t.asset), "USDT"];
           await simpleEarnManager.subscribeAll(allTargetAssets);
+          // Clear stale earn cache so next portfolio calc uses fresh Earn data
+          portfolioTracker.clearEarnCache();
           console.log("[DCAService] Subscribed idle balances to Earn");
         } catch (err) {
           console.error("[DCAService] Earn subscribe failed (non-critical):", err instanceof Error ? err.message : err);
