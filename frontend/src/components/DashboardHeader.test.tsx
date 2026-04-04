@@ -10,6 +10,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 
 vi.mock('@/hooks/use-portfolio-queries', () => ({
   usePortfolio: vi.fn(),
+  usePortfolioHistory: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
