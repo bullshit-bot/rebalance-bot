@@ -119,10 +119,17 @@ export default function OverviewPage() {
   }
 
   // Chart data
-  const chartData = history.map((s) => ({
-    date: new Date(s.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-    value: s.totalValueUsd,
-  }));
+  // Downsample history to max ~100 points for performance
+  const stride = Math.max(1, Math.floor(history.length / 100));
+  const chartData = history
+    .filter((_, i) => i % stride === 0 || i === history.length - 1)
+    .map((s) => {
+      const d = new Date(s.createdAt);
+      return {
+        date: `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`,
+        value: Math.round(s.totalValueUsd * 100) / 100,
+      };
+    });
 
   const pieData = assets.map((a) => ({ name: a.asset, value: a.currentPct }));
   const comparisonData = assets.map((a) => ({ asset: a.asset, current: a.currentPct, target: a.targetPct }));
@@ -312,10 +319,10 @@ export default function OverviewPage() {
             <div className="h-48">
               <ResponsiveContainer>
                 <LineChart data={chartData}>
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} domain={["dataMin - 2000", "dataMax + 2000"]} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={Math.max(1, Math.floor(chartData.length / 6))} />
+                  <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`} />
                   <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
-                  <Line type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: "#fff", stroke: "#7c3aed" }} />
+                  <Line type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
