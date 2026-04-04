@@ -2,7 +2,7 @@ import { Play, Pause, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { usePortfolio } from "@/hooks/use-portfolio-queries";
+import { usePortfolio, usePortfolioHistory } from "@/hooks/use-portfolio-queries";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ export function DashboardHeader() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const { data: portfolio } = usePortfolio();
+  const { data: history } = usePortfolioHistory();
   const [paused, setPaused] = useState(false);
 
   const handleLogout = () => {
@@ -53,6 +54,20 @@ export function DashboardHeader() {
     ? new Date(portfolio.updatedAt).toLocaleString()
     : "—";
 
+  // 24h PnL from snapshot history
+  const snapshots = history ?? [];
+  let pnl24h = "";
+  if (snapshots.length >= 2) {
+    const now = snapshots[snapshots.length - 1].totalValueUsd;
+    // Find snapshot closest to 24h ago
+    const cutoff = Date.now() - 86_400_000;
+    const older = snapshots.filter((s) => new Date(s.createdAt).getTime() <= cutoff);
+    const ref = older.length > 0 ? older[older.length - 1].totalValueUsd : snapshots[0].totalValueUsd;
+    const diff = now - ref;
+    const sign = diff >= 0 ? "+" : "-";
+    pnl24h = `${sign}$${Math.abs(diff).toFixed(0)}`;
+  }
+
   return (
     <header className="border-b-[2.5px] border-foreground bg-card px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-4">
@@ -81,7 +96,9 @@ export function DashboardHeader() {
         </div>
         <div className="text-right">
           <div className="stat-label">24h PnL</div>
-          <div className="font-bold tabular-nums text-muted-foreground">—</div>
+          <div className={`font-bold tabular-nums ${pnl24h.startsWith("+") ? "text-green-600" : pnl24h.startsWith("-") ? "text-red-600" : "text-muted-foreground"}`}>
+            {pnl24h || "—"}
+          </div>
         </div>
         <div className="text-right hidden lg:block">
           <div className="stat-label">Last Updated</div>
